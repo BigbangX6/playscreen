@@ -7,3 +7,5 @@ Une interface de jeu pour PC, pensée pour se jouer entièrement à la manette, 
 
 - [Décisions techniques](docs/decisions.md)
 - [Launchers, comptes et parcours d'achat](docs/launchers-et-comptes.md)
+- [Stores v1 : Steam, Epic, Game Pass, Battle.net](docs/stores-v1.md)
+- [Catalogue des blocages prévisibles](docs/frictions.md)

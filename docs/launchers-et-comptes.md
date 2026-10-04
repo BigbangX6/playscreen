@@ -1,140 +1,104 @@
 # Launchers, comptes et parcours d'achat
 
-> Document d'exploration. Il pose le problème, ce que fait Playnite aujourd'hui (vérifié
-> dans le code de `JosefNemec/PlayniteExtensions`, licence MIT), et les parcours que
-> Playscreen vise.
+> Principes et parcours. Le détail store par store (vérifié dans le code de Playnite)
+> est dans [`stores-v1.md`](stores-v1.md), les blocages et leurs parades dans
+> [`frictions.md`](frictions.md).
 
 ## Le problème
 
 Playnite a été pensé pour un joueur qui **a déjà tout installé** : ses launchers, ses
 comptes, ses jeux. Il veut juste les retrouver au même endroit.
 
-Le joueur Playscreen est différent : il installe **seulement Playscreen** sur un PC de
-salon ou une console portable, à la manette, sur une télé. Il faut l'amener jusqu'au
-jeu sans jamais le renvoyer vers le bureau Windows, une souris ou un clavier.
+Le joueur Playscreen installe **seulement Playscreen** sur un PC de salon ou une console
+portable, et joue à la manette sur une télé. Il faut l'amener jusqu'au jeu **sans jamais
+le laisser bloqué**.
 
-## Ce que fait Playnite aujourd'hui (constaté dans le code)
+## Principes
 
-**Installer un jeu = le déléguer au launcher**, via son lien système :
-
-| Store | Méthode d'installation dans Playnite |
-|---|---|
-| Steam | `steam://install/<appid>` (ouvre la fenêtre de confirmation de Steam) |
-| Epic | `com.epicgames.launcher://apps/<id>?action=install` |
-| Ubisoft | `uplay://install/<id>` |
-| Amazon | `amazon-games://install/<id>` |
-| itch.io | `itch://install?game_id=<id>` |
-| Xbox / Game Pass | page du jeu dans le Microsoft Store (`ms-windows-store://pdp/?PFN=…`) |
-| GOG | ouvre la page du jeu dans GOG Galaxy |
-
-⇒ Le launcher doit être **installé et connecté**, et **sa fenêtre apparaît**, pensée
-pour la souris.
-
-**Lister les jeux possédés mais non installés = une seconde connexion.** Les extensions
-Epic, GOG, Xbox, Battle.net, Amazon et Humble ouvrent leur propre fenêtre de connexion
-web intégrée, **distincte** de la connexion au launcher. Pour Steam, l'import des jeux
-non installés est **désactivé par défaut**. Il demande un profil public ou une clé API
-Steam : inacceptable pour notre public.
-
-**Pas de progression de téléchargement.** Playnite ne suit pas les téléchargements des
-launchers. Il faudra la lire nous-mêmes (par exemple les manifestes `.acf` de Steam
-contiennent l'état et les octets téléchargés).
-
-## Principe directeur
-
-> **Une action utilisateur par store, une seule fois.**
-> « Connecter Steam » doit suffire à : installer le launcher si besoin, s'y connecter,
-> et voir toute sa bibliothèque, y compris les jeux non installés.
-
-Playscreen fait la plomberie. Le joueur ne voit jamais deux connexions pour le même
-store, ni le bureau Windows.
+1. **Voir les launchers, oui ; s'y perdre, non.** Le joueur peut passer brièvement par la
+   fenêtre d'un launcher pour se connecter, acheter ou confirmer une installation. Ce
+   passage est **minimal, annoncé et accompagné** : Playscreen met la fenêtre au premier
+   plan, active le mode assisté (curseur au stick, clavier manette) et affiche une
+   instruction claire. Le joueur revient ensuite dans Playscreen, automatiquement si
+   possible, sinon avec le méta-raccourci.
+2. **Une connexion par store, une seule fois.** Grâce au cache web partagé de Playnite,
+   une connexion web faite par Playscreen sert à toutes les extensions. Le reste
+   (connexion au client du launcher) est guidé.
+3. **Le téléphone avant le clavier virtuel.** QR code Steam, validation sur l'appli
+   mobile Battle.net, code envoyé par Microsoft…
+4. **Pas de compte Playscreen** au départ : tout est local.
 
 ## Parcours cibles
 
-### P1 — Premier lancement : « Où sont tes jeux ? »
+### P0 — Installation de Playscreen (le seul moment « clavier et souris »)
 
-1. Bienvenue, manette détectée, langue.
-2. Détection automatique des launchers déjà installés **et déjà connectés**
-   (ils sont alors cochés et synchronisés sans rien demander).
-3. Grille des stores (logos). Le joueur coche ceux où il a un compte.
-4. Pour chaque store coché :
-   - **Installation silencieuse du launcher** si absent (piste : `winget`, avec des
-     identifiants à vérifier store par store) et barre de progression dans Playscreen.
-   - **Connexion guidée**, par ordre de préférence :
-     1. **QR code / code appareil** affiché en grand sur la télé, validé sur le
-        téléphone. Steam le permet via son appli mobile ; à vérifier pour les autres.
-     2. **Fenêtre du launcher encadrée par Playscreen** : on la met au premier plan,
-        avec un bandeau d'aide aux contrôles, un clavier virtuel et un curseur au stick.
-     3. Saisie depuis le téléphone : un QR code ouvre une page locale qui envoie
-        identifiants ou texte au PC. À étudier côté sécurité.
-   - **Synchronisation de la bibliothèque** : on réutilise la session du launcher si
-     possible, sinon une connexion web unique, enchaînée automatiquement.
-5. Arrivée sur l'accueil avec la bibliothèque complète.
+C'est le moment où l'on regroupe tout ce qui demande des droits admin (voir F1 dans
+`frictions.md`) :
+1. Installation de Playscreen, de la sentinelle, de Playnite embarqué et du service
+   d'installation avec privilèges.
+2. **« Où sont tes jeux ? »** : choix des stores (Steam, Epic, Game Pass, Battle.net).
+   Les launchers manquants sont **installés tout de suite**, sans fenêtre (`winget`).
+3. Option : connexion automatique à Windows (pour démarrer directement à la manette),
+   avec explication du compromis de sécurité.
+4. Vérification de la manette (appairage Bluetooth si besoin).
 
-Un store peut être ajouté plus tard depuis *Paramètres → Comptes*. Chaque store y
-affiche un état clair : *non installé / installé / connecté / synchronisé / erreur*.
+### P1 — Premier lancement à la manette
+
+1. La sentinelle affiche : « Maintiens Select + Start pour ouvrir Playscreen ».
+2. Playscreen détecte les launchers **déjà connectés** et les synchronise sans rien
+   demander.
+3. Pour chaque store restant, l'écran « Connecter » propose, dans l'ordre :
+   1. **QR code** à scanner avec l'appli du store (Steam) ;
+   2. **fenêtre de connexion agrandie** (navigateur intégré à Playnite, taille adaptée à
+      la télé) avec le clavier manette ouvert d'office ;
+   3. la connexion au **client du launcher**, en mode assisté.
+4. Synchronisation, puis arrivée sur la bibliothèque complète.
+
+**Installer un launcher plus tard** (store ajouté après coup), par ordre de préférence :
+1. `winget` en silencieux via le service avec privilèges : aucune fenêtre ;
+2. sinon, téléchargement direct de l'installateur officiel et installation silencieuse ;
+3. en dernier recours, **la page de téléchargement officielle** en mode assisté (gros
+   curseur, clavier manette).
 
 ### P2 — Acheter un jeu
 
-Deux familles, deux parcours :
+**Stores officiels (Steam, Epic, Game Pass, Battle.net) :** l'achat est lié au compte.
+- Le plus confortable est le store **dans son propre client**, en mode assisté.
+  Steam Big Picture est déjà pensé pour la manette, l'appli Xbox a un mode plein écran.
+- Après l'achat, synchronisation automatique : le jeu apparaît avec le badge
+  **Nouveau**.
 
-**a) Stores officiels (Steam, Epic, GOG, Xbox…)** — l'achat est lié au compte, le jeu
-apparaît tout seul dans la bibliothèque après la synchronisation.
-- Option 1 : ouvrir le store **dans son propre client**. Le store de Steam Big Picture
-  est déjà bien conçu pour la manette.
-- Option 2 : vue web du store officiel dans Playscreen. Attention, c'est encore une
-  connexion web séparée, à éviter si possible.
+**Revendeurs de clés (Instant Gaming, etc.) :** vue web du revendeur dans Playscreen.
+Affiliation possible, à étudier.
+- Après l'achat, le revendeur fournit généralement **un lien d'activation** vers le store
+  concerné (par exemple la page d'activation de clé Steam). Playscreen **intercepte ce
+  lien** et l'ouvre au bon endroit :
+  - dans le navigateur intégré à Playnite, où le joueur est **déjà connecté** grâce au
+    cache partagé ;
+  - ou dans le client du launcher.
+- À défaut de lien, l'écran **« Activer une clé »** permet de saisir la clé au clavier
+  manette ou de l'envoyer depuis le téléphone.
+- **Confiance :** pendant un paiement, le vrai domaine et le cadenas sont toujours
+  visibles.
 
-**b) Revendeurs de clés (Instant Gaming, etc.)** — achat, puis **clé**, puis
-**activation** sur le bon store.
-- Vue web du revendeur dans Playscreen (piste de revenus via l'affiliation, à étudier).
-- Écran **« Activer une clé »** : saisie au clavier virtuel ou envoi depuis le
-  téléphone, détection du store concerné, ouverture de son activation (Steam propose
-  une page d'activation de clé ; à recenser pour les autres).
-- Récupérer automatiquement la clé sur la page du revendeur serait idéal mais fragile
-  (structure de page, conditions d'utilisation). C'est un bonus, pas la base.
-- **Confiance** : un paiement dans notre vue web doit afficher clairement le vrai
-  domaine et le cadenas. Les joueurs saisissent leur carte bancaire chez nous.
+### P3 — De « acheté » à « en jeu »
 
-### P3 — Après l'achat : de « acheté » à « en jeu »
-
-1. Synchronisation déclenchée à la fermeture du store ou de l'activation.
-2. Le jeu apparaît avec un badge **Nouveau** et un bouton **Installer**.
-3. Installation :
-   - **Phase 1** : lien du launcher, avec la fenêtre de confirmation gérée à la manette
-     (encadrement, focus, aide).
-   - **Phase 2 (piste)** : téléchargement **sans fenêtre de launcher** grâce aux outils
-     open source existants (Legendary pour Epic, gogdl pour GOG, Nile pour Amazon).
-     Ils sont sous **GPL-3** : on ne les utiliserait que comme exécutables séparés, à
-     valider juridiquement. Pour Steam, on reste sur le client officiel.
-4. Progression du téléchargement **dans Playscreen**, notification à la fin, puis
-   **Jouer**.
-
-## Compte Playscreen ?
-
-**Pas au départ.** Playscreen fonctionne en local, sans compte : moins de friction et
-aucune donnée à héberger. Un compte optionnel pourra venir plus tard, pour synchroniser
-préférences et favoris entre appareils.
-
-## Matrice par store (à compléter par la recherche)
-
-| Store | Installer le launcher | Connexion à la manette | Jeux non installés | Installer un jeu | Progression | Sans launcher ? |
-|---|---|---|---|---|---|---|
-| Steam | winget ? | QR via appli mobile ✅ | ⚠️ clé API / profil public | `steam://install` + fenêtre | `.acf` ✅ | non |
-| Epic | winget ? | ? | connexion web Playnite | lien `com.epicgames…` | ? | Legendary (GPL) |
-| GOG | winget ? | ? | connexion web Playnite | Galaxy | ? | gogdl (GPL) / installateurs hors ligne |
-| Xbox / Game Pass | préinstallé (Windows) | compte Microsoft (code ?) | connexion web Playnite | Microsoft Store / appli Xbox | ? | non |
-| Ubisoft | winget ? | ? | jeux installés seulement ? | `uplay://install` | ? | non |
-| Battle.net | winget ? | appli Authenticator ? | connexion web Playnite | ? | ? | non |
-| Amazon | winget ? | ? | connexion web Playnite | `amazon-games://install` | ? | Nile (GPL) |
-| EA | winget ? | ? | pas d'extension dans le dépôt officiel | ? | ? | non |
+1. Le jeu apparaît avec un badge **Nouveau** et le bouton **Installer**.
+2. Installation via le launcher (passage minimal et accompagné, détail par store dans
+   `stores-v1.md`).
+3. **Progression affichée dans Playscreen** (lue par nos soins, par exemple dans les
+   manifestes Steam), notification à la fin.
+4. **Jouer.** Au premier lancement, un écran prévient que des composants peuvent
+   s'installer (redistribuables, anti-triche).
 
 ## Questions ouvertes
 
-1. Quels stores en priorité pour la v1 ? Proposition : **Steam, Epic, Xbox/Game Pass**
-   (le Game Pass est très présent sur les consoles portables), puis GOG.
-2. Peut-on obtenir la liste des jeux Steam possédés sans clé API, à partir de la
-   session du client Steam ?
-3. Pour chaque store : existe-t-il une connexion par QR code ou code appareil ?
-4. Quel cadre juridique pour l'usage d'outils GPL comme exécutables séparés, et pour
-   l'affiliation avec des revendeurs de clés ?
+1. Steam : peut-on déclencher une installation **sans fenêtre** via le service de
+   téléchargement à distance ?
+2. Epic : le lien d'installation direct fonctionne-t-il à nouveau ?
+3. Game Pass : comment afficher le catalogue complet, et quel lien pour installer via
+   l'appli Xbox ?
+4. Le clavier manette de Windows 11 peut-il être ouvert par programme de façon fiable
+   (et sur Windows 10) ?
+5. Cadre juridique de l'affiliation avec les revendeurs de clés et de l'usage d'outils
+   GPL (Legendary) comme exécutables séparés.

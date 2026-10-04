@@ -60,9 +60,10 @@ Electron en alternative. *Choix final : Proposé.*
   SDL/HID pour DualSense, Switch Pro, etc.) **uniquement** pour détecter un
   **méta-raccourci propre à Playscreen**. Son seul rôle est de ramener Playscreen au
   premier plan (récupérer le focus de Windows).
-- Le méta-raccourci est **configurable**. Valeur par défaut proposée : **maintenir
+- Le méta-raccourci est **configurable**. Valeur par défaut : **maintenir
   Select + Start (View + Menu) pendant 1 seconde**, une combinaison quasi jamais
-  utilisée en jeu. *Valeur par défaut : Proposé.*
+  utilisée en jeu. *Acté.*
+- Ce service natif est la **sentinelle** (voir D6).
 - Un raccourci clavier global équivalent existe en secours. *Touche : à définir.*
 
 **Points d'attention.**
@@ -82,3 +83,50 @@ Electron en alternative. *Choix final : Proposé.*
 - Le test sur matériel réel (manettes, consoles portables, vrais launchers) est fait
   manuellement. Retours via des issues GitHub avec captures et un **export de logs
   intégré** à l'application.
+
+## D6 — La sentinelle : une mini-appli au démarrage de Windows — *Acté*
+
+**Constat.** Il faut pouvoir lancer Playscreen sans clavier ni souris, y compris juste
+après le démarrage du PC.
+
+**Décision.** Une application native **minuscule**, lancée à l'ouverture de session
+Windows (tâche planifiée), sans fenêtre :
+
+1. **Écoute la manette en arrière-plan** (XInput, et SDL/HID pour DualSense et Switch
+   Pro) et reconnaît le méta-raccourci **Select + Start maintenus 1 s**.
+2. **Au démarrage**, affiche une notification Windows : « Maintiens Select + Start pour
+   ouvrir Playscreen », avec les pictogrammes des touches selon la manette détectée.
+3. Au raccourci : **lance Playscreen** s'il n'est pas ouvert, sinon **le ramène au
+   premier plan**.
+4. Fournit le **mode assisté**, utilisable par-dessus n'importe quelle fenêtre (voir
+   `frictions.md`) :
+   - curseur souris au stick, gros curseur, clic avec A ;
+   - ouverture du clavier manette de Windows 11 (clavier tactile, disposition
+     « Gamepad ») ou de notre propre clavier.
+
+   Il est activé automatiquement par Playscreen dans les parcours connus (connexion,
+   installation dans un launcher), ou manuellement depuis le menu du méta-raccourci.
+5. Signale les manettes déconnectées et la batterie faible.
+
+**Contraintes.** Mémoire et CPU quasi nuls (elle tourne tout le temps), démarrage
+instantané, aucune dépendance lourde. Langage pressenti : **Rust** (cohérent avec Tauri)
+ou C#. *Langage : Proposé.*
+
+**Option à évaluer :** démarrer aussi Playnite en arrière-plan dès l'ouverture de session,
+pour une bibliothèque prête instantanément (coût : mémoire).
+
+## D7 — Zéro blocage prévisible — *Acté*
+
+Principe de conception transverse : **aucune situation prévisible ne doit exiger un
+clavier ou une souris.** Repasser par une fenêtre Windows ou un launcher est acceptable
+si c'est court et accompagné (mode assisté, instruction à l'écran).
+
+- Les frictions inévitables (droits admin, UAC) sont **regroupées pendant l'installation
+  de Playscreen**, le seul moment où l'on suppose clavier et souris.
+- Chaque blocage connu est recensé dans [`frictions.md`](frictions.md) avec sa parade.
+  Ce document sert aussi de plan de test sur matériel réel.
+
+## D8 — Stores de la v1 — *Acté*
+
+**Steam, Epic, Game Pass / Xbox**, et **Battle.net** si possible. Analyse détaillée dans
+[`stores-v1.md`](stores-v1.md).
