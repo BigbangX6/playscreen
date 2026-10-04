@@ -37,7 +37,7 @@ extension comme la nôtre :
 |---|---|---|---|---|
 | **Installer le launcher** | winget `Valve.Steam` | winget `EpicGames.EpicGamesLauncher` | appli Xbox : winget `Microsoft.GamingApp` + Gaming Services | winget `Blizzard.BattleNet` |
 | **Droits admin pour l'installer** | oui (à vérifier) | oui (MSI) | oui (Gaming Services) | oui (à vérifier) |
-| **Connexion au launcher, à la manette** | ✅ **QR code** via l'appli mobile Steam | ⚠️ identifiants (pas de QR connu) | ⚠️ compte Microsoft (souvent déjà connecté à Windows) | ⚠️ identifiants + validation en un bouton sur l'appli mobile |
+| **Connexion au launcher, à la manette** | ✅ **QR code** via l'appli mobile Steam, ou identifiants au clavier manette | ⚠️ identifiants (pas de QR connu) | ⚠️ compte Microsoft (souvent déjà connecté à Windows) | ⚠️ identifiants + validation en un bouton sur l'appli mobile |
 | **Connexion côté Playnite** | site Steam dans CEF (le QR y est aussi proposé) | page de connexion Epic dans CEF, jetons OAuth enregistrés dans un fichier | connexion Microsoft (OAuth) dans CEF, jetons dans un fichier | site Battle.net dans CEF (cookies) |
 | **Jeux non installés** | ✅ liste complète des jeux possédés (jeton web, sans clé API) | ✅ liste complète | ⚠️ **seulement les jeux déjà joués** (historique Xbox) : le catalogue Game Pass n'apparaît pas | ✅ liste des jeux et abonnements |
 | **Installer un jeu** | `steam://install/<id>` puis fenêtre de confirmation Steam | ❌ **ouvre seulement la bibliothèque Epic** : le joueur doit trouver le jeu et cliquer | page du Microsoft Store | ouvre la page du jeu dans Battle.net (`--game=<id>`), le joueur clique sur « Installer » |
@@ -46,8 +46,10 @@ extension comme la nôtre :
 
 ### Steam — le meilleur élève
 
-- **Connexion :** le QR code de l'appli mobile Steam existe à la fois dans le client et
-  sur la page de connexion web. Avec le cache CEF partagé, **une seule connexion web
+- **Connexion : QR code ET identifiants saisis à la main**, les deux toujours proposés.
+  La page de connexion Steam affiche les deux côte à côte : on garde les deux visibles,
+  et le clavier manette s'ouvre quand le joueur choisit les identifiants. Le QR code de
+  l'appli mobile Steam existe à la fois dans le client et sur la page de connexion web. Avec le cache CEF partagé, **une seule connexion web
   (par QR) sert à toute la bibliothèque**. Le client Steam demande sa propre connexion
   (encore un QR) : 2 scans au total, sans clavier.
 - **Installation :** la fenêtre de confirmation Steam s'ouvre. On la met au premier plan

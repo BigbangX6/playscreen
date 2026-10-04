@@ -1,0 +1,128 @@
+// psc : client en ligne de commande de l'API Playscreen.
+// Fonctionne avec le faux moteur comme avec la passerelle Playnite.
+//
+// Connexion : PLAYSCREEN_URL + PLAYSCREEN_TOKEN, sinon engine.json (voir api/engine-info.ts).
+
+import { ApiError, PlayscreenClient } from "../../api/client.ts";
+import { engineInfoPath, readEngineInfo } from "../../api/engine-info.ts";
+import { STORE_IDS, type Game, type StoreId } from "../../api/types.ts";
+
+const USAGE = `Usage : psc <commande> [arguments]
+
+  status                 État du moteur
+  stores                 Stores et leur état
+  games [--installed] [--store <id>]
+                         Liste des jeux
+  game <id|nom>          Détail d'un jeu
+  start <id|nom>         Lance un jeu
+  install <id|nom>       Installe un jeu
+  uninstall <id|nom>     Désinstalle un jeu
+  sync <store>           Synchronise un store (${STORE_IDS.join(", ")})
+  login <store>          Ouvre la connexion d'un store
+  events                 Affiche les événements en direct (Ctrl+C pour quitter)
+`;
+
+function connect(): PlayscreenClient {
+  if (process.env.PLAYSCREEN_URL && process.env.PLAYSCREEN_TOKEN) {
+    return new PlayscreenClient(process.env.PLAYSCREEN_URL, process.env.PLAYSCREEN_TOKEN);
+  }
+  try {
+    const info = readEngineInfo();
+    return new PlayscreenClient(`http://127.0.0.1:${info.port}/api/v0`, info.token);
+  } catch {
+    fail(`Moteur introuvable : ${engineInfoPath()} est absent. Le moteur est-il démarré ?`);
+  }
+}
+
+function fail(message: string): never {
+  console.error(message);
+  process.exit(1);
+}
+
+function storeArg(value: string | undefined): StoreId {
+  if (!value || !(STORE_IDS as readonly string[]).includes(value)) {
+    fail(`Store attendu : ${STORE_IDS.join(", ")}`);
+  }
+  return value as StoreId;
+}
+
+/** Accepte un identifiant exact ou un morceau du nom (insensible à la casse). */
+async function resolveGame(client: PlayscreenClient, query: string | undefined): Promise<Game> {
+  if (!query) fail("Jeu attendu (identifiant ou nom).");
+  const games = await client.games();
+  const exact = games.find((g) => g.id === query);
+  if (exact) return exact;
+  const matches = games.filter((g) => g.name.toLowerCase().includes(query.toLowerCase()));
+  if (matches.length === 1) return matches[0]!;
+  if (matches.length === 0) fail(`Aucun jeu ne correspond à « ${query} ».`);
+  fail(`Plusieurs jeux correspondent :\n${matches.map(formatGame).join("\n")}`);
+}
+
+function formatGame(game: Game): string {
+  const state = game.installed ? "installé " : "         ";
+  const hours = (game.playtimeSeconds / 3600).toFixed(1).padStart(6);
+  return `${game.id}  ${game.store.padEnd(9)} ${state} ${hours} h  ${game.name}`;
+}
+
+async function main(argv: string[]) {
+  const [command, ...args] = argv;
+  if (!command || command === "help" || command === "--help") {
+    console.log(USAGE);
+    return;
+  }
+  const client = connect();
+
+  switch (command) {
+    case "status":
+      console.log(await client.status());
+      break;
+    case "stores":
+      console.table(await client.stores());
+      break;
+    case "games": {
+      const storeIndex = args.indexOf("--store");
+      const games = await client.games({
+        installed: args.includes("--installed") ? true : undefined,
+        store: storeIndex >= 0 ? storeArg(args[storeIndex + 1]) : undefined,
+      });
+      for (const game of games) console.log(formatGame(game));
+      console.log(`${games.length} jeu(x)`);
+      break;
+    }
+    case "game":
+      console.log(await resolveGame(client, args[0]));
+      break;
+    case "start":
+    case "install":
+    case "uninstall": {
+      const game = await resolveGame(client, args.join(" "));
+      await client[command](game.id);
+      console.log(`${command} demandé : ${game.name}`);
+      break;
+    }
+    case "sync":
+      await client.sync(storeArg(args[0]));
+      console.log("Synchronisation lancée (suivre avec : psc events)");
+      break;
+    case "login":
+      await client.login(storeArg(args[0]));
+      console.log("Fenêtre de connexion demandée.");
+      break;
+    case "events":
+      console.log("Écoute des événements… (Ctrl+C pour quitter)");
+      for await (const event of client.events()) {
+        console.log(new Date().toLocaleTimeString(), event.type, JSON.stringify(event.data));
+      }
+      break;
+    default:
+      fail(`Commande inconnue : ${command}\n\n${USAGE}`);
+  }
+}
+
+main(process.argv.slice(2)).catch((error: unknown) => {
+  if (error instanceof ApiError) fail(error.message);
+  if (error instanceof TypeError && String(error.cause ?? "").includes("ECONNREFUSED")) {
+    fail("Connexion refusée : le moteur ne répond pas.");
+  }
+  throw error;
+});

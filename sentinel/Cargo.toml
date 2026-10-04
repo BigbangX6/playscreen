@@ -1,0 +1,22 @@
+[package]
+name = "playscreen-sentinel"
+version = "0.1.0"
+edition = "2021"
+description = "Sentinelle Playscreen : écoute le méta-raccourci manette et lance Playscreen"
+license = "MIT"
+
+[[bin]]
+name = "playscreen-sentinel"
+path = "src/main.rs"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_UI_Input_XboxController",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true

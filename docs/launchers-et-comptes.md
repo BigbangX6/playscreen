@@ -48,7 +48,8 @@ C'est le moment où l'on regroupe tout ce qui demande des droits admin (voir F1 
 2. Playscreen détecte les launchers **déjà connectés** et les synchronise sans rien
    demander.
 3. Pour chaque store restant, l'écran « Connecter » propose, dans l'ordre :
-   1. **QR code** à scanner avec l'appli du store (Steam) ;
+   1. **QR code** à scanner avec l'appli du store (Steam), avec toujours la possibilité
+      de **saisir ses identifiants à la main** au clavier manette ;
    2. **fenêtre de connexion agrandie** (navigateur intégré à Playnite, taille adaptée à
       la télé) avec le clavier manette ouvert d'office ;
    3. la connexion au **client du launcher**, en mode assisté.
