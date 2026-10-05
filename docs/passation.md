@@ -309,9 +309,12 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
   920,43 Mo / 6,75 Go des deux côtés sur Warcraft Rumble). `<uid>` = `InternalId` de
   la table `BattleNetLibrary.BattleNetGames.Games` de l'extension (champs publics, pas
   des propriétés), lue par réflexion : `GRY` → `gryphon`, `Pro` → `prometheus`.
-  Lecture du journal et correspondance vérifiées séparément ; **le parcours complet
-  `psc install` avec progression n'a pas encore été vu** (la première tentative avait
-  la correspondance cassée, corrigée ensuite).
+  On ne lit que ce que l'agent écrit **après** la demande (sinon on relit l'état
+  « installé » d'avant une désinstallation : faux 100 % constaté puis corrigé).
+  **Validé** : `psc uninstall` puis `psc install` de Warcraft Rumble, 111 étapes de 0 à
+  100 % en 2 min 30, puis `game.installed`. Deux soucis vus : la confirmation de
+  désinstallation cachée dans la barre des tâches (F27), et la page du jeu qui ne
+  s'ouvre pas si le client Battle.net n'était pas lancé (F25).
 - Hearthstone n'est pas proposé sur ce PC (« non disponible sur cet appareil ») ;
   Warcraft Rumble ne s'ajoute pas à la bibliothèque sans l'installer.
 - **Décision D9 testée** : `icacls "C:\Program Files\Epic Games" /grant

@@ -79,11 +79,14 @@ namespace Playscreen.Bridge.Api
             var started = DateTime.Now;
             var seenProgress = false;
             long lastDone = -1;
+            // Le journal contient aussi l'état d'avant la demande (par exemple « installé »
+            // juste avant une désinstallation) : on ne lit que ce qui est écrit ensuite.
+            var mark = BattleNetLogEnd();
             try
             {
                 while (DateTime.Now - started < MaxDuration)
                 {
-                    var status = ReadBattleNetStatus(uid);
+                    var status = ReadBattleNetStatus(uid, mark);
                     if (status != null && status.Total > 0)
                     {
                         seenProgress = true;
@@ -135,17 +138,30 @@ namespace Playscreen.Bridge.Api
         private static readonly Regex BnetTotal = new Regex("\"download_total\":\\s*\\[\\s*(\\d+)", RegexOptions.Compiled);
         private static readonly Regex BnetInstalled = new Regex("\"installed\":\\s*(true|false)", RegexOptions.Compiled);
 
-        /// <summary>Dernier état connu de l'installation dans le journal le plus récent de l'agent.</summary>
-        private static BattleNetStatus ReadBattleNetStatus(string uid)
+        private static FileInfo LatestBattleNetLog()
         {
             var agentDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Battle.net", "Agent");
-            if (!Directory.Exists(agentDir))
-            {
-                return null;
-            }
-            var log = new DirectoryInfo(agentDir).GetFiles("Agent-*.log", SearchOption.AllDirectories)
-                .OrderByDescending(f => f.LastWriteTimeUtc)
-                .FirstOrDefault();
+            return Directory.Exists(agentDir)
+                ? new DirectoryInfo(agentDir).GetFiles("Agent-*.log", SearchOption.AllDirectories)
+                    .OrderByDescending(f => f.LastWriteTimeUtc)
+                    .FirstOrDefault()
+                : null;
+        }
+
+        /// <summary>Fin actuelle du journal de l'agent (fichier et taille).</summary>
+        private static KeyValuePair<string, long> BattleNetLogEnd()
+        {
+            var log = LatestBattleNetLog();
+            return new KeyValuePair<string, long>(log?.FullName, log?.Length ?? 0);
+        }
+
+        /// <summary>
+        /// Dernier état de l'installation écrit dans le journal de l'agent après `mark`
+        /// (si l'agent a changé de journal entre-temps, tout le nouveau journal compte).
+        /// </summary>
+        private static BattleNetStatus ReadBattleNetStatus(string uid, KeyValuePair<string, long> mark)
+        {
+            var log = LatestBattleNetLog();
             if (log == null)
             {
                 return null;
@@ -153,10 +169,11 @@ namespace Playscreen.Bridge.Api
 
             // La fin du journal suffit : le client interroge l'agent chaque seconde.
             const int tailBytes = 512 * 1024;
+            var from = log.FullName == mark.Key ? mark.Value : 0;
             string tail;
             using (var stream = new FileStream(log.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
             {
-                stream.Seek(Math.Max(0, stream.Length - tailBytes), SeekOrigin.Begin);
+                stream.Seek(Math.Min(stream.Length, Math.Max(from, stream.Length - tailBytes)), SeekOrigin.Begin);
                 using (var reader = new StreamReader(stream))
                 {
                     tail = reader.ReadToEnd();
