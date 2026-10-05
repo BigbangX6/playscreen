@@ -13,6 +13,9 @@ info:
       quelconque d'appeler l'API locale.
     - Les actions longues répondent `202 Accepted` ; leur suite arrive par
       `GET /events` (Server-Sent Events).
+    - CORS : seules les origines de l'interface sont autorisées (`http://tauri.localhost`,
+      `tauri://localhost`, et `http://localhost:5173` pour Vite en développement). Les
+      demandes préalables `OPTIONS` répondent 204 sans jeton ; tout le reste l'exige.
 servers:
   - url: http://127.0.0.1:47800/api/v0
 security:

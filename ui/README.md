@@ -1,6 +1,14 @@
 # Interface Playscreen
 
-Pas encore commencée (phase 7 de [`docs/plan.md`](../docs/plan.md)).
+React + TypeScript servi par Vite, dans une fenêtre Tauri (plein écran sans bordure).
+Guide complet pour concevoir et intégrer les écrans : [`docs/interface.md`](../docs/interface.md).
 
-Elle sera développée et testée contre le faux moteur (`npm run mock`), puis branchée
-sur la passerelle Playnite. Le client d'API est déjà prêt : `api/client.ts`.
+```sh
+npm install                  # une fois, dans ui/
+npm run dev                  # http://localhost:5173 (moteur démarré : npm run mock à la racine)
+npm run tauri dev            # dans la fenêtre Windows de Playscreen
+npm run build                # vérification des types + construction dans dist/
+```
+
+`src/screens/Library.tsx` est une **maquette technique** (elle prouve la chaîne moteur →
+images → manette → lancement) : elle sera remplacée par les écrans du design.

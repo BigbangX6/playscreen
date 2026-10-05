@@ -2,6 +2,12 @@
 
 export const API_VERSION = "0.1.0";
 
+/**
+ * Origines web autorisées à appeler l'API (CORS) : l'interface dans Tauri, et Vite en
+ * développement. Le jeton reste exigé ; une autre page web reste bloquée par le navigateur.
+ */
+export const ALLOWED_ORIGINS = ["http://tauri.localhost", "tauri://localhost", "http://localhost:5173"] as const;
+
 export const STORE_IDS = ["steam", "epic", "xbox", "battlenet"] as const;
 export type StoreId = (typeof STORE_IDS)[number];
 

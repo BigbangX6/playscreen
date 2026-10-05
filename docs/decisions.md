@@ -44,8 +44,11 @@ L'interface est écrite en TypeScript et rendue dans une vue web. Raisons : vite
 d'itération, richesse visuelle, et testabilité automatique (navigateur sans affichage,
 captures d'écran, régression visuelle).
 
-Coque native : **Tauri (WebView2)** pressenti pour sa légèreté sur consoles portables,
-Electron en alternative. *Choix final : Proposé.*
+Coque native : **Tauri 2 (WebView2)**, pour sa légèreté sur consoles portables.
+Intérieur : **React + TypeScript, servi par Vite** (rechargement en direct ; c'est ce que
+les maquettes faites dans une conversation Claude produisent naturellement). *Acté
+(5 octobre 2026).* Le guide pour concevoir l'interface est dans
+[`interface.md`](interface.md).
 
 ## D4 — Entrées : API Gamepad dans l'interface + « méta-raccourci » natif — *Acté*
 
@@ -144,3 +147,25 @@ tout ce qui en aura besoin ensuite, pour que l'utilisateur soit tranquille :
 Pour les UAC imprévues, l'option « valider à la manette » (UAC sur le bureau normal +
 mode assisté `uiAccess`, F24 piste 2) reste à proposer comme un choix de sécurité
 expliqué.
+
+## D10 — En jeu, Select + Start bascule vers Playscreen, sans sur-impression — *Acté (5 octobre 2026)*
+
+Beaucoup de jeux tournent en **plein écran exclusif**, où une fenêtre transparente
+par-dessus le jeu ne s'affiche pas. Et se greffer dans l'affichage du jeu (comme la
+sur-impression de Steam) est complexe et risqué avec les anti-triches.
+
+**Décision.** Pendant un jeu, Select + Start **ramène la fenêtre de Playscreen**
+(plein écran **sans bordure**) au premier plan, sur son **menu rapide** : reprendre,
+quitter le jeu (ou forcer sa fermeture), volume, batterie, notifications, aller à la
+bibliothèque. Le jeu reste lancé derrière. Hors jeu, Select + Start ouvre directement
+la bibliothèque. Playscreen ne se ferme jamais : il reste en mémoire, caché, pour que
+le retour soit immédiat.
+
+## D11 — Steam : sur-impression Big Picture en jeu, sans Big Picture — *Acté (5 octobre 2026)*
+
+Les jeux Steam sont lancés par Steam en mode normal (pas de Big Picture, qui se
+disputerait l'écran et le bouton Guide avec Playscreen, D4). Le réglage Steam
+« **Utiliser l'overlay Big Picture lors de l'utilisation d'une manette compatible Steam
+Input en mode Bureau** » (Paramètres → En jeu), désactivé par défaut, donne en jeu la
+sur-impression Steam pensée pour la manette. L'installateur de Playscreen l'active
+(emplacement du réglage dans les fichiers de Steam : *à trouver*).

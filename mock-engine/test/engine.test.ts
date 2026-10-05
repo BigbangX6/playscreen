@@ -42,6 +42,19 @@ describe("faux moteur", () => {
     await assert.rejects(intruder.status(), (e: unknown) => e instanceof ApiError && e.status === 401);
   });
 
+  it("autorise l'interface (CORS) mais pas une autre page web", async () => {
+    const preflight = (origin: string) =>
+      fetch(`${engine.url}/games`, {
+        method: "OPTIONS",
+        headers: { Origin: origin, "Access-Control-Request-Headers": "authorization" },
+      });
+    const ui = await preflight("http://tauri.localhost");
+    assert.equal(ui.status, 204);
+    assert.equal(ui.headers.get("access-control-allow-origin"), "http://tauri.localhost");
+    const other = await preflight("https://example.com");
+    assert.equal(other.headers.get("access-control-allow-origin"), null);
+  });
+
   it("donne son état", async () => {
     const status = await client.status();
     assert.equal(status.engine, "mock");

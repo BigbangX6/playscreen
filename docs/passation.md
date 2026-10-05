@@ -424,6 +424,16 @@ Voir `docs/plan.md`. Dans l'ordre :
    déployée, pas revue sur une nouvelle connexion).
 3. `psc login steam` (Steam a été connecté par l'interface de Playnite).
 
+**Interface (5 octobre 2026)** : `ui/` créé (React + TypeScript + Vite, coque Tauri 2 dans
+`ui/src-tauri`), guide de conception dans `docs/interface.md` (le design se fait dans
+une autre conversation Claude). L'API autorise l'interface en CORS (`ALLOWED_ORIGINS`).
+Vérifié : dans un navigateur, la maquette technique affiche les 38 vrais jeux depuis la
+passerelle, avec leurs images. **La coque Tauri ne compile pas encore** : Rust en
+variante GNU n'a pas `dlltool` (bibliothèques Windows récentes) ; il faut les outils de
+compilation Microsoft (MSVC) ou une distribution MinGW (accord de la personne requis).
+Constat : la plupart des jeux importés par notre synchronisation **n'ont pas de
+jaquette** (Playnite ne télécharge pas leurs images) : à corriger.
+
 **À faire, par ordre proposé** :
 1. **Xbox, phase 5** : installation (Microsoft Store ou appli Xbox), progression,
    désinstallation, avec un jeu gratuit.

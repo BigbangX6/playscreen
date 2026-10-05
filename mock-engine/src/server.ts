@@ -2,7 +2,7 @@
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { API_VERSION, type EngineEvent, type EventMap, type EventType, type Game, type Store, type StoreId } from "../../api/types.ts";
+import { ALLOWED_ORIGINS, API_VERSION, type EngineEvent, type EventMap, type EventType, type Game, type Store, type StoreId } from "../../api/types.ts";
 import { fixtureGames, fixtureStores } from "./fixtures.ts";
 
 export interface MockEngineOptions {
@@ -170,6 +170,20 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
 
   const server: Server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    const origin = req.headers.origin;
+    if (origin && (ALLOWED_ORIGINS as readonly string[]).includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    }
+    // Demande préalable du navigateur (en-tête Authorization) : pas de jeton à ce stade.
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Methods": "GET, POST",
+        "Access-Control-Allow-Headers": "Authorization",
+        "Access-Control-Max-Age": "600",
+      });
+      return res.end();
+    }
     if (!isAuthorized(req, url, options.token)) {
       return send(res, json(401, { error: "unauthorized" }));
     }

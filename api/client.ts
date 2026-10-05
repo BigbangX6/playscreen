@@ -61,14 +61,26 @@ export class PlayscreenClient {
     return this.post(`/stores/${storeId}/login${options.alternative ? "?method=alternative" : ""}`);
   }
 
+  /**
+   * Adresse d'une image du jeu, utilisable telle quelle dans <img src> (le jeton passe
+   * dans l'URL, comme pour EventSource : une balise image n'envoie pas d'en-têtes).
+   */
+  mediaUrl(id: string, kind: "cover" | "background" | "icon"): string {
+    return `${this.baseUrl}/games/${encodeURIComponent(id)}/media/${kind}?access_token=${encodeURIComponent(this.token)}`;
+  }
+
   /** Flux d'événements. Interrompre avec `signal`. */
   async *events(signal?: AbortSignal): AsyncGenerator<EngineEvent> {
     const response = await this.request("GET", "/events", signal);
     if (!response.body) return;
     const decoder = new TextDecoder();
+    // getReader() plutôt que `for await` : marche aussi dans un navigateur (l'interface).
+    const reader = response.body.getReader();
     let buffer = "";
-    for await (const chunk of response.body) {
-      buffer += decoder.decode(chunk, { stream: true });
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      buffer += decoder.decode(value, { stream: true });
       let end: number;
       while ((end = buffer.indexOf("\n\n")) >= 0) {
         const event = parseSseMessage(buffer.slice(0, end));

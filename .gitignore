@@ -4,3 +4,4 @@ bin/
 obj/
 dist/
 *.user
+ui/src-tauri/gen/

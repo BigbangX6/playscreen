@@ -23,6 +23,15 @@ namespace Playscreen.Bridge.Api
         public const int DefaultPort = 47800;
         private const string Prefix = "/api/v0";
 
+        /// <summary>
+        /// Origines web autorisées (CORS) : l'interface dans Tauri, et Vite en développement.
+        /// Miroir de ALLOWED_ORIGINS dans api/types.ts. Le jeton reste exigé.
+        /// </summary>
+        private static readonly HashSet<string> AllowedOrigins = new HashSet<string>
+        {
+            "http://tauri.localhost", "tauri://localhost", "http://localhost:5173",
+        };
+
         private static readonly ILogger logger = LogManager.GetLogger();
 
         private readonly IPlayniteAPI api;
@@ -115,6 +124,22 @@ namespace Playscreen.Bridge.Api
             var response = context.Response;
             try
             {
+                var origin = request.Headers["Origin"];
+                if (origin != null && AllowedOrigins.Contains(origin))
+                {
+                    response.Headers["Access-Control-Allow-Origin"] = origin;
+                    response.Headers["Vary"] = "Origin";
+                }
+                // Demande préalable du navigateur (en-tête Authorization) : pas de jeton à ce stade.
+                if (request.HttpMethod == "OPTIONS")
+                {
+                    response.Headers["Access-Control-Allow-Methods"] = "GET, POST";
+                    response.Headers["Access-Control-Allow-Headers"] = "Authorization";
+                    response.Headers["Access-Control-Max-Age"] = "600";
+                    Send(response, new Reply(204));
+                    return;
+                }
+
                 if (!IsAuthorized(request))
                 {
                     Send(response, Json(401, new { error = "unauthorized" }));

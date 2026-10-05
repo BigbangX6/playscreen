@@ -1,0 +1,42 @@
+/* Jetons de design : à remplacer par ceux de la maquette. Les écrans n'utilisent que ces
+   variables, pour qu'un changement de thème se fasse ici. */
+:root {
+  --bg: #0e1116;
+  --surface: #1a1f27;
+  --text: #f2f4f8;
+  --text-muted: #9aa3b2;
+  --accent: #4da3ff;
+  --focus-ring: #ffffff;
+  --radius: 12px;
+  /* Lisible à 3 m d'une télé : l'unité de base suit la hauteur de l'écran (720p → 4K, 800p). */
+  --unit: clamp(8px, 1.1vh, 24px);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  /* Pas de curseur souris à la manette ; le mode assisté a le sien. */
+  cursor: none;
+  user-select: none;
+}
+
+[data-focusable] {
+  outline: none;
+}
+
+[data-focusable]:focus-visible,
+[data-focusable]:focus {
+  outline: calc(var(--unit) * 0.4) solid var(--focus-ring);
+  outline-offset: calc(var(--unit) * 0.3);
+}
