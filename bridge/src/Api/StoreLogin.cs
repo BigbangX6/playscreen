@@ -23,6 +23,8 @@ namespace Playscreen.Bridge.Api
         // Sans fenêtre après ce délai, l'extension a abandonné (erreur, déjà connecté…).
         private static readonly TimeSpan NoWindowTimeout = TimeSpan.FromSeconds(20);
         private static readonly TimeSpan MaxDuration = TimeSpan.FromMinutes(15);
+        private const int ConnectionChecks = 4;
+        private static readonly TimeSpan ConnectionCheckDelay = TimeSpan.FromSeconds(3);
 
         private readonly IPlayniteAPI api;
         private readonly EventHub events;
@@ -161,9 +163,22 @@ namespace Playscreen.Bridge.Api
                 logger.Error(e, $"Playscreen: failed to save {store.Id} settings");
             }
 
-            Task.Run(() =>
+            Task.Run(async () =>
             {
-                sync.RefreshConnection(store, plugin);
+                // Xbox enregistre ses jetons juste après la fermeture de la fenêtre :
+                // on revérifie quelques secondes avant de conclure « non connecté ».
+                for (var attempt = 0; attempt < ConnectionChecks; attempt++)
+                {
+                    if (attempt > 0)
+                    {
+                        await Task.Delay(ConnectionCheckDelay);
+                    }
+                    sync.RefreshConnection(store, plugin);
+                    if (sync.Describe(store).Connected == true)
+                    {
+                        break;
+                    }
+                }
                 events.Publish("store.updated", sync.Describe(store));
                 lock (gate)
                 {

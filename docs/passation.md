@@ -221,7 +221,13 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
 - **Testé avec les vrais comptes** : Battle.net (identifiant Blizzard, puis
   `psc sync battlenet` : Overwatch 2), Epic (d'abord en alternative, puis avec le bouton
   Google dans la fenêtre agrandie : tout se ferme tout seul une fois connecté ;
-  `psc sync epic` : 5 jeux). Steam avait été connecté par l'interface de Playnite.
+  `psc sync epic` : 5 jeux), Xbox (compte Microsoft, sans Game Pass ; `psc sync xbox` :
+  3 jeux déjà lancés, dont Fortnite joué via xCloud). Steam avait été connecté par
+  l'interface de Playnite. **Les 4 stores sont connectés sur ce PC.**
+- Xbox enregistre ses jetons juste après la fermeture de sa fenêtre : la première
+  vérification disait « non connecté ». La passerelle revérifie maintenant jusqu'à
+  4 fois, à 3 s d'intervalle (correction déployée, pas encore revue sur une nouvelle
+  connexion Xbox).
 - Découvertes : F19 (pare-feu pour `Playnite.BrowserProcess`), F20 (fenêtre Google
   cachée par une fenêtre « toujours au-dessus »), F21 (pas de retour arrière), voir
   `frictions.md`.
@@ -243,8 +249,8 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
    La passerelle repart toute seule, mais l'interface devra supporter ce redémarrage.
 3. **PowerShell** : la stratégie d'exécution peut bloquer le script. Utiliser
    `powershell -ExecutionPolicy Bypass -File .\packaging\build-bundle.ps1 ...`.
-4. **Connexion Xbox pas encore testée.** Sa commande de connexion est asynchrone :
-   la passerelle attend l'apparition d'une fenêtre jusqu'à 20 s.
+4. **Connexion Xbox asynchrone** : la passerelle attend l'apparition d'une fenêtre
+   jusqu'à 20 s, puis revérifie la connexion quelques secondes après sa fermeture.
 5. **Événement `library.updated`** : après une synchronisation, il donne les vrais
    identifiants. Quand Playnite met à jour sa bibliothèque lui-même (au démarrage), il
    envoie des listes vides : l'interface devra alors recharger la liste.
