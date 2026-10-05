@@ -82,6 +82,11 @@ class DemoEngine implements EngineClient {
     });
   }
 
+  /** Lecture directe d'un jeu (système simulé : trophées, durée de la dernière partie). */
+  peek(id: string): Game | undefined {
+    return this.gameMap.get(id);
+  }
+
   stopGame() {
     const id = this.runningId;
     if (!id) return;

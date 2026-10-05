@@ -59,6 +59,83 @@
   /* Tuiles de jeu */
   --tile-width: calc(var(--unit) * 18);
 
+  /* Écrans « console » (accueil, centre rapide, relais, navigateur, paramètres) : dessinés
+     sur un écran 16:9. --cq = 1 % de la largeur de ce 16:9, sans jamais déborder en hauteur
+     (16:10 des consoles portables, écrans larges). */
+  --cq: min(1vw, calc(100vh / 56.25));
+  --glass-0: rgba(255, 255, 255, 0.05);
+  --glass-1: rgba(255, 255, 255, 0.06);
+  --glass-2: rgba(255, 255, 255, 0.07);
+  --glass-3: rgba(255, 255, 255, 0.08);
+  --glass-4: rgba(255, 255, 255, 0.1);
+  --glass-5: rgba(255, 255, 255, 0.12);
+  --glass-6: rgba(255, 255, 255, 0.13);
+  --glass-7: rgba(255, 255, 255, 0.14);
+  --glass-8: rgba(255, 255, 255, 0.18);
+  --icon-stroke: #e9edf6;
+  --status-text: #c8cfdd;
+  --hint-text: #aab3c5;
+  --preview-text: #b9c2d3;
+  --lib-text: #dfe5f2;
+  --timeline-label: rgba(255, 255, 255, 0.5);
+  --sep-dot: rgba(255, 255, 255, 0.4);
+  --tile-line: rgba(255, 255, 255, 0.22);
+  --cover-shadow: 0 calc(var(--cq) * 0.6) calc(var(--cq) * 1.4) rgba(0, 0, 0, 0.45);
+  --focus-glow: rgba(61, 139, 255, 0.55);
+  --track-shadow: rgba(0, 0, 0, 0.5);
+  --glass-line: rgba(255, 255, 255, 0.08);
+  --text-soft: #d3d9e5;
+  --text-dim: #a8b1c3;
+  --text-label: #7f8aa0;
+  --text-sub: #98a2b8;
+  --panel-solid: rgba(13, 18, 30, 0.97);
+  --capsule-bg: rgba(10, 13, 22, 0.55);
+  --label-bg: rgba(10, 13, 22, 0.8);
+  --art-dim:
+    linear-gradient(90deg, rgba(5, 7, 13, 0.92) 0%, rgba(5, 7, 13, 0.55) 55%, rgba(5, 7, 13, 0.2) 100%),
+    linear-gradient(0deg, rgba(5, 7, 13, 0.9) 0%, transparent 45%);
+  --art-flat: linear-gradient(160deg, #141b2c 0%, #0b0f1a 60%);
+  --eyebrow-game: #ffc9a8;
+  --live: #3ecf8e;
+  --live-bg: rgba(62, 207, 142, 0.12);
+  --live-line: rgba(62, 207, 142, 0.35);
+  --live-halo: rgba(62, 207, 142, 0.25);
+  --danger-soft: #ff8a95;
+  --accent-soft: rgba(61, 139, 255, 0.16);
+  --accent-mid: rgba(61, 139, 255, 0.22);
+  --accent-line: rgba(61, 139, 255, 0.5);
+  --accent-text: #dbe8ff;
+  --web-bg: #e9ebef;
+  --web-block: #cfd3db;
+  --web-chrome: #0f1422;
+  --web-hints-bg: rgba(10, 13, 22, 0.88);
+  --web-hints-text: #cfd6e3;
+  --cursor-fill: rgba(61, 139, 255, 0.18);
+  --relay-text: #b6bfd0;
+  --relay-steps: #8f99ad;
+  --legend-text: #d5dbe7;
+  --stack-other: #6a6f86;
+  --stick-face: radial-gradient(circle, #3a4256 40%, #262c3c 42%);
+  --stick-ring: #6b7488;
+  --thumb-glow: rgba(61, 139, 255, 0.8);
+  --adjust-help: #c3cbe0;
+
+  /* Teinte de chaque espace (fond de l'aperçu sur l'accueil) et couleur de son surtitre */
+  --space-search: radial-gradient(70% 90% at 80% 20%, #2a3550 0%, #141a2c 45%, #0a0d18 80%);
+  --space-search-eb: #a9c4f0;
+  --space-boutique: radial-gradient(70% 90% at 80% 20%, #2a3f6e 0%, #141c33 45%, #0a0d18 80%);
+  --space-boutique-eb: #9cc2ff;
+  --space-social: radial-gradient(70% 90% at 80% 20%, #3b2f6e 0%, #1a1533 45%, #0b0a18 80%);
+  --space-social-eb: #c3b5ff;
+  --space-musique: radial-gradient(70% 90% at 80% 20%, #1f4a3a 0%, #12261f 45%, #0a120f 80%);
+  --space-musique-eb: #9fe3c2;
+  --space-internet: radial-gradient(70% 90% at 80% 20%, #1f3f4f 0%, #122430 45%, #0a1117 80%);
+  --space-internet-eb: #9fd6ea;
+  --space-trophees: radial-gradient(70% 90% at 80% 20%, #4a3b1a 0%, #261e0f 45%, #120e08 80%);
+  --space-trophees-eb: #f2d58f;
+  --space-parametres: radial-gradient(70% 90% at 80% 20%, #2a3040 0%, #161a24 45%, #0b0d12 80%);
+  --space-parametres-eb: #c0c8d8;
+
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --fast: 140ms;
   --slow: 320ms;

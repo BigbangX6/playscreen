@@ -6,32 +6,66 @@ import { ApiError, type EngineClient } from "../../api/client.ts";
 import type { EngineEvent, Game, Store, StoreId } from "../../api/types.ts";
 import type { Progress } from "./components/ProgressBar.tsx";
 import { Toasts, type Toast, type ToastTone } from "./components/Toasts.tsx";
-import { useEngine } from "./engine.ts";
+import { DEMO, useEngine } from "./engine.ts";
 import { formatPlaytime } from "./format.ts";
 import { useNavAction } from "./input/navigation.ts";
+import { Overlay } from "./components/Overlay.tsx";
+import { Browser } from "./screens/Browser.tsx";
 import { GameDetail } from "./screens/GameDetail.tsx";
+import { Home, type HomeFocus } from "./screens/Home.tsx";
 import { Library, type LibraryFilter, type LibrarySort } from "./screens/Library.tsx";
-import {
-  EngineOffline,
-  InstallGuide,
-  Launching,
-  LoginGuide,
-  QuickMenu,
-  SystemMenu,
-  UninstallConfirm,
-} from "./screens/Overlays.tsx";
+import { EngineOffline, InstallGuide, Launching, LoginGuide, UninstallConfirm } from "./screens/Overlays.tsx";
+import { NotificationsPage, SearchPage, TrophiesPage, type NotificationEntry } from "./screens/Pages.tsx";
+import { QuickCenter, type Download } from "./screens/QuickCenter.tsx";
+import { Relay } from "./screens/Relay.tsx";
+import { Settings } from "./screens/Settings.tsx";
+import { SITES, type BrowserWindow, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
 import { Stores } from "./screens/Stores.tsx";
+import { system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
 
-type Screen = { name: "library" } | { name: "game"; gameId: string } | { name: "stores" };
+type Screen =
+  | { name: "home" }
+  | { name: "library" }
+  | { name: "game"; gameId: string; from: Screen }
+  | { name: "stores"; from: Screen }
+  | { name: "settings"; section: SettingsSection }
+  | { name: "page"; page: "search" | "trophees" | "notifications"; from: Screen }
+  | { name: "web"; window: BrowserWindow; from: Screen };
 
 type Dialog =
-  | { kind: "menu" }
   | { kind: "quick" }
   | { kind: "login"; storeId: StoreId; alternative: boolean; failed: boolean }
   | { kind: "install"; gameId: string }
-  | { kind: "uninstall"; gameId: string };
+  | { kind: "uninstall"; gameId: string }
+  | { kind: "force"; gameId: string }
+  | { kind: "power"; action: "shutdown" | "restart" }
+  | { kind: "relay"; target: "windows-settings" | "activate-key" }
+  | { kind: "loading"; site: SiteId; from: Screen };
+
+/** Onglets de chaque fenêtre du navigateur (LB / RB). */
+const WINDOW_TABS: Record<BrowserWindow, SiteId[]> = {
+  boutique: ["instant-gaming", "steam", "epic", "xbox", "battlenet"],
+  social: ["discord"],
+  musique: ["spotify", "youtube-music", "deezer"],
+  internet: ["new-page", "youtube", "twitch", "wikipedia"],
+};
+
+/** Espace d'où vient un écran : le focus y revient sur l'accueil. */
+function spaceOf(screen: Screen): SpaceId | null {
+  if (screen.name === "web") return screen.window;
+  if (screen.name === "settings") return "parametres";
+  if (screen.name === "page") return screen.page === "search" ? "search" : screen.page === "trophees" ? "trophees" : null;
+  return null;
+}
+
+const POWER_LABELS: Record<PowerAction, string> = {
+  sleep: "Le PC se met en veille",
+  shutdown: "Le PC s'éteint",
+  restart: "Le PC redémarre",
+  desktop: "Playscreen se cache : retour au bureau Windows",
+};
 
 interface Session {
   gameId: string;
@@ -53,6 +87,7 @@ function describeError(error: unknown): string {
   return "Le moteur n'a pas répondu.";
 }
 
+
 export function App() {
   const [games, setGames] = useState<Game[] | null>(null);
   const [gamesError, setGamesError] = useState<string | null>(null);
@@ -61,23 +96,40 @@ export function App() {
   const [installs, setInstalls] = useState<Record<string, Progress | null>>({});
   const [syncing, setSyncing] = useState<StoreId[]>([]);
   const [session, setSession] = useState<Session | null>(null);
-  const [screen, setScreen] = useState<Screen>({ name: "library" });
+  const [screen, setScreen] = useState<Screen>({ name: "home" });
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [filter, setFilter] = useState<LibraryFilter>("all");
   const [sort, setSort] = useState<LibrarySort>("recent");
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  /** Accueil : jeu ou espace qui avait le focus (on y revient). */
+  const [homeFocus, setHomeFocus] = useState<HomeFocus>({});
+  /** Durée des parties jouées pendant cette session de Playscreen. */
+  const [sessions, setSessions] = useState<Record<string, number>>({});
+  /** Page ouverte dans chaque fenêtre du navigateur. */
+  const [windowSites, setWindowSites] = useState<Record<BrowserWindow, SiteId>>({
+    boutique: "instant-gaming",
+    social: "discord",
+    musique: "spotify",
+    internet: "new-page",
+  });
+  const [history, setHistory] = useState<NotificationEntry[]>([]);
+  const [unread, setUnread] = useState(0);
 
   // Les gestionnaires d'événements lisent toujours l'état le plus récent.
   const gamesRef = useRef(games);
   gamesRef.current = games;
   const installsRef = useRef(installs);
   installsRef.current = installs;
+  /** Début de chaque téléchargement (pour estimer le temps restant). */
+  const installStarts = useRef<Record<string, { at: number; bytes: number }>>({});
   const toastId = useRef(0);
 
   const notify = useCallback((tone: ToastTone, title: string, message?: string) => {
     const id = ++toastId.current;
     setToasts((list) => [...list.slice(-2), { id, tone, title, message }]);
+    setHistory((list) => [...list.slice(-49), { id, title, message, at: Date.now() }]);
+    setUnread((n) => n + 1);
     setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), TOAST_MS);
   }, []);
 
@@ -133,12 +185,14 @@ export function App() {
     switch (event.type) {
       case "install.progress": {
         const { gameId, bytesDone, bytesTotal } = event.data;
+        if (!installStarts.current[gameId] && bytesDone > 0) installStarts.current[gameId] = { at: Date.now(), bytes: bytesDone };
         setInstalls((all) => ({ ...all, [gameId]: { bytesDone, bytesTotal } }));
         // Le téléchargement a commencé : la consigne n'est plus utile.
         setDialog((d) => (d?.kind === "install" && d.gameId === gameId ? null : d));
         break;
       }
       case "game.installed":
+        delete installStarts.current[event.data.gameId];
         setInstalls(({ [event.data.gameId]: _, ...rest }) => rest);
         setDialog((d) => (d?.kind === "install" && d.gameId === event.data.gameId ? null : d));
         notify("success", `${nameOf(event.data.gameId)} est installé`, "Prêt à jouer.");
@@ -156,12 +210,13 @@ export function App() {
         break;
       case "game.started":
         setSession((s) => ({ gameId: event.data.gameId, phase: "running", since: s?.since ?? Date.now(), hidden: false }));
-        // Ce que le joueur verra en revenant sur Playscreen pendant la partie.
+        // Ce que le joueur verra en revenant sur Playscreen pendant la partie (D10).
         setDialog({ kind: "quick" });
         break;
       case "game.stopped":
         setSession(null);
-        setDialog((d) => (d?.kind === "quick" ? null : d));
+        setSessions((all) => ({ ...all, [event.data.gameId]: event.data.sessionSeconds }));
+        setDialog((d) => (d?.kind === "quick" || d?.kind === "force" ? null : d));
         notify("info", `Partie terminée : ${nameOf(event.data.gameId)}`, `Session de ${formatPlaytime(event.data.sessionSeconds)}`);
         void loadGames();
         break;
@@ -197,6 +252,10 @@ export function App() {
 
   const play = (game: Game) => {
     if (!client) return;
+    if (session && session.gameId !== game.id) {
+      notify("warning", "Une partie est déjà en cours", `Quitte ${nameOf(session.gameId)} depuis le centre rapide (Start).`);
+      return;
+    }
     setSession({ gameId: game.id, phase: "starting", since: Date.now(), hidden: false });
     client.start(game.id).catch((error) => {
       setSession(null);
@@ -248,16 +307,74 @@ export function App() {
     });
   };
 
-  const goLibrary = () => {
+  const quitGame = (force: boolean) => {
+    const name = session ? nameOf(session.gameId) : "Le jeu";
     setDialog(null);
-    setScreen({ name: "library" });
+    if (!system.quitGame(force)) notify("warning", `Impossible de quitter ${name} d'ici`, "Cette action arrive avec le moteur.");
   };
 
-  // Start : menu rapide pendant une partie, menu principal sinon. Priorité la plus basse :
-  // les écrans et fenêtres passent avant.
+  const power = (action: PowerAction) => {
+    if (action === "shutdown" || action === "restart") {
+      setDialog({ kind: "power", action });
+      return;
+    }
+    doPower(action);
+  };
+
+  const doPower = (action: PowerAction) => {
+    setDialog(null);
+    system.power(action);
+    if (DEMO) notify("info", `Démo : ${POWER_LABELS[action].toLowerCase()}`);
+  };
+
+  /** Revenir d'un écran : vers celui d'où l'on vient, l'accueil sinon (focus sur l'espace). */
+  const back = (to?: Screen) => {
+    const target = to ?? { name: "home" };
+    if (target.name === "home") {
+      const space = spaceOf(screen);
+      if (space) setHomeFocus((f) => ({ ...f, space, library: false }));
+    }
+    setScreen(target);
+  };
+
+  const navigate = (route: Route) => {
+    const from: Screen = screen;
+    setDialog(null);
+    switch (route.kind) {
+      case "web": {
+        const window = SITES[route.site].window;
+        setWindowSites((all) => ({ ...all, [window]: route.site }));
+        setDialog({ kind: "loading", site: route.site, from });
+        break;
+      }
+      case "relay":
+        setDialog({ kind: "relay", target: route.target });
+        break;
+      case "settings":
+        setScreen({ name: "settings", section: route.section });
+        break;
+      case "page":
+        if (route.page === "notifications") setUnread(0);
+        setScreen({ name: "page", page: route.page, from });
+        break;
+      case "stores":
+        setScreen({ name: "stores", from });
+        break;
+      case "library":
+        setScreen({ name: "library" });
+        break;
+    }
+  };
+
+  const openGame = (game: Game) => {
+    setDialog(null);
+    setScreen({ name: "game", gameId: game.id, from: screen });
+  };
+
+  // Start : centre rapide, partout. Priorité la plus basse : les écrans et fenêtres passent avant.
   useNavAction((action) => {
     if (action !== "menu" || !client) return false;
-    setDialog(session?.phase === "running" ? { kind: "quick" } : { kind: "menu" });
+    setDialog({ kind: "quick" });
     return true;
   });
 
@@ -273,6 +390,22 @@ export function App() {
   const dialogGame = dialog && "gameId" in dialog ? games?.find((g) => g.id === dialog.gameId) : undefined;
   const loginStore = dialog?.kind === "login" ? stores?.find((s) => s.id === dialog.storeId) : undefined;
   const overlayOpen = Boolean(dialog || showLaunching || !client);
+
+  // Téléchargement en cours (le premier), pour le centre rapide.
+  let download: Download | null = null;
+  const downloadId = Object.keys(installs)[0];
+  const downloadGame = downloadId ? games?.find((g) => g.id === downloadId) : undefined;
+  if (downloadId && downloadGame) {
+    const progress = installs[downloadId] ?? null;
+    const start = installStarts.current[downloadId];
+    let etaSeconds: number | null = null;
+    if (progress && start) {
+      const elapsed = (Date.now() - start.at) / 1000;
+      const rate = elapsed > 1 ? (progress.bytesDone - start.bytes) / elapsed : 0;
+      if (rate > 0) etaSeconds = Math.max(60, (progress.bytesTotal - progress.bytesDone) / rate);
+    }
+    download = { game: downloadGame, progress, etaSeconds };
+  }
 
   let current;
   if (screen.name === "game") {
@@ -290,7 +423,7 @@ export function App() {
         onPlay={play}
         onInstall={install}
         onUninstall={(g) => setDialog({ kind: "uninstall", gameId: g.id })}
-        onBack={() => setScreen({ name: "library" })}
+        onBack={() => back(screen.from)}
       />
     );
   } else if (screen.name === "stores") {
@@ -303,10 +436,10 @@ export function App() {
         onLogin={login}
         onSync={sync}
         onRetry={() => void loadStores()}
-        onBack={() => setScreen({ name: "library" })}
+        onBack={() => back(screen.from.name === "home" ? undefined : screen.from)}
       />
     );
-  } else {
+  } else if (screen.name === "library") {
     current = (
       <Library
         client={view}
@@ -323,13 +456,70 @@ export function App() {
         onFocusGame={setFocusedId}
         onOpen={(game) => {
           setFocusedId(game.id);
-          setScreen({ name: "game", gameId: game.id });
+          setScreen({ name: "game", gameId: game.id, from: { name: "library" } });
         }}
         onRetry={() => void loadGames()}
-        onOpenStores={() => setScreen({ name: "stores" })}
+        onOpenStores={() => setScreen({ name: "stores", from: { name: "library" } })}
+        onBack={() => back()}
+      />
+    );
+  } else if (screen.name === "settings") {
+    current = (
+      <Settings
+        section={screen.section}
+        games={games}
+        stores={stores}
+        onSection={(section) => setScreen({ name: "settings", section })}
+        onNavigate={navigate}
+        onOpenGame={openGame}
+        onUninstall={(g) => setDialog({ kind: "uninstall", gameId: g.id })}
+        onPower={power}
+        onBack={() => back()}
+      />
+    );
+  } else if (screen.name === "page") {
+    const onBack = () => back(screen.from.name === "home" ? undefined : screen.from);
+    current =
+      screen.page === "search" ? (
+        <SearchPage games={games} onOpenGame={openGame} onBack={onBack} />
+      ) : screen.page === "trophees" ? (
+        <TrophiesPage games={games} onOpenGame={openGame} onBack={onBack} />
+      ) : (
+        <NotificationsPage entries={history} onBack={onBack} />
+      );
+  } else if (screen.name === "web") {
+    const window = screen.window;
+    current = (
+      <Browser
+        site={windowSites[window]}
+        tabs={WINDOW_TABS[window]}
+        onSite={(site) => setWindowSites((all) => ({ ...all, [window]: site }))}
+        onBack={() => back(screen.from.name === "home" ? undefined : screen.from)}
+      />
+    );
+  } else {
+    current = (
+      <Home
+        client={view}
+        games={games}
+        error={gamesError}
+        installs={installs}
+        runningId={session?.phase === "running" ? session.gameId : null}
+        sessions={sessions}
+        initialFocus={homeFocus}
+        onFocusChange={setHomeFocus}
+        onPlay={play}
+        onInstall={install}
+        onResume={() => setDialog({ kind: "quick" })}
+        onOptions={openGame}
+        onLibrary={() => setScreen({ name: "library" })}
+        onNavigate={navigate}
+        onRetry={() => void loadGames()}
       />
     );
   }
+
+  const relayTo = dialog?.kind === "relay" ? (dialog.target === "windows-settings" ? "Paramètres Windows" : "Steam") : "";
 
   return (
     <>
@@ -346,24 +536,82 @@ export function App() {
           onHide={() => setSession((s) => (s ? { ...s, hidden: true } : s))}
         />
       )}
-      {client && dialog?.kind === "menu" && (
-        <SystemMenu
-          onLibrary={goLibrary}
-          onStores={() => {
-            setDialog(null);
-            setScreen({ name: "stores" });
-          }}
-          onReload={() => {
-            setDialog(null);
-            void loadGames();
-            void loadStores();
-            notify("info", "Bibliothèque rechargée");
-          }}
+      {client && dialog?.kind === "quick" && (
+        <QuickCenter
+          client={client}
+          game={session?.phase === "running" ? sessionGame : null}
+          since={session?.since ?? Date.now()}
+          download={download}
+          notifications={unread}
+          onResume={() => setDialog(null)}
           onClose={() => setDialog(null)}
+          onQuit={() => quitGame(false)}
+          onForceQuit={() => session && setDialog({ kind: "force", gameId: session.gameId })}
+          onNavigate={navigate}
+          onOpenGame={openGame}
+          onPower={power}
         />
       )}
-      {client && dialog?.kind === "quick" && sessionGame && session && (
-        <QuickMenu client={client} game={sessionGame} since={session.since} onResume={() => setDialog(null)} onLibrary={goLibrary} />
+      {client && dialog?.kind === "force" && dialogGame && (
+        <Overlay title={`Forcer la fermeture de ${dialogGame.name} ?`} onBack={() => setDialog({ kind: "quick" })} initialFocus=".dialog-cancel">
+          <p className="guide-text">À utiliser si le jeu ne répond plus. Ce qui n'a pas été sauvegardé sera perdu.</p>
+          <div className="dialog-actions">
+            <button className="btn btn-danger" data-focusable onClick={() => quitGame(true)}>
+              Forcer la fermeture
+            </button>
+            <button className="btn btn-ghost dialog-cancel" data-focusable onClick={() => setDialog({ kind: "quick" })}>
+              Annuler
+            </button>
+          </div>
+        </Overlay>
+      )}
+      {client && dialog?.kind === "power" && (
+        <Overlay
+          title={dialog.action === "shutdown" ? "Éteindre le PC ?" : "Redémarrer le PC ?"}
+          onBack={() => setDialog({ kind: "quick" })}
+          initialFocus=".dialog-cancel"
+        >
+          <p className="guide-text">
+            {session?.phase === "running" ? "Le jeu en cours sera fermé. " : ""}Pense à sauvegarder avant de continuer.
+          </p>
+          <div className="dialog-actions">
+            <button className="btn btn-primary" data-focusable onClick={() => doPower(dialog.action)}>
+              {dialog.action === "shutdown" ? "Éteindre" : "Redémarrer"}
+            </button>
+            <button className="btn btn-ghost dialog-cancel" data-focusable onClick={() => setDialog({ kind: "quick" })}>
+              Annuler
+            </button>
+          </div>
+        </Overlay>
+      )}
+      {client && dialog?.kind === "relay" && (
+        <Relay
+          to={relayTo}
+          title="Ta manette devient une souris"
+          text={
+            dialog.target === "windows-settings"
+              ? "Les Paramètres Windows s'ouvrent en grand. Utilise-les comme avec une souris ; reviens quand tu as fini."
+              : "La fenêtre « Activer un produit » de Steam s'ouvre. Saisis ta clé, valide, puis reviens quand tu as fini."
+          }
+          mouse
+          onBack={() => setDialog(null)}
+        />
+      )}
+      {client && dialog?.kind === "loading" && (
+        <Relay
+          key={dialog.site}
+          to={SITES[dialog.site].name}
+          title={`${SITES[dialog.site].name} s'ouvre…`}
+          mouse={false}
+          loading={{
+            ms: 1200,
+            onDone: () => {
+              setDialog(null);
+              setScreen({ name: "web", window: SITES[dialog.site].window, from: dialog.from.name === "web" ? { name: "home" } : dialog.from });
+            },
+          }}
+          onBack={() => setDialog(null)}
+        />
       )}
       {client && dialog?.kind === "login" && loginStore && (
         <LoginGuide

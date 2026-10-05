@@ -1,5 +1,6 @@
-// Fenêtres par-dessus les écrans : menu principal, écran d'attente du lancement, menu
-// rapide en jeu, accompagnement (connexion, installation), confirmation, moteur indisponible.
+// Fenêtres par-dessus les écrans : écran d'attente du lancement, accompagnement (connexion,
+// installation), confirmation, moteur indisponible. Le menu est devenu le centre rapide
+// (QuickCenter.tsx).
 
 import { useEffect, useState } from "react";
 import type { EngineClient } from "../../../api/client.ts";
@@ -8,7 +9,6 @@ import { Cover } from "../components/Cover.tsx";
 import { Hints } from "../components/Hints.tsx";
 import { Overlay } from "../components/Overlay.tsx";
 import { Spinner } from "../components/Spinner.tsx";
-import { BatteryIndicator, useBattery } from "../components/TopBar.tsx";
 import { formatDuration, INSTALL_GUIDANCE, STORE_LABELS } from "../format.ts";
 
 /** Secondes écoulées depuis `since` (ms), mises à jour chaque seconde. */
@@ -19,39 +19,6 @@ function useElapsed(since: number): number {
     return () => clearInterval(timer);
   }, []);
   return Math.max(0, (now - since) / 1000);
-}
-
-// ——— Menu principal (Start) ———
-
-interface MenuProps {
-  onLibrary(): void;
-  onStores(): void;
-  onReload(): void;
-  onClose(): void;
-}
-
-export function SystemMenu({ onLibrary, onStores, onReload, onClose }: MenuProps) {
-  return (
-    <Overlay variant="panel" title="Menu" onBack={onClose} onAction={(a) => (a === "menu" ? (onClose(), true) : false)}>
-      <div className="menu-list">
-        <button className="menu-item" data-focusable onClick={onLibrary}>
-          <span className="menu-icon">▦</span>Bibliothèque
-        </button>
-        <button className="menu-item" data-focusable onClick={onStores}>
-          <span className="menu-icon">⇄</span>Stores et comptes
-        </button>
-        <button className="menu-item" data-focusable onClick={onReload}>
-          <span className="menu-icon">↻</span>Recharger la bibliothèque
-        </button>
-      </div>
-      <Hints
-        items={[
-          ["confirm", "Choisir"],
-          ["back", "Fermer"],
-        ]}
-      />
-    </Overlay>
-  );
 }
 
 // ——— Écran d'attente : un jeu (ou son launcher) démarre (F25, F26) ———
@@ -99,56 +66,6 @@ export function Launching({ client, game, since, onHide }: LaunchProps) {
         </div>
       </div>
       <Hints items={[["back", "Masquer"]]} />
-    </Overlay>
-  );
-}
-
-// ——— Menu rapide en jeu (D10 : Select + Start pendant une partie, Start ici) ———
-
-interface QuickProps {
-  client: EngineClient;
-  game: Game;
-  since: number;
-  onResume(): void;
-  onLibrary(): void;
-}
-
-export function QuickMenu({ client, game, since, onResume, onLibrary }: QuickProps) {
-  const elapsed = useElapsed(since);
-  const battery = useBattery();
-  return (
-    <Overlay variant="panel" onBack={onResume} onAction={(a) => (a === "menu" ? (onResume(), true) : false)}>
-      <div className="quick-head">
-        <div className="quick-cover">
-          <Cover game={game} src={game.media?.cover ? client.mediaUrl(game.id, "cover") : null} titleSize={1.2} />
-        </div>
-        <div>
-          <span className="eyebrow">En cours</span>
-          <h2 className="quick-title">{game.name}</h2>
-          <p className="muted">Session : {formatDuration(elapsed)}</p>
-        </div>
-      </div>
-      {battery && (
-        <div className="quick-row">
-          Batterie <BatteryIndicator battery={battery} />
-        </div>
-      )}
-      <div className="menu-list">
-        {/* Plus tard : ramener la fenêtre du jeu au premier plan, quitter, forcer la fermeture, volume
-            (actions à ajouter au moteur). */}
-        <button className="menu-item" data-focusable onClick={onResume}>
-          <span className="menu-icon">▶</span>Reprendre
-        </button>
-        <button className="menu-item" data-focusable onClick={onLibrary}>
-          <span className="menu-icon">▦</span>Bibliothèque
-        </button>
-      </div>
-      <Hints
-        items={[
-          ["confirm", "Choisir"],
-          ["back", "Reprendre"],
-        ]}
-      />
     </Overlay>
   );
 }

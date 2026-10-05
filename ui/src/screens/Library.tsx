@@ -34,6 +34,7 @@ interface Props {
   onOpen(game: Game): void;
   onRetry(): void;
   onOpenStores(): void;
+  onBack(): void;
 }
 
 function sortGames(games: Game[], sort: LibrarySort): Game[] {
@@ -103,7 +104,8 @@ export function Library(props: Props) {
   const cycleSort = () => props.onSort(SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length]!);
 
   useNavAction((action) => {
-    if (action === "previousTab") cycleFilter(-1);
+    if (action === "back") props.onBack();
+    else if (action === "previousTab") cycleFilter(-1);
     else if (action === "nextTab") cycleFilter(1);
     else if (action === "options") cycleSort();
     else return false;
@@ -200,7 +202,8 @@ export function Library(props: Props) {
           ["confirm", "Ouvrir"],
           ["tabs", "Filtrer"],
           ["options", "Trier"],
-          ["menu", "Menu"],
+          ["back", "Accueil"],
+          ["menu", "Centre rapide"],
         ]}
       />
     </div>
