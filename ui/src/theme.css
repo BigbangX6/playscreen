@@ -1,16 +1,70 @@
-/* Jetons de design : à remplacer par ceux de la maquette. Les écrans n'utilisent que ces
-   variables, pour qu'un changement de thème se fasse ici. */
+/* Jetons de design Playscreen. Les écrans et composants n'utilisent que ces variables :
+   un changement de thème se fait ici. */
 :root {
-  --bg: #0e1116;
-  --surface: #1a1f27;
-  --text: #f2f4f8;
-  --text-muted: #9aa3b2;
-  --accent: #4da3ff;
+  /* Couleurs */
+  --bg: #0b0f1a;
+  --bg-deep: #05070d;
+  --surface: #161c2b;
+  --surface-raised: #1f2739;
+  --surface-glass: rgba(18, 24, 38, 0.82);
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f4f6fb;
+  --text-muted: #9aa5ba;
+  --text-faint: #5f6a80;
+  --accent: #3d8bff;
+  --accent-strong: #6aa8ff;
+  --accent-glow: rgba(61, 139, 255, 0.45);
+  --success: #3ecf8e;
+  --warning: #f5b544;
+  --danger: #ff5c6c;
   --focus-ring: #ffffff;
-  --radius: 12px;
-  /* Lisible à 3 m d'une télé : l'unité de base suit la hauteur de l'écran (720p → 4K, 800p). */
+  --scrim: rgba(3, 5, 10, 0.72);
+
+  /* Couleurs des stores (badges, tuiles sans image) */
+  --store-steam: #66c0f4;
+  --store-steam-bg: #1b2838;
+  --store-epic: #e8e8e8;
+  --store-epic-bg: #2a2a2a;
+  --store-xbox: #5dc21e;
+  --store-xbox-bg: #0e3a0e;
+  --store-battlenet: #4fb3ff;
+  --store-battlenet-bg: #0a2a4f;
+  --store-other: #c3a6ff;
+  --store-other-bg: #2a1f45;
+
+  /* Glyphes des boutons de la manette (disposition Xbox) */
+  --pad-a: #3fb93f;
+  --pad-b: #e8423f;
+  --pad-x: #3a83f1;
+  --pad-y: #f2c230;
+
+  /* Lisible à 3 m d'une télé : l'unité de base suit la hauteur de l'écran
+     (720p → 8 px, 1080p → ~12 px, 4K → ~24 px). Toutes les tailles en sont des multiples. */
   --unit: clamp(8px, 1.1vh, 24px);
-  font-family: "Segoe UI", system-ui, sans-serif;
+  --radius-s: calc(var(--unit) * 0.6);
+  --radius: calc(var(--unit) * 1.2);
+  --radius-l: calc(var(--unit) * 2);
+  --gap: calc(var(--unit) * 2);
+
+  /* Typographie */
+  --font-s: calc(var(--unit) * 1.6);
+  --font-m: calc(var(--unit) * 2);
+  --font-l: calc(var(--unit) * 2.8);
+  --font-xl: calc(var(--unit) * 4.4);
+
+  /* Marges de sécurité : certaines télés rognent ~5 % de l'image. */
+  --safe-x: 5vw;
+  --safe-y: 5vh;
+
+  /* Tuiles de jeu */
+  --tile-width: calc(var(--unit) * 18);
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 140ms;
+  --slow: 320ms;
+
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: var(--font-m);
   color-scheme: dark;
 }
 
@@ -29,14 +83,36 @@ body,
   /* Pas de curseur souris à la manette ; le mode assisté a le sien. */
   cursor: none;
   user-select: none;
+  -webkit-font-smoothing: antialiased;
 }
 
+button {
+  font: inherit;
+  color: inherit;
+  cursor: none;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+/* Focus toujours visible : anneau blanc épais + halo de couleur. */
 [data-focusable] {
   outline: none;
 }
 
-[data-focusable]:focus-visible,
 [data-focusable]:focus {
   outline: calc(var(--unit) * 0.4) solid var(--focus-ring);
   outline-offset: calc(var(--unit) * 0.3);
+  box-shadow: 0 0 calc(var(--unit) * 3) var(--accent-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation-duration: 0s !important;
+  }
 }

@@ -7,6 +7,23 @@ import { NAV_EVENT, type NavAction } from "./gamepad.ts";
 /** Attribut à poser sur tout élément atteignable à la manette (bouton, tuile de jeu…). */
 export const FOCUSABLE = "[data-focusable]";
 
+/**
+ * Éléments atteignables maintenant : on ignore ceux d'une zone `inert` (l'écran derrière
+ * une fenêtre ouverte par-dessus) et ceux qui ne sont pas affichés.
+ */
+export function reachable(root: ParentNode = document): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+    (element) => !element.closest("[inert]") && element.getClientRects().length > 0,
+  );
+}
+
+/** Met le focus sur le premier élément atteignable (de `root`), sans faire défiler brusquement. */
+export function focusFirst(root: ParentNode = document): boolean {
+  const first = reachable(root)[0];
+  first?.focus({ preventScroll: true });
+  return Boolean(first);
+}
+
 type Handler = (action: NavAction) => boolean | void;
 /** Le dernier écran monté est prioritaire (une fenêtre par-dessus la bibliothèque, par ex.). */
 const handlers: Handler[] = [];
@@ -36,7 +53,7 @@ function nextInDirection(from: HTMLElement, direction: NavAction): HTMLElement |
   const origin = center(from.getBoundingClientRect());
   let best: HTMLElement | null = null;
   let bestScore = Infinity;
-  for (const element of document.querySelectorAll<HTMLElement>(FOCUSABLE)) {
+  for (const element of reachable()) {
     if (element === from) continue;
     const point = center(element.getBoundingClientRect());
     const dx = point.x - origin.x;
@@ -53,15 +70,11 @@ function nextInDirection(from: HTMLElement, direction: NavAction): HTMLElement |
   return best;
 }
 
-function focusFirst() {
-  document.querySelector<HTMLElement>(FOCUSABLE)?.focus();
-}
-
 /** Comportement par défaut, si aucun écran n'a consommé l'action. */
 function defaultAction(action: NavAction) {
-  const current = document.activeElement instanceof HTMLElement && document.activeElement.matches(FOCUSABLE)
-    ? document.activeElement
-    : null;
+  const active = document.activeElement;
+  const current =
+    active instanceof HTMLElement && active.matches(FOCUSABLE) && !active.closest("[inert]") ? active : null;
   if (!current) {
     focusFirst();
     return;

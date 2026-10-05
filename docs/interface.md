@@ -7,8 +7,8 @@
 
 | Dossier | Contenu | Qui le modifie |
 |---|---|---|
-| `ui/src/screens/` | Les écrans (`Library.tsx` aujourd'hui : maquette technique à remplacer) | **Le design** |
-| `ui/src/components/` | Composants réutilisables (tuile de jeu, barre de progression…) — à créer | **Le design** |
+| `ui/src/screens/` | Les écrans : bibliothèque, fiche, stores, fenêtres (première version, voir `ui/README.md`) | **Le design** |
+| `ui/src/components/` | Composants réutilisables (tuile de jeu, barre de progression, aide des boutons…) | **Le design** |
 | `ui/src/theme.css` | Jetons de design : couleurs, rayons, unité de taille, focus | **Le design** |
 | `ui/src/App.tsx` | Racine : connexion au moteur, choix de l'écran courant | Le design (navigation entre écrans), avec moi |
 | `ui/src/engine.ts` | Connexion au moteur, reconnexion, événements en direct | Moi |
