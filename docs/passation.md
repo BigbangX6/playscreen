@@ -125,54 +125,64 @@ Détails dans `docs/stores-v1.md`. L'essentiel :
 | Passerelle Playnite | `bridge/` | **Compile sans avertissement** (sous Linux). Jamais exécutée dans Playnite |
 | Sentinelle | `sentinel/` | **5 tests passent**, `clippy` propre, compilation vérifiée pour la cible Windows (`x86_64-pc-windows-gnu`). Jamais exécutée sous Windows |
 
+### Phase 1 validée sur le PC Windows (5 octobre 2026)
+
+PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris Xe
+**et écran virtuel Parsec** (la personne pilote le PC à distance).
+
+- **Archive Playnite : `10.62.7z`** (133 Mo), sur
+  `https://github.com/JosefNemec/Playnite/releases/download/10.62/10.62.7z`. C'est un
+  **.7z**, pas un .zip : le script la décompresse avec le `tar` de Windows (libarchive).
+  `Playnite.DesktopApp.exe` est bien à la racine, pas de `unins000.exe`.
+- **Playnite 10 ne fournit plus les extensions de store** : l'archive ne contient aucun
+  dossier `Extensions`. C'est l'assistant de premier démarrage qui les téléchargeait.
+  Le script les télécharge donc lui-même (versions figées : Steam 2.47, Epic 2.30,
+  Xbox 2.17, Battle.net 2.24, liens `playnite.link/download/extensions/bins/*.pext`)
+  et les décompresse dans `Extensions\<Id>`, comme Playnite. Le service de Playnite
+  qui donne ces liens : `https://api.playnite.link/api/addons/installer?addonId=<Id>`.
+- **Assistant de premier démarrage sauté** : le script crée le dossier
+  `Playnite\library` (Playnite considère alors la base comme existante).
+- **`HttpListener` marche sans droits admin** sur `127.0.0.1:47800`. Pas besoin de
+  serveur TCP maison ni de réservation d'URL.
+- `psc status`, `stores`, `games` : OK. Les jeux déjà installés (Steam, Epic) sont
+  importés tout seuls au premier démarrage.
+- Sécurité : 401 sans jeton ou avec un mauvais jeton. Écoute sur 127.0.0.1 seulement.
+- **Lancement** : `psc start notepad` ouvre le Bloc-notes, avec Playnite fenêtre
+  ouverte comme caché dans la zone de notification. `game.starting`, `game.started`
+  puis `game.stopped` (avec la durée) arrivent tout de suite par `psc events`.
+- **CI** : active et verte sur la branche.
+
+### Corrections faites pendant la validation
+
+- `build-bundle.ps1` : .7z, extensions de store, dossier `library`, `$PSScriptRoot`
+  vide dans les valeurs par défaut des paramètres sous Windows PowerShell 5.1, fichier
+  enregistré en UTF-8 **avec BOM** (sinon PowerShell 5.1 abîme les accents).
+- **Fenêtres de Playnite transparentes** (visibles dans la barre des tâches mais vides,
+  plein écran qui bloque les clics) : causé par l'accélération graphique avec l'écran
+  virtuel Parsec. `start-engine.cmd` passe maintenant `--forcesoftrender`.
+- `psc events` se reconnecte quand le moteur redémarre (et relit `engine.json`, car le
+  jeton change à chaque démarrage). Avant, il plantait (`ECONNRESET`).
+
 ### Jamais testé sous Windows
 
-- `packaging/build-bundle.ps1` (jamais exécuté).
-- La passerelle dans un vrai Playnite : chargement de l'extension, serveur HTTP,
-  écriture de `engine.json`, routes, événements, lancement de jeu via le thread
-  d'interface de Playnite.
-- `psc` sous Windows (chemin de `engine.json`, Node 24).
 - La sentinelle avec une vraie manette (XInput, `SetForegroundWindow`).
-- **La CI** (`.github/workflows/ci.yml`) : jamais vue tourner. Elle est peut-être
-  désactivée sur le dépôt, ou en échec.
 
 ### Points fragiles connus
 
-1. **Serveur HTTP sans droits admin.** La passerelle utilise `HttpListener` sur
-   `http://127.0.0.1:47800/`. Sous Windows, `HttpListener` passe par `http.sys`, qui peut
-   exiger des droits admin ou une réservation d'URL (`netsh http add urlacl`). Si le
-   démarrage échoue (« Access denied » dans `playnite.log`), il y a 2 options :
-   - **(a) serveur maison sur `TcpListener`**, sans droits admin. **À privilégier** : pas
-     d'UAC, cohérent avec la règle « zéro blocage » ;
-   - (b) réservation d'URL faite une fois à l'installation, en admin.
-2. **Nom et contenu de l'archive Playnite.** L'URL exacte de l'archive **portable** n'a
-   pas pu être vérifiée (Playnite 10.62 était la dernière version vue dans le code
-   source). Le script prend donc le chemin de l'archive en paramètre. Il suppose que
-   `Playnite.DesktopApp.exe` est **à la racine** de l'archive décompressée ; si l'archive
-   contient un sous-dossier, il faut corriger le script.
-3. **Assistant de premier démarrage de Playnite.** Sur un Playnite vierge, un assistant
-   s'ouvre au premier lancement, probablement même avec `--startclosedtotray`. Il peut
-   empêcher le démarrage normal, et donc notre passerelle. D'après le code de Playnite,
-   il est sauté si `FirstTimeWizardComplete` vaut `true` ou si un chemin de base de
-   données (`DatabasePath`) est déjà défini dans `config.json`. **À vérifier**, puis à
-   intégrer au script de packaging. En attendant, la personne peut faire l'assistant à
-   la souris (voir § 4).
-4. **Bibliothèque vide au départ.** Aucun store n'est connecté sur ce PC : `psc games`
-   renverra 0 jeu. Pour tester `psc start`, il faut au moins un jeu (voir § 4).
-5. **Mode portable.** Le script supprime `unins000.exe` s'il existe. À vérifier :
-   données bien dans le dossier du paquet, extension bien chargée depuis
-   `Playnite\Extensions\Playscreen_Bridge\`.
-6. **Événements (SSE) avec `HttpListener`** : `SendChunked` + `Flush` doivent envoyer
-   chaque événement immédiatement. À vérifier avec `psc events`.
-7. **Lancement de jeu** : `RunOnUi` utilise `UIDispatcher.BeginInvoke`. Si Playnite
-   n'a pas de dispatcher prêt en mode zone de notification, le lancement peut échouer
-   silencieusement.
-8. **PowerShell** : la stratégie d'exécution peut bloquer le script. Utiliser
+1. **Reconstruire le paquet efface les données** : `build-bundle.ps1` supprime
+   `dist\Playscreen\Playnite` en entier, bibliothèque et réglages compris. À séparer
+   (programme d'un côté, données de l'autre, par exemple avec `--userdatadir`) avant que
+   la personne s'en serve pour de vrai.
+2. **Mode plein écran de Playnite** : le menu de l'icône de la zone de notification
+   permet de basculer en plein écran, ce qui redémarre Playnite (et notre passerelle).
+   La passerelle repart toute seule, mais l'interface devra supporter ce redémarrage.
+3. **PowerShell** : la stratégie d'exécution peut bloquer le script. Utiliser
    `powershell -ExecutionPolicy Bypass -File .\packaging\build-bundle.ps1 ...`.
-9. **`Stores` / `connected` / `launcherInstalled`** valent `null` dans la passerelle
+4. **`Stores` / `connected` / `launcherInstalled`** valent `null` dans la passerelle
    (phase 2). **`/stores/{id}/sync` et `/login` répondent 501** (pas encore faits).
-10. **Événement `library.updated`** : la passerelle envoie des listes vides, car Playnite
-    ne détaille pas les changements. L'interface devra recharger la liste.
+5. **Événement `library.updated`** : la passerelle envoie des listes vides, car Playnite
+   ne détaille pas les changements. L'interface devra recharger la liste.
+6. **Arrêter Playnite proprement** : `Playnite.DesktopApp.exe --shutdown`.
 
 ---
 
@@ -186,7 +196,7 @@ Détails dans `docs/stores-v1.md`. L'essentiel :
 4. Si Rust n'est pas installé, ne l'installe pas tout de suite : la sentinelle attendra
    la phase 4. Demande l'accord de la personne avant d'installer un logiciel.
 
-### Étape A — Valider la phase 1 de bout en bout
+### Étape A — Valider la phase 1 de bout en bout ✅ (5 octobre 2026, voir § 3)
 
 1. **Obtenir l'archive portable de Playnite** (page des versions sur GitHub, projet
    `JosefNemec/Playnite`). Télécharge-la toi-même si tu peux ; sinon demande à la

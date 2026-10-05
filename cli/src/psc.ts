@@ -22,7 +22,9 @@ const USAGE = `Usage : psc <commande> [arguments]
   events                 Affiche les événements en direct (Ctrl+C pour quitter)
 `;
 
-function connect(): PlayscreenClient {
+function connect(): PlayscreenClient;
+function connect(options: { quiet: true }): PlayscreenClient | null;
+function connect(options?: { quiet: true }): PlayscreenClient | null {
   if (process.env.PLAYSCREEN_URL && process.env.PLAYSCREEN_TOKEN) {
     return new PlayscreenClient(process.env.PLAYSCREEN_URL, process.env.PLAYSCREEN_TOKEN);
   }
@@ -30,6 +32,7 @@ function connect(): PlayscreenClient {
     const info = readEngineInfo();
     return new PlayscreenClient(`http://127.0.0.1:${info.port}/api/v0`, info.token);
   } catch {
+    if (options?.quiet) return null;
     fail(`Moteur introuvable : ${engineInfoPath()} est absent. Le moteur est-il démarré ?`);
   }
 }
@@ -62,6 +65,26 @@ function formatGame(game: Game): string {
   const state = game.installed ? "installé " : "         ";
   const hours = (game.playtimeSeconds / 3600).toFixed(1).padStart(6);
   return `${game.id}  ${game.store.padEnd(9)} ${state} ${hours} h  ${game.name}`;
+}
+
+/**
+ * Affiche les événements et se reconnecte si le moteur redémarre (Playnite qui passe en
+ * plein écran, par exemple). Le jeton change à chaque démarrage : on relit engine.json.
+ */
+async function watchEvents(client: PlayscreenClient): Promise<never> {
+  console.log("Écoute des événements… (Ctrl+C pour quitter)");
+  for (;;) {
+    try {
+      for await (const event of client.events()) {
+        console.log(new Date().toLocaleTimeString(), event.type, JSON.stringify(event.data));
+      }
+      console.log(new Date().toLocaleTimeString(), "Moteur déconnecté, reconnexion…");
+    } catch {
+      // Moteur arrêté ou en cours de redémarrage : on réessaie.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    client = connect({ quiet: true }) ?? client;
+  }
 }
 
 async function main(argv: string[]) {
@@ -109,10 +132,7 @@ async function main(argv: string[]) {
       console.log("Fenêtre de connexion demandée.");
       break;
     case "events":
-      console.log("Écoute des événements… (Ctrl+C pour quitter)");
-      for await (const event of client.events()) {
-        console.log(new Date().toLocaleTimeString(), event.type, JSON.stringify(event.data));
-      }
+      await watchEvents(client);
       break;
     default:
       fail(`Commande inconnue : ${command}\n\n${USAGE}`);

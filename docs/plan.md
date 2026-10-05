@@ -25,15 +25,16 @@
   script de packaging, CI.
 - **Votre test :** aucun, à part vérifier que la CI est verte.
 
-### Phase 1 — La passerelle parle (lecture + lancement)
+### Phase 1 — La passerelle parle (lecture + lancement) ✅
 
-Objectif : piloter Playnite depuis l'extérieur.
+Objectif : piloter Playnite depuis l'extérieur. Validée sur le PC Windows le
+5 octobre 2026 (détails dans [`passation.md`](passation.md), § 3).
 - Serveur HTTP local dans la passerelle : `status`, `stores`, `games`, `games/{id}`,
-  `start`, événements (SSE).
-- Packaging : script qui assemble Playnite portable + passerelle et démarre Playnite en
-  arrière-plan (`--startclosedtotray --hidesplashscreen`).
-- **Point technique à valider en premier :** `HttpListener` sur `127.0.0.1` sans droits
-  admin. Sinon, petit serveur TCP maison.
+  `start`, événements (SSE). `HttpListener` marche sur `127.0.0.1` sans droits admin.
+- Packaging : script qui assemble Playnite portable (`10.62.7z`) + extensions de store
+  (Playnite 10 ne les fournit plus) + passerelle, saute l'assistant de premier démarrage
+  et démarre Playnite en arrière-plan
+  (`--startclosedtotray --hidesplashscreen --forcesoftrender`).
 - **Votre test :** sur votre PC, `packaging/build-bundle.ps1`, lancer le paquet, puis
   `psc games` et `psc start <id>` : un jeu se lance sans toucher à Playnite.
 
