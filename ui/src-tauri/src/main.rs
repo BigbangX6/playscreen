@@ -6,6 +6,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod game_window;
+mod touch_keyboard;
 
 /// Met au premier plan une fenêtre de launcher signalée par le moteur (launcher.prompt).
 #[tauri::command]
@@ -40,9 +41,20 @@ fn hide_to_desktop(window: tauri::WebviewWindow) -> bool {
     window.minimize().is_ok()
 }
 
+/// Clavier manette de Windows : ouvert quand un champ de texte a le focus, fermé ensuite.
+#[tauri::command]
+fn show_keyboard() -> bool {
+    touch_keyboard::show()
+}
+
+#[tauri::command]
+fn hide_keyboard() -> bool {
+    touch_keyboard::hide()
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

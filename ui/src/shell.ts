@@ -31,3 +31,39 @@ export async function hideToDesktop(): Promise<boolean> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<boolean>("hide_to_desktop");
 }
+
+/** Clavier manette de Windows (clavier tactile, disposition « manette »). Rien hors de Tauri. */
+export async function showKeyboard(): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("show_keyboard");
+}
+
+export async function hideKeyboard(): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("hide_keyboard");
+}
+
+function isTextField(target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement {
+  return (target instanceof HTMLInputElement && !["button", "checkbox", "radio", "range"].includes(target.type)) || target instanceof HTMLTextAreaElement;
+}
+
+/**
+ * Tout champ de texte ouvre le clavier manette quand il prend le focus, et le referme quand
+ * il le perd (recherche, navigateur, connexions). Renvoie la fonction d'arrêt.
+ */
+export function startTextFieldKeyboard(): () => void {
+  const onFocusIn = (event: FocusEvent) => {
+    if (isTextField(event.target)) void showKeyboard();
+  };
+  const onFocusOut = (event: FocusEvent) => {
+    if (isTextField(event.target) && !isTextField(event.relatedTarget)) void hideKeyboard();
+  };
+  document.addEventListener("focusin", onFocusIn);
+  document.addEventListener("focusout", onFocusOut);
+  return () => {
+    document.removeEventListener("focusin", onFocusIn);
+    document.removeEventListener("focusout", onFocusOut);
+  };
+}

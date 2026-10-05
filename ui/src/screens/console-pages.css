@@ -420,6 +420,19 @@
   color: var(--text-sub);
 }
 
+/* Le champ de recherche est un vrai champ de texte (clavier manette de Windows). */
+input.search-field {
+  width: 100%;
+  font: inherit;
+  font-size: calc(var(--cq) * 1.4);
+  color: var(--text);
+  outline: none;
+}
+
+input.search-field::placeholder {
+  color: var(--text-sub);
+}
+
 .page-note {
   font-size: calc(var(--cq) * 1.1);
   color: var(--text-sub);

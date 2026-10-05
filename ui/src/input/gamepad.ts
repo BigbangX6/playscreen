@@ -60,6 +60,9 @@ const KEYS_BY_NAME: Record<string, NavAction> = {
   PageDown: "nextTab",
 };
 
+/** Touches qui quittent un champ de texte (les autres lui appartiennent). */
+const TEXT_FIELD_KEYS = new Set(["Enter", "Escape", "ArrowUp", "ArrowDown"]);
+
 const DIRECTIONS = new Set<NavAction>(["up", "down", "left", "right"]);
 const STICK_THRESHOLD = 0.5;
 /** Maintenir une direction : premier pas, puis répétition (défilement d'une liste). */
@@ -107,6 +110,10 @@ export function startInput(): () => void {
   };
 
   const onKey = (event: KeyboardEvent) => {
+    // Dans un champ de texte, les lettres et l'effacement vont au champ ; seules Entrée,
+    // Échap et haut / bas en sortent (le clavier manette envoie Entrée avec Start).
+    const target = event.target;
+    if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && !TEXT_FIELD_KEYS.has(event.key)) return;
     // Par position (event.code), sinon par nom (event.key) : les touches simulées par un
     // autre logiciel (tests, claviers virtuels) n'ont pas toujours de position.
     const action = KEYS[event.code] ?? KEYS_BY_NAME[event.key.length === 1 ? event.key.toLowerCase() : event.key];

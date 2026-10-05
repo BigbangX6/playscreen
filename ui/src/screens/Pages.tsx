@@ -1,11 +1,12 @@
 // Pages simples des espaces (première version) : Rechercher, Trophées, Notifications.
 // Même mise en page que les Paramètres : titre en haut à gauche, lignes en dessous.
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Game } from "../../../api/types.ts";
 import { PadHints } from "../components/PadHints.tsx";
 import { STORE_LABELS } from "../format.ts";
 import { useNavAction } from "../input/navigation.ts";
+import { showKeyboard } from "../shell.ts";
 import { system } from "../system.ts";
 import "./console-pages.css";
 
@@ -46,23 +47,54 @@ function Page({ title, children, onBack }: { title: string; children: ReactNode;
   );
 }
 
+/** Sans accents ni majuscules : « pokemon » trouve « Pokémon ». */
+function normalize(text: string): string {
+  return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
 export function SearchPage({ games, onOpenGame, onBack }: { games: Game[] | null; onOpenGame(game: Game): void; onBack(): void }) {
+  const [query, setQuery] = useState("");
+  const field = useRef<HTMLInputElement>(null);
   const recent = [...(games ?? [])]
     .filter((g) => g.lastPlayed)
     .sort((a, b) => new Date(b.lastPlayed!).getTime() - new Date(a.lastPlayed!).getTime())
     .slice(0, 6);
+  const words = normalize(query).split(/\s+/).filter(Boolean);
+  const found = words.length
+    ? (games ?? []).filter((g) => words.every((w) => normalize(g.name).includes(w))).slice(0, 12)
+    : recent;
+
+  // Entrée (Start sur le clavier manette) : on referme le clavier et on va aux résultats.
+  useNavAction((action) => {
+    if (document.activeElement !== field.current) return false;
+    if (action === "confirm") {
+      field.current?.parentElement?.parentElement?.querySelector<HTMLElement>(".srow")?.focus();
+      return true;
+    }
+    return false;
+  });
+
   return (
     <Page title="Rechercher" onBack={onBack}>
-      <div className="search-field">Tape le nom d'un jeu…</div>
-      <p className="page-note">Le clavier manette de Windows s'ouvrira ici (à ajouter au moteur).</p>
-      <span className="page-sec">Joués récemment</span>
-      {recent.map((game) => (
+      <input
+        ref={field}
+        className="search-field"
+        data-focusable
+        value={query}
+        placeholder="Tape le nom d'un jeu…"
+        onChange={(event) => setQuery(event.target.value)}
+        // A sur le champ (clavier refermé) : le rouvrir.
+        onClick={() => void showKeyboard()}
+      />
+      <span className="page-sec">{words.length ? `Résultats (${found.length})` : "Joués récemment"}</span>
+      {found.map((game) => (
         <button key={game.id} className="srow" data-focusable onClick={() => onOpenGame(game)}>
           <span>
             {game.name} <small>· {STORE_LABELS[game.store]}</small>
           </span>
         </button>
       ))}
+      {words.length > 0 && found.length === 0 && <p className="page-note">Aucun jeu ne correspond.</p>}
     </Page>
   );
 }
