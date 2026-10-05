@@ -431,8 +431,13 @@ Vérifié : dans un navigateur, la maquette technique affiche les 38 vrais jeux 
 passerelle, avec leurs images. **La coque Tauri ne compile pas encore** : Rust en
 variante GNU n'a pas `dlltool` (bibliothèques Windows récentes) ; il faut les outils de
 compilation Microsoft (MSVC) ou une distribution MinGW (accord de la personne requis).
-Constat : la plupart des jeux importés par notre synchronisation **n'ont pas de
-jaquette** (Playnite ne télécharge pas leurs images) : à corriger.
+**Jaquettes** : notre import maison ne téléchargeait pas les métadonnées. Corrigé :
+`POST /stores/{id}/sync` appelle maintenant l'import de Playnite lui-même
+(`MainViewModelBase.UpdateLibrary(plugin)`, par réflexion via le champ `mainModel` de
+`MainViewAPI`, `PlayniteInternals.cs`), qui télécharge les images des nouveaux jeux ;
+puis il rattrape les jeux sans jaquette avec `Playnite.Metadata.MetadataDownloader`.
+L'ancien import reste en repli. Vérifié : 23 jeux Steam rattrapés, visibles dans
+l'interface.
 
 **À faire, par ordre proposé** :
 1. **Xbox, phase 5** : installation (Microsoft Store ou appli Xbox), progression,

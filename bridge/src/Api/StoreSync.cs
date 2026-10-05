@@ -25,11 +25,13 @@ namespace Playscreen.Bridge.Api
         // Vérifier la connexion fait un appel réseau : on garde le dernier résultat connu.
         private readonly ConcurrentDictionary<string, bool?> connected = new ConcurrentDictionary<string, bool?>();
         private readonly HashSet<string> running = new HashSet<string>();
+        private readonly PlayniteInternals internals;
 
         public StoreSync(IPlayniteAPI api, EventHub events)
         {
             this.api = api;
             this.events = events;
+            internals = new PlayniteInternals(api);
         }
 
         public LibraryPlugin FindPlugin(Stores.StoreInfo store)
@@ -92,8 +94,39 @@ namespace Playscreen.Bridge.Api
             {
                 var added = new List<Guid>();
                 var updated = new List<Guid>();
-                Import(plugin, added, updated);
-                logger.Info($"Playscreen sync {store.Id}: {added.Count} added, {updated.Count} updated");
+                // L'import de Playnite lui-même télécharge aussi les images des nouveaux jeux ;
+                // notre import n'est qu'un repli si Playnite a changé.
+                var before = api.Database.Games.Where(g => g.PluginId == plugin.Id)
+                    .ToDictionary(g => g.Id, g => g.IsInstalled + "|" + g.InstallDirectory);
+                if (internals.UpdateLibrary(plugin))
+                {
+                    foreach (var game in api.Database.Games.Where(g => g.PluginId == plugin.Id))
+                    {
+                        if (!before.TryGetValue(game.Id, out var state))
+                        {
+                            added.Add(game.Id);
+                        }
+                        else if (state != game.IsInstalled + "|" + game.InstallDirectory)
+                        {
+                            updated.Add(game.Id);
+                        }
+                    }
+                }
+                else
+                {
+                    Import(plugin, added, updated);
+                }
+
+                // Rattrapage : jeux sans jaquette (importés par une ancienne version de la
+                // passerelle, ou image indisponible lors de l'import).
+                var withoutCover = api.Database.Games
+                    .Where(g => g.PluginId == plugin.Id && string.IsNullOrEmpty(g.CoverImage) && !added.Contains(g.Id))
+                    .ToList();
+                if (withoutCover.Count > 0 && internals.DownloadMetadata(withoutCover))
+                {
+                    updated.AddRange(withoutCover.Select(g => g.Id).Where(id => !updated.Contains(id)));
+                }
+                logger.Info($"Playscreen sync {store.Id}: {added.Count} added, {updated.Count} updated, {withoutCover.Count} without cover");
                 if (added.Count > 0 || updated.Count > 0)
                 {
                     events.Publish("library.updated", new { added, updated, removed = new Guid[0] });
@@ -129,7 +162,7 @@ namespace Playscreen.Bridge.Api
             }
         }
 
-        /// <summary>Même logique que GameDatabase.ImportGames de Playnite 10.</summary>
+        /// <summary>Repli : même logique que GameDatabase.ImportGames de Playnite 10, sans les images.</summary>
         private void Import(LibraryPlugin plugin, List<Guid> added, List<Guid> updated)
         {
             var excluded = new HashSet<string>(api.Database.ImportExclusions
