@@ -206,6 +206,28 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
   (`DatabasePath` remis à `null` dans `config.json`, car il pointait vers
   `{PlayniteDir}\library`).
 
+### Phase 3 : connexions (5 octobre 2026)
+
+- **`POST /stores/{id}/login`** (`bridge/src/Api/StoreLogin.cs`) : déclenche par
+  réflexion la commande `LoginCommand` du modèle de réglages de l'extension (le bouton
+  « Connexion »), sur le thread d'interface. Un minuteur repère les nouvelles fenêtres :
+  fenêtres WPF agrandies (si redimensionnables) et mises au premier plan **une fois**
+  (pas « toujours au-dessus »), fenêtres natives du navigateur intégré (surgissantes,
+  avec barre de titre) agrandies via Win32 (`NativeWindows.cs`). Quand toutes sont
+  fermées : `EndEdit()` (comme « Sauvegarder »), connexion revérifiée, `store.updated`.
+  Une connexion à la fois (409). `?method=alternative` → `LoginAlternativeCommand`
+  (Epic : navigateur du système + code à coller).
+- `psc login <store> [--alternative]` attend la fin et affiche « Connecté » ou non.
+- **Testé avec les vrais comptes** : Battle.net (identifiant Blizzard, puis
+  `psc sync battlenet` : Overwatch 2), Epic (d'abord en alternative, puis avec le bouton
+  Google dans la fenêtre agrandie : tout se ferme tout seul une fois connecté ;
+  `psc sync epic` : 5 jeux). Steam avait été connecté par l'interface de Playnite.
+- Découvertes : F19 (pare-feu pour `Playnite.BrowserProcess`), F20 (fenêtre Google
+  cachée par une fenêtre « toujours au-dessus »), F21 (pas de retour arrière), voir
+  `frictions.md`.
+- Mes captures d'écran PowerShell sont tronquées (affichage à 125 % : la capture n'est
+  pas « DPI-aware »). Ce n'est pas un défaut des fenêtres.
+
 ### Jamais testé sous Windows
 
 - La sentinelle avec une vraie manette (XInput, `SetForegroundWindow`).
@@ -221,7 +243,8 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
    La passerelle repart toute seule, mais l'interface devra supporter ce redémarrage.
 3. **PowerShell** : la stratégie d'exécution peut bloquer le script. Utiliser
    `powershell -ExecutionPolicy Bypass -File .\packaging\build-bundle.ps1 ...`.
-4. **`/stores/{id}/login` répond 501** (phase 3).
+4. **Connexion Xbox pas encore testée.** Sa commande de connexion est asynchrone :
+   la passerelle attend l'apparition d'une fenêtre jusqu'à 20 s.
 5. **Événement `library.updated`** : après une synchronisation, il donne les vrais
    identifiants. Quand Playnite met à jour sa bibliothèque lui-même (au démarrage), il
    envoie des listes vides : l'interface devra alors recharger la liste.

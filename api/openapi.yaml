@@ -55,10 +55,25 @@ paths:
   /stores/{storeId}/login:
     post:
       summary: Ouvre la fenêtre de connexion du store
-      parameters: [{ $ref: "#/components/parameters/StoreId" }]
+      description: |
+        Ouvre la fenêtre de connexion de l'extension du store, en grand et au premier plan.
+        Le joueur s'y connecte lui-même (identifiants, QR code…). Quand la fenêtre se
+        ferme, l'état du store est revérifié : événement store.updated (connected).
+        Une seule connexion à la fois.
+      parameters:
+        - { $ref: "#/components/parameters/StoreId" }
+        - name: method
+          in: query
+          description: |
+            alternative : connexion de secours de l'extension. Epic : la page Epic s'ouvre
+            dans le navigateur du système (nécessaire pour un compte lié à Google, que
+            Google refuse dans un navigateur intégré), puis le code affiché est à coller
+            dans Playnite.
+          schema: { type: string, enum: [alternative] }
       responses:
         "202": { description: Fenêtre ouverte (événement store.updated à la fin) }
         "404": { description: Store inconnu }
+        "409": { description: "Connexion déjà en cours, ou extension du store absente" }
   /games:
     get:
       summary: Liste des jeux

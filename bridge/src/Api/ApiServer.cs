@@ -27,6 +27,7 @@ namespace Playscreen.Bridge.Api
         private readonly IPlayniteAPI api;
         private readonly EventHub events;
         private readonly StoreSync sync;
+        private readonly StoreLogin login;
         private readonly string token = NewToken();
         private readonly List<Route> routes;
         private HttpListener listener;
@@ -38,12 +39,16 @@ namespace Playscreen.Bridge.Api
             this.api = api;
             this.events = events;
             this.sync = sync;
+            login = new StoreLogin(api, events, sync);
             routes = new List<Route>
             {
                 new Route("GET", @"^/status$", _ => Json(200, GetStatus())),
                 new Route("GET", @"^/stores$", _ => Json(200, Stores.All.Select(sync.Describe).ToList())),
-                new Route("POST", @"^/stores/([^/]+)/sync$", ctx => Sync(ctx.Params[0])),
-                new Route("POST", @"^/stores/([^/]+)/login$", _ => NotImplemented("login (phase 3)")),
+                new Route("POST", @"^/stores/([^/]+)/sync$", ctx => WithStore(ctx, (store, plugin) =>
+                    sync.TryStart(store, plugin) ? new Reply(202) : Json(409, new { error = "busy" }))),
+                new Route("POST", @"^/stores/([^/]+)/login$", ctx => WithStore(ctx, (store, plugin) =>
+                    login.TryStart(store, plugin, ctx.Request.QueryString["method"] == "alternative")
+                        ? new Reply(202) : Json(409, new { error = "busy" }))),
                 new Route("GET", @"^/games$", ctx => Json(200, GetGames(ctx.Request.QueryString))),
                 new Route("GET", @"^/games/([^/]+)$", ctx => WithGame(ctx, game => Json(200, GameDto.From(game, api)))),
                 new Route("POST", @"^/games/([^/]+)/start$", ctx => WithGame(ctx, game =>
@@ -144,19 +149,15 @@ namespace Playscreen.Bridge.Api
             Ready = true,
         };
 
-        private Reply Sync(string storeId)
+        private Reply WithStore(RequestContext ctx, Func<Stores.StoreInfo, Playnite.SDK.Plugins.LibraryPlugin, Reply> handler)
         {
-            var store = Stores.All.FirstOrDefault(s => s.Id == storeId);
+            var store = Stores.All.FirstOrDefault(s => s.Id == ctx.Params[0]);
             if (store == null)
             {
                 return Json(404, new { error = "unknown store" });
             }
             var plugin = sync.FindPlugin(store);
-            if (plugin == null)
-            {
-                return Json(409, new { error = "plugin not installed" });
-            }
-            return sync.TryStart(store, plugin) ? new Reply(202) : Json(409, new { error = "busy" });
+            return plugin == null ? Json(409, new { error = "plugin not installed" }) : handler(store, plugin);
         }
 
         private List<GameDto> GetGames(System.Collections.Specialized.NameValueCollection query)
@@ -241,8 +242,6 @@ namespace Playscreen.Bridge.Api
 
         private static Reply Json(int status, object value) =>
             new Reply(status, "application/json", Encoding.UTF8.GetBytes(Serialization.ToJson(value)));
-
-        private static Reply NotImplemented(string what) => Json(501, new { error = $"not implemented: {what}" });
 
         private static void Send(HttpListenerResponse response, Reply reply)
         {

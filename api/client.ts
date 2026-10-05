@@ -56,8 +56,9 @@ export class PlayscreenClient {
     return this.post(`/stores/${storeId}/sync`);
   }
 
-  login(storeId: StoreId) {
-    return this.post(`/stores/${storeId}/login`);
+  /** alternative : connexion de secours de l'extension (Epic : navigateur du système). */
+  login(storeId: StoreId, options: { alternative?: boolean } = {}) {
+    return this.post(`/stores/${storeId}/login${options.alternative ? "?method=alternative" : ""}`);
   }
 
   /** Flux d'événements. Interrompre avec `signal`. */

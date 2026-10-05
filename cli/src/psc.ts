@@ -18,7 +18,9 @@ const USAGE = `Usage : psc <commande> [arguments]
   install <id|nom>       Installe un jeu
   uninstall <id|nom>     Désinstalle un jeu
   sync <store>           Synchronise un store (${STORE_IDS.join(", ")})
-  login <store>          Ouvre la connexion d'un store
+  login <store> [--alternative]
+                         Ouvre la connexion d'un store (--alternative : connexion de
+                         secours, par exemple Epic avec un compte lié à Google)
   events                 Affiche les événements en direct (Ctrl+C pour quitter)
 `;
 
@@ -127,10 +129,24 @@ async function main(argv: string[]) {
       await client.sync(storeArg(args[0]));
       console.log("Synchronisation lancée (suivre avec : psc events)");
       break;
-    case "login":
-      await client.login(storeArg(args[0]));
-      console.log("Fenêtre de connexion demandée.");
+    case "login": {
+      const storeId = storeArg(args[0]);
+      // On écoute avant de demander la connexion pour ne pas rater la fin.
+      const controller = new AbortController();
+      const stream = client.events(controller.signal);
+      const first = stream.next();
+      await client.login(storeId, { alternative: args.includes("--alternative") });
+      console.log("Fenêtre de connexion ouverte. Connectez-vous, puis fermez-la si besoin…");
+      for (let result = await first; !result.done; result = await stream.next()) {
+        const event = result.value;
+        if (event.type === "store.updated" && event.data.id === storeId) {
+          console.log(event.data.connected ? "Connecté." : `Non connecté (connected: ${event.data.connected}).`);
+          break;
+        }
+      }
+      controller.abort();
       break;
+    }
     case "events":
       await watchEvents(client);
       break;

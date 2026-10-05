@@ -49,7 +49,7 @@ Validée sur le PC Windows le 5 octobre 2026 avec un vrai compte Steam (détails
 - État des stores : launcher installé ? extension connectée ?
 - **Votre test :** `psc stores`, `psc sync steam` : les jeux non installés apparaissent.
 
-### Phase 3 — Connexions
+### Phase 3 — Connexions (Steam, Epic, Battle.net ✅ ; Xbox à tester)
 
 - `POST /stores/{id}/login` : la passerelle ouvre la fenêtre de connexion **en grand**.
 - **Steam : QR code ET identifiants saisis à la main.** La page de connexion Steam

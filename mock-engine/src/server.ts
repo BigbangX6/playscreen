@@ -32,6 +32,8 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
   const timers = new Set<NodeJS.Timeout>();
   const busy = new Set<string>();
   const syncing = new Set<StoreId>();
+  // Une seule fenêtre de connexion à la fois, comme la passerelle.
+  let loggingIn = false;
 
   const later = (ms: number, fn: () => void) => {
     const timer = setTimeout(() => {
@@ -75,7 +77,11 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
     route("POST", /^\/stores\/([^/]+)\/login$/, ([storeId]) => {
       const store = stores.get(storeId as StoreId);
       if (!store) return json(404, { error: "unknown store" });
+      if (!store.pluginInstalled) return json(409, { error: "plugin not installed" });
+      if (loggingIn) return json(409, { error: "busy" });
+      loggingIn = true;
       later(tickMs, () => {
+        loggingIn = false;
         store.connected = true;
         emit("store.updated", storeView(store));
       });

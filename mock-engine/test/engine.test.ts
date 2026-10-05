@@ -92,8 +92,11 @@ describe("faux moteur", () => {
     assert.equal(finished?.type === "sync.finished" && finished.data.ok, true);
   });
 
-  it("connecte un store", async () => {
-    const events = await collectUntil("store.updated", () => client.login("epic"));
+  it("connecte un store, une connexion à la fois", async () => {
+    const events = await collectUntil("store.updated", async () => {
+      await client.login("epic");
+      await assert.rejects(client.login("steam"), (e: unknown) => e instanceof ApiError && e.status === 409);
+    });
     const updated = events.find((e) => e.type === "store.updated");
     assert.equal(updated?.type === "store.updated" && updated.data.connected, true);
   });

@@ -174,7 +174,7 @@ namespace Playscreen.Bridge.Api
         /// Les 4 extensions exposent IsUserLoggedIn sur leur modèle de réglages (pas dans le
         /// SDK) : on le lit par réflexion. En cas de doute : null, jamais une fausse certitude.
         /// </summary>
-        private void RefreshConnection(Stores.StoreInfo store, LibraryPlugin plugin)
+        public void RefreshConnection(Stores.StoreInfo store, LibraryPlugin plugin)
         {
             bool? value = null;
             try
