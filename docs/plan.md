@@ -38,7 +38,10 @@ Objectif : piloter Playnite depuis l'extérieur. Validée sur le PC Windows le
 - **Votre test :** sur votre PC, `packaging/build-bundle.ps1`, lancer le paquet, puis
   `psc games` et `psc start <id>` : un jeu se lance sans toucher à Playnite.
 
-### Phase 2 — Préconfiguration et synchronisation
+### Phase 2 — Préconfiguration et synchronisation ✅
+
+Validée sur le PC Windows le 5 octobre 2026 avec un vrai compte Steam (détails dans
+[`passation.md`](passation.md), § 3).
 
 - Écriture des réglages des 4 extensions (compte connecté, import des jeux non installés).
 - `POST /stores/{id}/sync` : synchronisation à la demande (appel direct de

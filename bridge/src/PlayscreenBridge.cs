@@ -28,9 +28,11 @@ namespace Playscreen.Bridge
         {
             try
             {
-                server = new ApiServer(PlayniteApi, events);
+                var sync = new StoreSync(PlayniteApi, events);
+                server = new ApiServer(PlayniteApi, events, sync);
                 server.Start();
                 logger.Info($"Playscreen API listening on port {server.Port}");
+                sync.RefreshConnections();
             }
             catch (Exception e)
             {

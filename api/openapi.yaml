@@ -41,10 +41,17 @@ paths:
   /stores/{storeId}/sync:
     post:
       summary: Synchronise la bibliothèque d'un store
+      description: |
+        Importe les jeux du store (installés et, si le compte est connecté, non installés)
+        et met à jour l'état d'installation des jeux connus. Événements, dans l'ordre :
+        sync.started, library.updated (s'il y a des changements), store.updated (état du
+        store revérifié), sync.finished. Si le compte n'est pas connecté, seuls les jeux
+        installés sont importés et sync.finished vaut { ok: false, error: "not connected" }.
       parameters: [{ $ref: "#/components/parameters/StoreId" }]
       responses:
         "202": { description: Synchronisation lancée (événements sync.*) }
         "404": { description: Store inconnu }
+        "409": { description: "Synchronisation déjà en cours, ou extension du store absente" }
   /stores/{storeId}/login:
     post:
       summary: Ouvre la fenêtre de connexion du store

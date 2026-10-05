@@ -163,6 +163,30 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
 - `psc events` se reconnecte quand le moteur redémarre (et relit `engine.json`, car le
   jeton change à chaque démarrage). Avant, il plantait (`ECONNRESET`).
 
+### Phase 2 validée sur le PC Windows (5 octobre 2026)
+
+- **Préconfiguration** (`build-bundle.ps1`) : `ExtensionsData\<id>\config.json` des
+  4 extensions avec `ConnectAccount` et `ImportUninstalledGames` à `true` (cases bien
+  cochées dans Playnite). Seuls les réglages utiles sont écrits, les autres gardent leur
+  valeur par défaut ; `Version` évite les migrations de réglages des extensions.
+- **`POST /stores/{id}/sync`** (`bridge/src/Api/StoreSync.cs`) : `GetGames` puis
+  `ImportGame`, même logique que `GameDatabase.ImportGames` de Playnite (exclusions,
+  jeux ajoutés à la main ou à l'état forcé laissés tranquilles). Événements :
+  `sync.started`, `library.updated` (vraies listes d'identifiants), `store.updated`,
+  `sync.finished`. 409 si une synchronisation tourne déjà. Compte non connecté :
+  `ok: false, error: "not connected"` (seuls les jeux installés sont importés).
+- **État des stores** : `launcherInstalled` vient de l'extension, sauf pour Xbox (son
+  extension répond toujours « installé ») : on cherche le paquet `Microsoft.GamingApp_`
+  dans le registre de l'utilisateur. `connected` lit `IsUserLoggedIn` des extensions par
+  réflexion, en arrière-plan (appel réseau) : au démarrage et après chaque
+  synchronisation. `null` tant que ce n'est pas vérifié ou en cas d'erreur.
+- **Test réel** : la personne a connecté Steam dans Playnite (manette colorée →
+  **Bibliothèque → Configurer les intégrations** → Steam → Connexion). `psc sync steam` :
+  22 jeux non installés ajoutés (avec leur temps de jeu Steam), `connected: true`. Une
+  2e synchronisation : 0 ajout, 0 doublon.
+- Epic, Xbox et Battle.net : launchers installés sur ce PC, comptes pas encore connectés
+  dans Playnite (`connected: false`).
+
 ### Jamais testé sous Windows
 
 - La sentinelle avec une vraie manette (XInput, `SetForegroundWindow`).
@@ -178,11 +202,14 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
    La passerelle repart toute seule, mais l'interface devra supporter ce redémarrage.
 3. **PowerShell** : la stratégie d'exécution peut bloquer le script. Utiliser
    `powershell -ExecutionPolicy Bypass -File .\packaging\build-bundle.ps1 ...`.
-4. **`Stores` / `connected` / `launcherInstalled`** valent `null` dans la passerelle
-   (phase 2). **`/stores/{id}/sync` et `/login` répondent 501** (pas encore faits).
-5. **Événement `library.updated`** : la passerelle envoie des listes vides, car Playnite
-   ne détaille pas les changements. L'interface devra recharger la liste.
-6. **Arrêter Playnite proprement** : `Playnite.DesktopApp.exe --shutdown`.
+4. **`/stores/{id}/login` répond 501** (phase 3).
+5. **Événement `library.updated`** : après une synchronisation, il donne les vrais
+   identifiants. Quand Playnite met à jour sa bibliothèque lui-même (au démarrage), il
+   envoie des listes vides : l'interface devra alors recharger la liste.
+6. **Mise à jour automatique de la bibliothèque au démarrage** : Playnite importe déjà
+   tous les stores à chaque démarrage. Avec un compte non connecté, l'extension Xbox
+   remplit le journal d'erreurs (`xsts.json` introuvable) : sans gravité.
+7. **Arrêter Playnite proprement** : `Playnite.DesktopApp.exe --shutdown`.
 
 ---
 
@@ -231,7 +258,7 @@ marche, **résume à la personne en quelques phrases simples** ce qui marche, ce
 corrigé et ce qui reste fragile, puis mets à jour ce document (§ 3) et
 `docs/plan.md`.
 
-### Étape B — Phase 2 : préconfiguration et synchronisation
+### Étape B — Phase 2 : préconfiguration et synchronisation ✅ (5 octobre 2026, voir § 3)
 
 Voir `docs/plan.md`. Dans l'ordre :
 1. **Préconfiguration** dans `build-bundle.ps1` : écrire les réglages des 4 extensions

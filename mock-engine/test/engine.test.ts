@@ -82,6 +82,16 @@ describe("faux moteur", () => {
     assert.equal((await client.game(BG3)).installed, true);
   });
 
+  it("synchronise un store et refuse une deuxième synchronisation simultanée", async () => {
+    const events = await collectUntil("sync.finished", async () => {
+      await client.sync("steam");
+      await assert.rejects(client.sync("steam"), (e: unknown) => e instanceof ApiError && e.status === 409);
+    });
+    assert.deepEqual(events.map((e) => e.type), ["sync.started", "store.updated", "sync.finished"]);
+    const finished = events.at(-1);
+    assert.equal(finished?.type === "sync.finished" && finished.data.ok, true);
+  });
+
   it("connecte un store", async () => {
     const events = await collectUntil("store.updated", () => client.login("epic"));
     const updated = events.find((e) => e.type === "store.updated");

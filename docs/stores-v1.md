@@ -18,7 +18,9 @@ extension comme la nôtre :
 | Savoir qu'une installation est finie | Événement `OnGameInstalled` | Les extensions vérifient toutes les **10 s** ; **aucune progression** |
 | Synchroniser une bibliothèque à la demande | Pas de méthode publique « mettre à jour la bibliothèque ». On appelle `LibraryPlugin.GetGames()` puis `Database.ImportGame(game, plugin)` | Possible : nous pilotons la synchro nous-mêmes |
 | Accéder aux autres extensions | `PlayniteApi.Addons.Plugins` donne les instances (Steam, Epic…) | Accès à leurs réglages ; certaines méthodes (connexion) seulement par réflexion |
-| Préconfigurer les extensions | Fichiers `ExtensionsData/<id>/config.json` écrits par notre installateur | Pour activer d'office « connecter le compte » et « importer les jeux non installés », **désactivés par défaut** |
+| Préconfigurer les extensions | Fichiers `ExtensionsData/<id>/config.json` écrits par notre installateur | Pour activer d'office « connecter le compte » et « importer les jeux non installés », **désactivés par défaut** (fait dans `build-bundle.ps1`) |
+| Savoir si le launcher est installé | `LibraryPlugin.Client.IsInstalled` | ⚠️ L'extension Xbox répond toujours `true` : la passerelle cherche elle-même l'appli Xbox |
+| Savoir si le compte est connecté | Propriété `IsUserLoggedIn` du modèle de réglages de chaque extension (hors SDK, lue par réflexion) | Appel réseau : à faire en arrière-plan |
 | Fenêtres de connexion | `PlayniteApi.WebViews.CreateView(...)` (navigateur CEF intégré) | **Taille réglable** : on peut ouvrir des fenêtres de connexion en grand, adaptées à la télé |
 | Partage de session web | Toutes les extensions partagent le **même cache CEF** (`browsercache`) | Une connexion faite par notre passerelle sur le site Steam ou Battle.net est **vue par l'extension correspondante** |
 

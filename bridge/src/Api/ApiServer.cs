@@ -26,21 +26,23 @@ namespace Playscreen.Bridge.Api
 
         private readonly IPlayniteAPI api;
         private readonly EventHub events;
+        private readonly StoreSync sync;
         private readonly string token = NewToken();
         private readonly List<Route> routes;
         private HttpListener listener;
 
         public int Port { get; private set; }
 
-        public ApiServer(IPlayniteAPI api, EventHub events)
+        public ApiServer(IPlayniteAPI api, EventHub events, StoreSync sync)
         {
             this.api = api;
             this.events = events;
+            this.sync = sync;
             routes = new List<Route>
             {
                 new Route("GET", @"^/status$", _ => Json(200, GetStatus())),
-                new Route("GET", @"^/stores$", _ => Json(200, GetStores())),
-                new Route("POST", @"^/stores/([^/]+)/sync$", _ => NotImplemented("sync (phase 2)")),
+                new Route("GET", @"^/stores$", _ => Json(200, Stores.All.Select(sync.Describe).ToList())),
+                new Route("POST", @"^/stores/([^/]+)/sync$", ctx => Sync(ctx.Params[0])),
                 new Route("POST", @"^/stores/([^/]+)/login$", _ => NotImplemented("login (phase 3)")),
                 new Route("GET", @"^/games$", ctx => Json(200, GetGames(ctx.Request.QueryString))),
                 new Route("GET", @"^/games/([^/]+)$", ctx => WithGame(ctx, game => Json(200, GameDto.From(game, api)))),
@@ -142,23 +144,19 @@ namespace Playscreen.Bridge.Api
             Ready = true,
         };
 
-        private List<StoreDto> GetStores()
+        private Reply Sync(string storeId)
         {
-            var pluginIds = new HashSet<Guid>(api.Addons.Plugins.Select(p => p.Id));
-            var games = api.Database.Games.ToList();
-            return Stores.All.Select(store =>
+            var store = Stores.All.FirstOrDefault(s => s.Id == storeId);
+            if (store == null)
             {
-                var pluginId = BuiltinExtensions.GetIdFromExtension(store.Extension);
-                return new StoreDto
-                {
-                    Id = store.Id,
-                    Name = store.Name,
-                    PluginInstalled = pluginIds.Contains(pluginId),
-                    LauncherInstalled = null, // phase 2
-                    Connected = null,         // phase 2
-                    GameCount = games.Count(g => g.PluginId == pluginId),
-                };
-            }).ToList();
+                return Json(404, new { error = "unknown store" });
+            }
+            var plugin = sync.FindPlugin(store);
+            if (plugin == null)
+            {
+                return Json(409, new { error = "plugin not installed" });
+            }
+            return sync.TryStart(store, plugin) ? new Reply(202) : Json(409, new { error = "busy" });
         }
 
         private List<GameDto> GetGames(System.Collections.Specialized.NameValueCollection query)

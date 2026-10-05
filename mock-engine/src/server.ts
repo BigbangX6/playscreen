@@ -31,6 +31,7 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
   const subscribers = new Set<ServerResponse>();
   const timers = new Set<NodeJS.Timeout>();
   const busy = new Set<string>();
+  const syncing = new Set<StoreId>();
 
   const later = (ms: number, fn: () => void) => {
     const timer = setTimeout(() => {
@@ -59,9 +60,14 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
     route("POST", /^\/stores\/([^/]+)\/sync$/, ([storeId]) => {
       const store = stores.get(storeId as StoreId);
       if (!store) return json(404, { error: "unknown store" });
+      if (!store.pluginInstalled) return json(409, { error: "plugin not installed" });
+      if (syncing.has(store.id)) return json(409, { error: "busy" });
+      syncing.add(store.id);
       emit("sync.started", { storeId: store.id });
       later(tickMs, () => {
+        syncing.delete(store.id);
         const ok = store.connected !== false;
+        emit("store.updated", storeView(store));
         emit("sync.finished", ok ? { storeId: store.id, ok } : { storeId: store.id, ok, error: "not connected" });
       });
       return empty(202);

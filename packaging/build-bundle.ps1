@@ -8,12 +8,11 @@
   3. Installe les extensions Steam, Epic, Xbox et Battle.net (versions figées) : depuis
      Playnite 10, elles ne sont plus fournies avec Playnite mais téléchargées par
      l'assistant de premier démarrage.
-  4. Installe la passerelle dans le dossier Extensions du programme (active d'office).
-  5. Crée le dossier de la bibliothèque, ce qui fait sauter l'assistant de premier
+  4. Préconfigure ces extensions : compte connecté et import des jeux non installés.
+  5. Installe la passerelle dans le dossier Extensions du programme (active d'office).
+  6. Crée le dossier de la bibliothèque, ce qui fait sauter l'assistant de premier
      démarrage de Playnite.
-  6. Crée start-engine.cmd qui démarre Playnite sans interface.
-
-  Phase 2 : préconfiguration des extensions Steam, Epic, Xbox et Battle.net.
+  7. Crée start-engine.cmd qui démarre Playnite sans interface.
 
 .PARAMETER PlayniteZip
   Archive portable de Playnite (.7z ou .zip), sur la page des versions de Playnite sur
@@ -81,6 +80,22 @@ foreach ($url in $storeExtensions) {
     $id = (Select-String -Path (Join-Path $temp "extension.yaml") -Pattern "^Id:\s*(\S+)").Matches[0].Groups[1].Value
     Move-Item $temp (Join-Path $extensionsDir $id)
     Write-Host "    $id"
+}
+
+Write-Host "==> Préconfiguration des extensions de store"
+# Réglages lus dans le code des extensions (*LibrarySettingsViewModel.cs) : « connecter le
+# compte » et « importer les jeux non installés » sont désactivés par défaut. Les réglages
+# absents gardent leur valeur par défaut. Version : évite les migrations de réglages.
+$storeSettings = @{
+    "cb91dfc9-b977-43bf-8e70-55f46e410fab" = '{ "Version": 2, "ImportInstalledGames": true, "ConnectAccount": true, "ImportUninstalledGames": true }' # Steam
+    "00000002-dbd1-46c6-b5d0-b1ba559d10e4" = '{ "Version": 1, "ImportInstalledGames": true, "ConnectAccount": true, "ImportUninstalledGames": true }' # Epic
+    "7e4fbb5e-2ae3-48d4-8ba0-6b30e7a4e287" = '{ "ImportInstalledGames": true, "ConnectAccount": true, "ImportUninstalledGames": true }'               # Xbox
+    "e3c26a3d-d695-4cb7-a769-5ff7612c7edd" = '{ "Version": 1, "ImportInstalledGames": true, "ConnectAccount": true, "ImportUninstalledGames": true }' # Battle.net
+}
+foreach ($pluginId in $storeSettings.Keys) {
+    $dataDir = Join-Path $playniteDir "ExtensionsData\$pluginId"
+    New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+    [IO.File]::WriteAllText((Join-Path $dataDir "config.json"), $storeSettings[$pluginId])
 }
 
 Write-Host "==> Passerelle -> $extensionDir"
