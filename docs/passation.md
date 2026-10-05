@@ -287,10 +287,21 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
   Epic). Suivi : fichier du jeu dans `Manifests\Pending` pendant l'installation, puis
   dans `Manifests` ; direct = octets écrits par `EpicGamesLauncher` (≈ taille
   installée : 7,3 Go écrits pour la mise à jour de Fall Guys, 7,39 Go ; 972 Mo pour
-  Unrailed, 0,95 Go). **À confirmer** : que le fichier `Pending` contient bien
-  `InstallSize` dès le début (installation d'Unrailed trop rapide pour le voir).
+  Unrailed, 0,95 Go). Le fichier `Pending` contient `InstallSize` dès le début.
+  **Validé** sur la réinstallation de Fall Guys (7,39 Go, 1 min 45, 96 étapes) :
+  40,1 % côté passerelle contre 40,1 % dans la fenêtre de téléchargement d'Epic au
+  même instant (Epic affiche la taille téléchargée, 6,56 Go ; nous la taille
+  installée).
   Découvertes : UAC à cause du dossier `Program Files` (F24), demande perdue après la
   mise à jour du launcher (F25).
+- **Désinstallation** : `psc uninstall <jeu>` attend `game.uninstalled`. Steam :
+  `steam://uninstall/<id>` (fenêtre de confirmation). Epic : l'extension ouvre la
+  bibliothèque ; **pas de lien direct** (`?action=uninstall` ignoré par le launcher) :
+  le joueur clique sur « ⋯ » puis « Désinstaller » (mode assisté à prévoir). Testé :
+  Fall Guys désinstallé, événement reçu.
+- **Décision D9 testée** : `icacls "C:\Program Files\Epic Games" /grant
+  "<utilisateur>:(OI)(CI)M"` (une UAC), puis réinstallation de Fall Guys dans ce
+  dossier par défaut sans nouvelle UAC.
 - Reste : Battle.net, Xbox (pas de suivi), téléchargements Workshop, annonce de
   l'espace nécessaire.
 

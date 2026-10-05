@@ -73,6 +73,8 @@ namespace Playscreen.Bridge.Api
                     progress.Track(game);
                     return reply;
                 })),
+                // Epic : l'extension ouvre seulement la bibliothèque, et il n'existe pas de lien
+                // de désinstallation directe (?action=uninstall ignoré, testé le 5 octobre 2026).
                 new Route("POST", @"^/games/([^/]+)/uninstall$", ctx => WithGame(ctx, game =>
                     !game.IsInstalled ? Json(409, new { error = "not installed" }) : RunOnUi(() => api.UninstallGame(game.Id)))),
                 new Route("GET", @"^/games/([^/]+)/media/(cover|background|icon)$", ctx => WithGame(ctx, game => Media(game, ctx.Params[1]))),

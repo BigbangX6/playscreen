@@ -143,11 +143,26 @@ async function main(argv: string[]) {
       controller.abort();
       break;
     }
-    case "start":
     case "uninstall": {
       const game = await resolveGame(client, args.join(" "));
-      await client[command](game.id);
-      console.log(`${command} demandé : ${game.name}`);
+      const controller = new AbortController();
+      const stream = client.events(controller.signal);
+      const first = stream.next();
+      await client.uninstall(game.id);
+      console.log(`Désinstallation demandée : ${game.name} (Ctrl+C pour ne plus attendre)`);
+      for (let result = await first; !result.done; result = await stream.next()) {
+        if (result.value.type === "game.uninstalled" && result.value.data.gameId === game.id) {
+          console.log("Désinstallé.");
+          break;
+        }
+      }
+      controller.abort();
+      break;
+    }
+    case "start": {
+      const game = await resolveGame(client, args.join(" "));
+      await client.start(game.id);
+      console.log(`Lancement demandé : ${game.name}`);
       break;
     }
     case "sync":

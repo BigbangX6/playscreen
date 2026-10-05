@@ -130,3 +130,17 @@ si c'est court et accompagné (mode assisté, instruction à l'écran).
 
 **Steam, Epic, Game Pass / Xbox**, et **Battle.net** si possible. Analyse détaillée dans
 [`stores-v1.md`](stores-v1.md).
+
+## D9 — Une autorisation administrateur à l'installation de Playscreen — *Acté (5 octobre 2026)*
+
+L'installateur de Playscreen **demande une fois les droits administrateur** et prépare
+tout ce qui en aura besoin ensuite, pour que l'utilisateur soit tranquille :
+- droit d'écriture de l'utilisateur sur les **dossiers de jeux par défaut** des
+  launchers (ex. `C:\Program Files\Epic Games`) : Epic n'y demande plus l'UAC (F24) ;
+- **on garde les dossiers par défaut** des launchers (certains jeux y tiennent) ;
+- règle de pare-feu pour le navigateur intégré (F19), et les autres actions admin
+  recensées dans [`frictions.md`](frictions.md).
+
+Pour les UAC imprévues, l'option « valider à la manette » (UAC sur le bureau normal +
+mode assisté `uiAccess`, F24 piste 2) reste à proposer comme un choix de sécurité
+expliqué.
