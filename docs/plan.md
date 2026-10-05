@@ -63,7 +63,7 @@ Validée le 5 octobre 2026 avec les 4 vrais comptes (détails dans
 - **Votre test :** `psc login steam`, connexion par QR puis par identifiants, puis
   `psc sync steam`.
 
-### Phase 4 — La sentinelle
+### Phase 4 — La sentinelle (écrite ; test avec une vraie manette en attente)
 
 - Détection du méta-raccourci (Select + Start maintenus 1 s) en arrière-plan, XInput
   puis DualSense.

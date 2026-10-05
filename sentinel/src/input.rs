@@ -16,18 +16,32 @@ pub use null::NullSource as DefaultSource;
 #[cfg(windows)]
 mod xinput {
     use super::GamepadSource;
-    use windows::Win32::UI::Input::XboxController::{XInputGetState, XINPUT_STATE, XUSER_MAX_COUNT};
+    use windows_sys::Win32::UI::Input::XboxController::{XInputGetState, XINPUT_STATE, XUSER_MAX_COUNT};
 
     pub struct XInputSource;
+
+    impl XInputSource {
+        /// Nombre de manettes XInput branchées (pour le journal).
+        pub fn connected_count() -> usize {
+            (0..XUSER_MAX_COUNT)
+                .filter(|&slot| {
+                    // SAFETY : voir pressed_buttons.
+                    let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
+                    unsafe { XInputGetState(slot, &mut state) == 0 }
+                })
+                .count()
+        }
+    }
 
     impl GamepadSource for XInputSource {
         fn pressed_buttons(&mut self) -> u16 {
             let mut pressed = 0u16;
             for slot in 0..XUSER_MAX_COUNT {
-                let mut state = XINPUT_STATE::default();
+                // SAFETY : structure C sans pointeur, valide une fois remplie de zéros.
+                let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
                 // 0 = ERROR_SUCCESS ; sinon manette absente sur ce slot.
                 if unsafe { XInputGetState(slot, &mut state) } == 0 {
-                    pressed |= state.Gamepad.wButtons.0;
+                    pressed |= state.Gamepad.wButtons;
                 }
             }
             pressed

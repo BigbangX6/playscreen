@@ -234,9 +234,34 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
 - Mes captures d'écran PowerShell sont tronquées (affichage à 125 % : la capture n'est
   pas « DPI-aware »). Ce n'est pas un défaut des fenêtres.
 
+### Phase 4 : sentinelle (5 octobre 2026, test manette en attente)
+
+- **Rust installé** (accord de la personne) avec `rustup`, **variante GNU**
+  (`stable-x86_64-pc-windows-gnu`, profil minimal + clippy) : pas besoin des outils de
+  compilation Microsoft (plusieurs Go, admin). `cargo` est dans
+  `%USERPROFILE%\.cargo\bin` (à ajouter au `PATH` d'un terminal déjà ouvert).
+- **`windows` 0.62 remplacé par `windows-sys` 0.59** : avec la variante GNU, `windows`
+  0.62 exige `dlltool` (absent). `windows-sys` 0.59 fournit ses bibliothèques
+  d'import.
+- Ajouts : icône dans la zone de notification avec menu « Quitter la sentinelle »,
+  notification « Playscreen est prêt » au démarrage (bulle de l'icône), lecture de la
+  manette par un minuteur de la boucle de messages, mise au premier plan avec
+  `AttachThreadInput` (contournement de la limite de `SetForegroundWindow`), journal
+  `%LOCALAPPDATA%\Playscreen\sentinel.log`, titre de fenêtre configurable
+  (`PLAYSCREEN_WINDOW`).
+- Vérifié : compilation, `clippy` propre, 5 tests, démarrage (journal). **Pas encore
+  vérifié** : la notification et l'icône à l'écran, le méta-raccourci avec une vraie
+  manette (aucune manette sur le PC le jour du test), la mise au premier plan.
+- **Test prévu** : `PLAYSCREEN_EXE=calc.exe`, `PLAYSCREEN_WINDOW=Calculatrice` (le
+  Bloc-notes ne convient pas : son titre dépend des onglets restaurés). Select + Start
+  ouvre la Calculatrice au premier plan ; la remettre derrière, Select + Start la
+  ramène devant.
+- Reste : démarrage automatique avec Windows (clé `Run` de l'utilisateur, à faire avec
+  l'accord de la personne), DualSense / Switch, icône Playscreen.
+
 ### Jamais testé sous Windows
 
-- La sentinelle avec une vraie manette (XInput, `SetForegroundWindow`).
+- La sentinelle avec une vraie manette (XInput, mise au premier plan).
 
 ### Points fragiles connus
 

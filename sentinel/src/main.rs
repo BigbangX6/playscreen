@@ -8,28 +8,34 @@
 mod actions;
 mod chord;
 mod input;
+#[cfg(windows)]
+mod tray;
 
-use std::thread::sleep;
-use std::time::{Duration, Instant};
-
-use chord::{ChordDetector, DEFAULT_HOLD, META_CHORD};
-use input::{DefaultSource, GamepadSource};
+use std::time::Duration;
 
 /// ~60 Hz : assez réactif, coût CPU négligeable.
-const POLL_INTERVAL: Duration = Duration::from_millis(16);
+pub const POLL_INTERVAL: Duration = Duration::from_millis(16);
 
+#[cfg(windows)]
 fn main() {
+    tray::run(actions::Config::from_env());
+}
+
+/// Hors Windows : même boucle, sans icône ni notification (aucune manette n'est lue).
+#[cfg(not(windows))]
+fn main() {
+    use chord::{ChordDetector, DEFAULT_HOLD, META_CHORD};
+    use input::{DefaultSource, GamepadSource};
+    use std::time::Instant;
+
     let config = actions::Config::from_env();
     let mut source = DefaultSource;
     let mut detector = ChordDetector::new(META_CHORD, DEFAULT_HOLD);
-
-    // Phase 4 : remplacer par une notification Windows avec les pictogrammes de la manette.
     actions::log("Prête. Maintiens Select + Start pour ouvrir Playscreen.");
-
     loop {
         if detector.update(source.pressed_buttons(), Instant::now()) {
             actions::launch_or_focus(&config);
         }
-        sleep(POLL_INTERVAL);
+        std::thread::sleep(POLL_INTERVAL);
     }
 }
