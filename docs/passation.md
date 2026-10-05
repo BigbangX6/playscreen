@@ -1,0 +1,311 @@
+# Passation : session de développement sur le PC Windows
+
+> Document écrit le 5 octobre 2026 par la session cloud (Linux) qui a démarré le projet,
+> pour la session Claude Code qui tourne sur le PC Windows dédié.
+> **À partir de maintenant, c'est la session Windows qui développe sur la branche
+> `claude/busy-carson-3amj4g`.** La session cloud ne pousse plus rien dessus.
+>
+> Lis ce document en entier, puis `docs/plan.md`, `docs/decisions.md`,
+> `docs/stores-v1.md` et `docs/frictions.md` avant de toucher au code.
+
+---
+
+## 1. Le projet et la personne avec qui tu travailles
+
+### Objectif
+
+**Playscreen** : une interface de jeu pour PC Windows (PC de salon branché à une télé,
+consoles portables sous Windows), **entièrement utilisable à la manette**, avec la
+simplicité d'une console PlayStation. Elle rassemble les jeux de plusieurs stores. La
+promesse est l'expérience utilisateur : jamais bloqué, jamais besoin d'un clavier et
+d'une souris.
+
+### La personne
+
+- **Elle n'est pas développeuse.** Explique simplement, en français, sans jargon (ou
+  en le définissant). Dis ce que tu as fait, ce qui marche, ce qui ne marche pas, et ce
+  que tu attends d'elle, en phrases courtes.
+- Elle pilote cette session à distance (`claude remote-control`). **Toi, tu lances les
+  commandes, compiles, démarres Playnite, lis les journaux et corriges. Elle, elle fait
+  les actions à la souris et saisit les identifiants.**
+- Elle tient à des retours honnêtes : si un test échoue, dis-le avec le message
+  d'erreur. Si une étape n'a pas été faite, dis-le.
+
+### Ce qu'elle veut
+
+- **Zéro blocage prévisible** : aucune situation prévisible ne doit obliger à prendre un
+  clavier et une souris. Repasser par Windows ou un launcher est acceptable si c'est
+  **court, annoncé et accompagné**. Ce qui est insupportable, c'est d'être bloqué.
+  Il faut anticiper les usages (voir `docs/frictions.md`).
+- **Voir les launchers, oui, mais au minimum** : passer brièvement par Steam, Epic, etc.
+  pour acheter, se connecter ou confirmer une installation ne la dérange pas.
+- **Méta-raccourci : Select + Start maintenus 1 seconde** (acté). Le bouton Guide/PS est
+  exclu, car Xbox Game Bar, Steam et le cloud gaming (Shadow PC…) se le disputent.
+- **Une « sentinelle »** : mini-appli lancée au démarrage de Windows qui écoute
+  Select + Start, affiche une notification au démarrage (avec les touches à presser), et
+  lance Playscreen ou le ramène au premier plan.
+- **Steam : connexion par QR code ET par identifiants saisis à la main**, les deux
+  toujours proposés.
+- **Installer un launcher manquant** : sans fenêtre si possible (`winget`), sinon la page
+  de téléchargement officielle avec **gros curseur au stick et clavier manette** (celui
+  de Windows 11 ou le nôtre).
+- **Achat chez un revendeur de clés (Instant Gaming)** : le revendeur donne en général
+  **un lien d'activation**. Playscreen doit l'intercepter et l'ouvrir au bon endroit.
+- **Stores de la v1 : Steam, Epic, Game Pass / Xbox, et Battle.net si possible.**
+- **Technologies web au maximum** pour l'interface (TypeScript).
+
+### Ce qu'elle ne veut pas (ou pas maintenant)
+
+- **Pas d'interface tout de suite.** Le moteur d'abord. L'interface viendra uniquement
+  quand elle sera nécessaire pour tester un parcours.
+- Pas de dépendance au bouton Guide.
+- Pas de compte Playscreen au départ (proposé par la session cloud, non contesté) :
+  tout est local.
+
+---
+
+## 2. Décisions et leurs raisons
+
+Les décisions formelles sont dans `docs/decisions.md` (D1 à D8). En résumé, avec les
+raisons qui n'y sont pas toutes écrites :
+
+| Décision | Raison |
+|---|---|
+| **Playnite (MIT) comme moteur**, embarqué en version portable figée, démarré sans interface (`--startclosedtotray --hidesplashscreen`) | Il gère déjà la détection des bibliothèques, le lancement et le suivi des jeux. Licence MIT : redistribution permise (garder la notice, ne pas utiliser la marque). |
+| **Pas de fork de Playnite** | Gros code WPF / .NET Framework à maintenir, aucun gain côté web. |
+| **Pas d'extensions Playnite chargées hors de Playnite** | Elles dépendent de l'API de Playnite pendant qu'elles tournent (réglages, fenêtres de connexion intégrées). |
+| **Notre extension « passerelle » livrée dans `Playnite\Extensions\`** | Playnite charge les extensions de son dossier programme : active d'office, rien à activer pour l'utilisateur. En mode portable, ce dossier est aussi celui des données. |
+| **Notre propre API locale** entre l'interface et le moteur | L'interface ne dépend jamais de Playnite. On pourra remplacer Playnite store par store plus tard. |
+| **HTTP + Server-Sent Events** (pas WebSocket) | Plus simple à écrire avec `HttpListener`, lisible par `curl`, `psc` et `EventSource` dans un navigateur. |
+| **Jeton obligatoire sur l'API**, écoute sur 127.0.0.1 uniquement | Sans jeton, n'importe quelle page web ouverte dans un navigateur pourrait appeler `localhost` et lancer ou désinstaller des jeux. Le jeton est aussi accepté dans l'URL (`?access_token=`), car `EventSource` ne sait pas envoyer d'en-têtes. |
+| **Faux moteur + `psc`** | Développer et tester sans Windows ni interface. `psc` permet de tester chaque phase sur le vrai PC sans interface. |
+| **Node avec suppression native des types TypeScript**, sans étape de compilation | Zéro outillage : `node fichier.ts` marche. Contrainte : pas de syntaxe TypeScript non effaçable (`erasableSyntaxOnly` : pas d'`enum`, pas de propriétés de paramètres de constructeur, pas de `namespace`). |
+| **Passerelle en .NET Framework 4.6.2** avec le paquet NuGet `PlayniteSDK 6.18.0` en `ExcludeAssets="runtime"` | C'est la cible des extensions Playnite 10. Le SDK est fourni par Playnite, il ne doit pas être copié dans la sortie. `Microsoft.NETFramework.ReferenceAssemblies` permet de compiler aussi sous Linux. |
+| **Sentinelle en Rust**, XInput en arrière-plan | Toute petite, sans environnement d'exécution, et XInput lit la manette même sans focus. DualSense / Switch Pro : plus tard (HID ou SDL). |
+| **Interface pressentie : Tauri (WebView2)** | Léger pour les consoles portables. *Pas encore tranché* (Electron en alternative). |
+| **Les actions admin sont faites à l'installation de Playscreen** | La fenêtre UAC s'affiche sur un bureau sécurisé : **ni une manette ni un logiciel ne peuvent cliquer dessus**. On regroupe donc tout ce qui demande des droits admin au moment de l'installation, quand l'utilisateur a clavier et souris. On prévoit aussi un service avec privilèges pour la suite. |
+
+### Ce que l'analyse du code des extensions Playnite a montré (octobre 2026)
+
+Détails dans `docs/stores-v1.md`. L'essentiel :
+- **Installer un jeu = le confier au launcher**, avec une friction variable :
+  - Steam : `steam://install/<id>` puis une fenêtre de confirmation ;
+  - **Epic : ouvre seulement la bibliothèque Epic**, le joueur doit chercher le jeu ;
+  - Xbox : page du Microsoft Store ;
+  - Battle.net : page du jeu dans le client.
+- **Aucune progression de téléchargement** dans Playnite : l'installation est vérifiée
+  toutes les 10 s. On devra lire la progression nous-mêmes (Steam : fichiers
+  `appmanifest_<id>.acf`).
+- « Connecter le compte » et « Importer les jeux non installés » sont **désactivés par
+  défaut** dans les extensions : il faudra les préconfigurer (fichiers
+  `ExtensionsData/<id du plugin>/config.json`).
+- Steam n'a **pas besoin de clé API** : l'extension récupère un jeton web via une
+  connexion au site Steam.
+- **Xbox n'importe que les jeux déjà lancés** (historique Xbox) : le catalogue Game Pass
+  n'apparaît pas. Il faudra notre propre vue du catalogue.
+- Toutes les extensions partagent **le même cache du navigateur intégré** (CEF) : une
+  connexion web faite par notre passerelle est vue par l'extension du store.
+- Il n'existe pas de méthode publique « synchroniser la bibliothèque ». À la place :
+  `LibraryPlugin.GetGames()` puis `Database.ImportGame(game, plugin)`.
+- Identifiants des extensions Playnite : utiliser `BuiltinExtensions.GetIdFromExtension`
+  (déjà fait dans `bridge/src/Api/Dto.cs`).
+
+---
+
+## 3. État exact du code
+
+### Fait et testé (sous Linux, dans la session cloud)
+
+| Brique | Dossier | Vérifié |
+|---|---|---|
+| Contrat d'API v0 | `api/openapi.yaml`, `api/types.ts` | Les deux sont synchronisés à la main |
+| Client TypeScript | `api/client.ts`, `api/engine-info.ts` | Utilisé par les tests et `psc` |
+| Faux moteur | `mock-engine/` | **9 tests passent** (`npm test`) ; `npm run typecheck` est propre |
+| `psc` | `cli/src/psc.ts` | Essayé à la main contre le faux moteur : `games`, `stores`, `start`, `events` |
+| Passerelle Playnite | `bridge/` | **Compile sans avertissement** (sous Linux). Jamais exécutée dans Playnite |
+| Sentinelle | `sentinel/` | **5 tests passent**, `clippy` propre, compilation vérifiée pour la cible Windows (`x86_64-pc-windows-gnu`). Jamais exécutée sous Windows |
+
+### Jamais testé sous Windows
+
+- `packaging/build-bundle.ps1` (jamais exécuté).
+- La passerelle dans un vrai Playnite : chargement de l'extension, serveur HTTP,
+  écriture de `engine.json`, routes, événements, lancement de jeu via le thread
+  d'interface de Playnite.
+- `psc` sous Windows (chemin de `engine.json`, Node 24).
+- La sentinelle avec une vraie manette (XInput, `SetForegroundWindow`).
+- **La CI** (`.github/workflows/ci.yml`) : jamais vue tourner. Elle est peut-être
+  désactivée sur le dépôt, ou en échec.
+
+### Points fragiles connus
+
+1. **Serveur HTTP sans droits admin.** La passerelle utilise `HttpListener` sur
+   `http://127.0.0.1:47800/`. Sous Windows, `HttpListener` passe par `http.sys`, qui peut
+   exiger des droits admin ou une réservation d'URL (`netsh http add urlacl`). Si le
+   démarrage échoue (« Access denied » dans `playnite.log`), il y a 2 options :
+   - **(a) serveur maison sur `TcpListener`**, sans droits admin. **À privilégier** : pas
+     d'UAC, cohérent avec la règle « zéro blocage » ;
+   - (b) réservation d'URL faite une fois à l'installation, en admin.
+2. **Nom et contenu de l'archive Playnite.** L'URL exacte de l'archive **portable** n'a
+   pas pu être vérifiée (Playnite 10.62 était la dernière version vue dans le code
+   source). Le script prend donc le chemin de l'archive en paramètre. Il suppose que
+   `Playnite.DesktopApp.exe` est **à la racine** de l'archive décompressée ; si l'archive
+   contient un sous-dossier, il faut corriger le script.
+3. **Assistant de premier démarrage de Playnite.** Sur un Playnite vierge, un assistant
+   s'ouvre au premier lancement, probablement même avec `--startclosedtotray`. Il peut
+   empêcher le démarrage normal, et donc notre passerelle. D'après le code de Playnite,
+   il est sauté si `FirstTimeWizardComplete` vaut `true` ou si un chemin de base de
+   données (`DatabasePath`) est déjà défini dans `config.json`. **À vérifier**, puis à
+   intégrer au script de packaging. En attendant, la personne peut faire l'assistant à
+   la souris (voir § 4).
+4. **Bibliothèque vide au départ.** Aucun store n'est connecté sur ce PC : `psc games`
+   renverra 0 jeu. Pour tester `psc start`, il faut au moins un jeu (voir § 4).
+5. **Mode portable.** Le script supprime `unins000.exe` s'il existe. À vérifier :
+   données bien dans le dossier du paquet, extension bien chargée depuis
+   `Playnite\Extensions\Playscreen_Bridge\`.
+6. **Événements (SSE) avec `HttpListener`** : `SendChunked` + `Flush` doivent envoyer
+   chaque événement immédiatement. À vérifier avec `psc events`.
+7. **Lancement de jeu** : `RunOnUi` utilise `UIDispatcher.BeginInvoke`. Si Playnite
+   n'a pas de dispatcher prêt en mode zone de notification, le lancement peut échouer
+   silencieusement.
+8. **PowerShell** : la stratégie d'exécution peut bloquer le script. Utiliser
+   `powershell -ExecutionPolicy Bypass -File .\packaging\build-bundle.ps1 ...`.
+9. **`Stores` / `connected` / `launcherInstalled`** valent `null` dans la passerelle
+   (phase 2). **`/stores/{id}/sync` et `/login` répondent 501** (pas encore faits).
+10. **Événement `library.updated`** : la passerelle envoie des listes vides, car Playnite
+    ne détaille pas les changements. L'interface devra recharger la liste.
+
+---
+
+## 4. Instructions pour la session Windows
+
+### Avant de commencer
+
+1. `git pull origin claude/busy-carson-3amj4g`.
+2. Dans `Documents\playscreen` : `npm install`, `npm run typecheck`, `npm test`.
+3. `dotnet build bridge\Playscreen.Bridge.csproj -c Release`.
+4. Si Rust n'est pas installé, ne l'installe pas tout de suite : la sentinelle attendra
+   la phase 4. Demande l'accord de la personne avant d'installer un logiciel.
+
+### Étape A — Valider la phase 1 de bout en bout
+
+1. **Obtenir l'archive portable de Playnite** (page des versions sur GitHub, projet
+   `JosefNemec/Playnite`). Télécharge-la toi-même si tu peux ; sinon demande à la
+   personne. Note dans ce document le nom exact du fichier et sa version.
+2. **Assembler le paquet** : `build-bundle.ps1 -PlayniteZip <archive>`. Vérifie la
+   structure de `dist\Playscreen\` (exécutable à la racine de `Playnite\`, passerelle
+   dans `Playnite\Extensions\Playscreen_Bridge\`).
+3. **Démarrer le moteur** : `dist\Playscreen\start-engine.cmd`.
+   - Si l'assistant de premier démarrage s'ouvre : **arrête-toi et demande à la personne
+     de le terminer à la souris** (sans connecter de store pour l'instant). Puis cherche
+     comment le sauter automatiquement (point fragile 3) et intègre-le au script.
+4. **Lire `dist\Playscreen\Playnite\playnite.log`** : l'extension est-elle chargée ?
+   Le serveur a-t-il démarré (« Playscreen API listening on port 47800 ») ?
+   `%LOCALAPPDATA%\Playscreen\engine.json` existe-t-il ?
+5. **`npm run psc -- status`** : doit répondre `engine: 'playnite'`, `ready: true`.
+   - En cas d'erreur d'accès du serveur HTTP : point fragile 1, option (a).
+6. **`npm run psc -- stores`**, puis **`npm run psc -- games`** : 4 stores avec
+   `pluginInstalled: true`, et probablement 0 jeu.
+7. **Ajouter un jeu de test** : **arrête-toi et demande à la personne** d'ajouter dans
+   Playnite (icône de la zone de notification, puis ajout manuel d'un jeu) un faux jeu
+   nommé **Notepad** qui pointe vers `C:\Windows\System32\notepad.exe`. Explique-lui simplement où cliquer.
+8. **`npm run psc -- events`** dans un terminal, et **`npm run psc -- start notepad`**
+   dans un autre. Attendu : le Bloc-notes s'ouvre, et `game.starting`, `game.started`
+   s'affichent, puis `game.stopped` à sa fermeture.
+9. **Vérifier la sécurité** : une requête sans jeton
+   (`curl http://127.0.0.1:47800/api/v0/status`) doit répondre 401.
+10. Faire tourner la CI : vérifier qu'elle se lance sur GitHub et qu'elle est verte.
+    Corriger si besoin.
+
+Pour chaque échec : lis le journal, corrige, recompile, recommence. Quand la phase 1
+marche, **résume à la personne en quelques phrases simples** ce qui marche, ce que tu as
+corrigé et ce qui reste fragile, puis mets à jour ce document (§ 3) et
+`docs/plan.md`.
+
+### Étape B — Phase 2 : préconfiguration et synchronisation
+
+Voir `docs/plan.md`. Dans l'ordre :
+1. **Préconfiguration** dans `build-bundle.ps1` : écrire les réglages des 4 extensions
+   (Steam, Epic, Xbox, Battle.net) dans `Playnite\ExtensionsData\<id>\config.json`, avec
+   le compte connecté et l'import des jeux non installés activés. Lis d'abord les noms
+   exacts des réglages dans le code des extensions (`JosefNemec/PlayniteExtensions`,
+   fichiers `*SettingsViewModel.cs`).
+2. **`POST /stores/{id}/sync`** dans la passerelle : `LibraryPlugin.GetGames()` puis
+   `Database.ImportGame(game, plugin)`, sur un fil d'arrière-plan, avec les événements
+   `sync.started` / `sync.finished`. Gérer les doublons (jeu déjà en base) et les mises à
+   jour d'état (installé / désinstallé).
+3. **État des stores** : `launcherInstalled` (détection du launcher) et `connected`
+   (au minimum `null` si inconnu, jamais une fausse certitude).
+4. **Garder le faux moteur aligné** : chaque changement d'API se fait dans
+   `api/openapi.yaml`, `api/types.ts`, le faux moteur et ses tests, puis la passerelle.
+5. **Test** : `psc sync steam` sur un compte Steam réel. **Arrête-toi pour que la
+   personne installe Steam et s'y connecte** (identifiants ou QR code).
+
+### Quand t'arrêter pour demander une action à la personne
+
+Arrête-toi, explique en une ou deux phrases simples ce qu'il faut faire et pourquoi, puis
+attends sa réponse, dans ces cas :
+- **une action à la souris** dans une interface (assistant Playnite, ajout d'un jeu,
+  fenêtre d'un launcher, confirmation) ;
+- **des identifiants**, un QR code à scanner, une validation 2FA. Ne demande jamais
+  qu'on te donne un mot de passe : la personne le tape elle-même dans la fenêtre ;
+- **une fenêtre UAC** ou toute action qui demande des droits admin ;
+- **installer un logiciel** sur le PC (launcher, Rust, outils…) ou modifier un réglage
+  Windows ;
+- **une action irréversible ou risquée** : supprimer des données en dehors du dossier
+  du projet, désinstaller un jeu réel, toucher au registre ;
+- **un test physique** : manette, télé, redémarrage du PC ;
+- **un choix de produit** qui n'est pas tranché dans `docs/` (par exemple Tauri ou
+  Electron) ;
+- **avant toute création de pull request** ou tout push sur une autre branche.
+
+---
+
+## 5. Règles à respecter
+
+### Sécurité
+
+- L'API écoute **uniquement sur 127.0.0.1**, jamais sur `0.0.0.0` ni sur le réseau.
+- **Chaque requête exige le jeton** (`Authorization: Bearer <jeton>`, ou
+  `?access_token=` pour `EventSource`). Le jeton est aléatoire à chaque démarrage et
+  écrit dans `%LOCALAPPDATA%\Playscreen\engine.json`. Ne jamais l'écrire dans les
+  journaux, ni dans un commit, ni le désactiver « pour tester ».
+- **Aucun identifiant, jeton de store ou cookie** dans le dépôt, les journaux ou les
+  messages. Les connexions aux stores passent par les fenêtres officielles, et la
+  personne tape elle-même ses identifiants.
+- Licence de Playnite (MIT) : conserver la notice en cas de redistribution, ne pas
+  utiliser la marque Playnite. Outils GPL (Legendary…) : seulement comme exécutables
+  séparés, et pas avant validation juridique.
+
+### Code
+
+- Écrire comme le code autour : même densité de commentaires, mêmes noms, mêmes idiomes.
+- **Commentaires et documentation en français**, identifiants (variables, fonctions,
+  classes) en anglais.
+- TypeScript : syntaxe effaçable uniquement (pas d'`enum`, pas de `namespace`, pas de
+  propriétés de paramètres de constructeur), imports avec l'extension `.ts`, aucune
+  étape de compilation. Tests avec `node:test`.
+- C# : .NET Framework 4.6.2, pas de `ValueTuple` (non disponible sans paquet en 4.6.2),
+  sérialisation avec `Playnite.SDK.Data.Serialization` et `SerializationPropertyName`
+  en camelCase. Les actions de jeu passent par le thread d'interface de Playnite.
+- Rust : `cargo clippy --all-targets -- -D warnings` propre, logique pure testée
+  séparément du code Windows.
+- **L'API est un contrat** : toute modification touche `api/openapi.yaml`,
+  `api/types.ts`, le faux moteur et ses tests, puis la passerelle.
+- Avant chaque commit : `npm run typecheck`, `npm test`, compilation de la passerelle
+  sans avertissement, et les tests de la sentinelle si elle a été modifiée.
+
+### Commits et branches
+
+- Branche unique : **`claude/busy-carson-3amj4g`**. Toujours `git pull` avant de
+  travailler, `git push -u origin claude/busy-carson-3amj4g` après.
+- Messages de commit **en français**, courts, au format déjà utilisé : préfixe quand
+  c'est pertinent (`docs: …`), puis une liste à puces si le commit touche plusieurs
+  briques. Ne jamais mettre de nom ou d'identifiant de modèle dans un commit.
+- Pas de pull request sans demande explicite de la personne.
+
+### Langue et communication
+
+- Tout en **français** : échanges, documentation, commentaires, messages de commit.
+- Avec la personne : phrases simples, pas de jargon non expliqué, résultats honnêtes.
+  Une liste courte de ce qui marche, ce qui ne marche pas et ce qui est attendu d'elle.
+- Mettre à jour `docs/` quand une décision est prise ou qu'un point fragile est résolu.

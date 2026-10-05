@@ -5,6 +5,7 @@ Une interface de jeu pour PC, pensée pour se jouer entièrement à la manette, 
 
 ## Documentation
 
+- [Passation à la session Windows](docs/passation.md)
 - [Plan d'attaque](docs/plan.md)
 - [Décisions techniques](docs/decisions.md)
 - [Launchers, comptes et parcours d'achat](docs/launchers-et-comptes.md)
