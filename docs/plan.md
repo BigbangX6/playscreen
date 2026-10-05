@@ -70,7 +70,7 @@ Validée le 5 octobre 2026 avec les 4 vrais comptes (détails dans
 - Notification au démarrage, lancement / mise au premier plan de Playscreen.
 - **Votre test :** démarrer le PC, manette en main, Select + Start lance le paquet.
 
-### Phase 5 — Installation et progression
+### Phase 5 — Installation et progression (Steam en cours)
 
 - `POST /games/{id}/install` + événements `install.progress`.
 - Lecteur de progression Steam (`appmanifest_*.acf`), puis Epic, Battle.net, Xbox.

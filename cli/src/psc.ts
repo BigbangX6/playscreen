@@ -63,6 +63,10 @@ async function resolveGame(client: PlayscreenClient, query: string | undefined):
   fail(`Plusieurs jeux correspondent :\n${matches.map(formatGame).join("\n")}`);
 }
 
+function formatBytes(bytes: number): string {
+  return bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} Go` : `${(bytes / 1024 ** 2).toFixed(0)} Mo`;
+}
+
 function formatGame(game: Game): string {
   const state = game.installed ? "installé " : "         ";
   const hours = (game.playtimeSeconds / 3600).toFixed(1).padStart(6);
@@ -117,8 +121,29 @@ async function main(argv: string[]) {
     case "game":
       console.log(await resolveGame(client, args[0]));
       break;
+    case "install": {
+      const game = await resolveGame(client, args.join(" "));
+      // On écoute avant de demander l'installation pour ne rien rater.
+      const controller = new AbortController();
+      const stream = client.events(controller.signal);
+      const first = stream.next();
+      await client.install(game.id);
+      console.log(`Installation demandée : ${game.name} (Ctrl+C pour ne plus suivre)`);
+      for (let result = await first; !result.done; result = await stream.next()) {
+        const event = result.value;
+        if (event.type === "install.progress" && event.data.gameId === game.id) {
+          const { bytesDone, bytesTotal } = event.data;
+          const percent = ((100 * bytesDone) / bytesTotal).toFixed(1);
+          console.log(`${new Date().toLocaleTimeString()} ${percent} % (${formatBytes(bytesDone)} / ${formatBytes(bytesTotal)})`);
+        } else if (event.type === "game.installed" && event.data.gameId === game.id) {
+          console.log("Installé.");
+          break;
+        }
+      }
+      controller.abort();
+      break;
+    }
     case "start":
-    case "install":
     case "uninstall": {
       const game = await resolveGame(client, args.join(" "));
       await client[command](game.id);

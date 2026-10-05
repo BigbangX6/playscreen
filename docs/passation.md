@@ -259,6 +259,28 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
 - Reste : démarrage automatique avec Windows (clé `Run` de l'utilisateur, à faire avec
   l'accord de la personne), DualSense / Switch, icône Playscreen.
 
+### Phase 5 : installation et progression Steam (5 octobre 2026, en cours)
+
+- `POST /games/{id}/install` (Steam) : `api.InstallGame` (Steam ouvre sa fenêtre de
+  confirmation, F4), puis `InstallProgress.cs` suit l'installation chaque seconde et
+  publie `install.progress`. `game.installed` vient de Playnite (vérification toutes
+  les 10 s). `psc install <jeu>` affiche le pourcentage jusqu'à « Installé ».
+- **Ce que Steam écrit** : `appmanifest_<id>.acf` contient `BytesToDownload` (taille
+  compressée) et `BytesToStage` (taille installée), mais **seulement au début et à la
+  fin**, pas pendant le téléchargement. Steam **réserve d'emblée** la place des
+  fichiers (« preallocated » dans `logs\content_log.txt`) : la taille du dossier
+  `downloading\<id>` est donc inutilisable (essayé : 99 % dès la 1re seconde).
+- **Mesure retenue** : octets écrits sur le disque par `steam.exe` depuis la demande
+  (`GetProcessIoCounters`, `ProcessWrites.cs`), rapportés à
+  `BytesToDownload + BytesToStage` (Steam écrit les données deux fois), affichés en
+  taille installée, plafonnés à 99 % jusqu'à `StateFlags` « installé ». **À valider**
+  sur une prochaine installation : la formule n'a été vue que sur Among Us (11 s) et
+  Garry's Mod (mêlé au début de ses addons Workshop).
+- Testé : Among Us installé de bout en bout (`game.installed` reçu). Garry's Mod
+  installé puis désinstallé par la personne (addons Workshop : F23).
+- Reste : Epic, Battle.net, Xbox (pas de suivi), téléchargements Workshop, annonce de
+  l'espace nécessaire.
+
 ### Jamais testé sous Windows
 
 - La sentinelle avec une vraie manette (XInput, mise au premier plan).

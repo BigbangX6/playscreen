@@ -28,6 +28,7 @@ namespace Playscreen.Bridge.Api
         private readonly EventHub events;
         private readonly StoreSync sync;
         private readonly StoreLogin login;
+        private readonly InstallProgress progress;
         private readonly string token = NewToken();
         private readonly List<Route> routes;
         private HttpListener listener;
@@ -40,6 +41,7 @@ namespace Playscreen.Bridge.Api
             this.events = events;
             this.sync = sync;
             login = new StoreLogin(api, events, sync);
+            progress = new InstallProgress(api, events);
             routes = new List<Route>
             {
                 new Route("GET", @"^/status$", _ => Json(200, GetStatus())),
@@ -54,7 +56,15 @@ namespace Playscreen.Bridge.Api
                 new Route("POST", @"^/games/([^/]+)/start$", ctx => WithGame(ctx, game =>
                     !game.IsInstalled ? Json(409, new { error = "not installed" }) : RunOnUi(() => api.StartGame(game.Id)))),
                 new Route("POST", @"^/games/([^/]+)/install$", ctx => WithGame(ctx, game =>
-                    game.IsInstalled ? Json(409, new { error = "already installed" }) : RunOnUi(() => api.InstallGame(game.Id)))),
+                {
+                    if (game.IsInstalled)
+                    {
+                        return Json(409, new { error = "already installed" });
+                    }
+                    var reply = RunOnUi(() => api.InstallGame(game.Id));
+                    progress.Track(game);
+                    return reply;
+                })),
                 new Route("POST", @"^/games/([^/]+)/uninstall$", ctx => WithGame(ctx, game =>
                     !game.IsInstalled ? Json(409, new { error = "not installed" }) : RunOnUi(() => api.UninstallGame(game.Id)))),
                 new Route("GET", @"^/games/([^/]+)/media/(cover|background|icon)$", ctx => WithGame(ctx, game => Media(game, ctx.Params[1]))),
