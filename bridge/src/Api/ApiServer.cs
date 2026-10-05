@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -62,6 +63,13 @@ namespace Playscreen.Bridge.Api
                         return Json(409, new { error = "already installed" });
                     }
                     var reply = RunOnUi(() => api.InstallGame(game.Id));
+                    if (Stores.FromPluginId(game.PluginId) == "epic")
+                    {
+                        // L'extension Epic ouvre seulement la bibliothèque : on ouvre en plus la
+                        // fenêtre d'installation du jeu (testé le 5 octobre 2026, un clic sur
+                        // « Installer »). Playnite garde son suivi d'installation.
+                        Process.Start($"com.epicgames.launcher://apps/{Uri.EscapeDataString(game.GameId)}?action=install");
+                    }
                     progress.Track(game);
                     return reply;
                 })),

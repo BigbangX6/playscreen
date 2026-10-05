@@ -281,7 +281,17 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
   (`SetProcessDPIAware`), sinon l'image est tronquée (affichage à 125 %).
 - Testé : Among Us et MOTiON by RADiCAL installés de bout en bout (`game.installed`
   reçu). Garry's Mod installé puis désinstallé par la personne (addons Workshop : F23).
-- Reste : Epic, Battle.net, Xbox (pas de suivi), téléchargements Workshop, annonce de
+- **Epic** : le lien `com.epicgames.launcher://apps/<AppName>?action=install` marche
+  (fenêtre « Choisir l'emplacement de l'installation », un clic sur « Installer ») ;
+  la passerelle l'ouvre en plus de `api.InstallGame` (qui n'ouvre que la bibliothèque
+  Epic). Suivi : fichier du jeu dans `Manifests\Pending` pendant l'installation, puis
+  dans `Manifests` ; direct = octets écrits par `EpicGamesLauncher` (≈ taille
+  installée : 7,3 Go écrits pour la mise à jour de Fall Guys, 7,39 Go ; 972 Mo pour
+  Unrailed, 0,95 Go). **À confirmer** : que le fichier `Pending` contient bien
+  `InstallSize` dès le début (installation d'Unrailed trop rapide pour le voir).
+  Découvertes : UAC à cause du dossier `Program Files` (F24), demande perdue après la
+  mise à jour du launcher (F25).
+- Reste : Battle.net, Xbox (pas de suivi), téléchargements Workshop, annonce de
   l'espace nécessaire.
 
 ### Jamais testé sous Windows

@@ -13,7 +13,8 @@ namespace Playscreen.Bridge.Api
     /// <summary>
     /// Progression des installations : Playnite n'en donne aucune (il vérifie seulement
     /// toutes les 10 s si le jeu est installé). On lit donc ce que les launchers écrivent.
-    /// Steam : appmanifest_&lt;id&gt;.acf (octets téléchargés / à télécharger).
+    /// Steam : appmanifest_&lt;id&gt;.acf ; Epic : Manifests\Pending\*.item. Dans les deux cas,
+    /// le direct vient des octets écrits par le launcher (ProcessWrites).
     /// </summary>
     public class InstallProgress
     {
@@ -38,9 +39,10 @@ namespace Playscreen.Bridge.Api
         /// <summary>Suit l'installation en arrière-plan, si le store le permet.</summary>
         public void Track(Game game)
         {
-            if (Stores.FromPluginId(game.PluginId) != "steam")
+            var store = Stores.FromPluginId(game.PluginId);
+            if (store != "steam" && store != "epic")
             {
-                return; // Epic, Battle.net, Xbox : à étudier.
+                return; // Battle.net, Xbox : à étudier.
             }
             lock (tracked)
             {
@@ -49,7 +51,125 @@ namespace Playscreen.Bridge.Api
                     return;
                 }
             }
-            Task.Run(() => TrackSteam(game.Id, game.GameId));
+            if (store == "steam")
+            {
+                Task.Run(() => TrackSteam(game.Id, game.GameId));
+            }
+            else
+            {
+                Task.Run(() => TrackEpic(game.Id, game.GameId));
+            }
+        }
+
+        /// <summary>
+        /// Epic garde le fichier du jeu dans Manifests\Pending pendant l'installation (avec
+        /// sa taille installée, à confirmer) puis le déplace dans Manifests à la fin. En
+        /// direct : octets écrits par le launcher (≈ taille installée, mesuré le 5 octobre
+        /// 2026 : 7,3 Go écrits pour Fall Guys, 7,39 Go ; 972 Mo pour Unrailed, 0,95 Go).
+        /// </summary>
+        private async Task TrackEpic(Guid gameId, string appName)
+        {
+            var manifests = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "Epic", "EpicGamesLauncher", "Data", "Manifests");
+            var started = DateTime.Now;
+            var writes = new ProcessWrites("EpicGamesLauncher");
+            var seenPending = false;
+            long total = 0;
+            long lastDone = -1;
+            try
+            {
+                while (DateTime.Now - started < MaxDuration)
+                {
+                    var pending = FindEpicItem(Path.Combine(manifests, "Pending"), appName);
+                    if (pending != null)
+                    {
+                        seenPending = true;
+                        total = Math.Max(total, pending.Value);
+                        if (total > 0)
+                        {
+                            var done = (long)(total * Math.Min(0.99, (double)writes.Since() / total));
+                            if (done != lastDone)
+                            {
+                                lastDone = done;
+                                events.Publish("install.progress", new { gameId, bytesDone = done, bytesTotal = total });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var installed = FindEpicItem(manifests, appName);
+                        if (installed != null && (seenPending || DateTime.Now - started > TimeSpan.FromSeconds(5)))
+                        {
+                            total = installed.Value > 0 ? installed.Value : total;
+                            if (total > 0)
+                            {
+                                events.Publish("install.progress", new { gameId, bytesDone = total, bytesTotal = total });
+                            }
+                            return; // game.installed arrivera par Playnite.
+                        }
+                        if (!seenPending && DateTime.Now - started > NoManifestTimeout)
+                        {
+                            logger.Info($"Playscreen: no Epic install started for {appName}, giving up");
+                            return;
+                        }
+                    }
+
+                    if (api.Database.Games.Get(gameId)?.IsInstalled == true)
+                    {
+                        return;
+                    }
+                    await Task.Delay(PollInterval).ConfigureAwait(false);
+                }
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, $"Playscreen: Epic progress for {appName} failed");
+            }
+            finally
+            {
+                lock (tracked)
+                {
+                    tracked.Remove(gameId);
+                }
+            }
+        }
+
+        /// <summary>Taille installée du jeu dans un dossier de fichiers .item d'Epic (0 si absente), ou null.</summary>
+        private static long? FindEpicItem(string folder, string appName)
+        {
+            if (!Directory.Exists(folder))
+            {
+                return null;
+            }
+            foreach (var file in Directory.GetFiles(folder, "*.item"))
+            {
+                try
+                {
+                    string text;
+                    using (var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                    using (var reader = new StreamReader(stream))
+                    {
+                        text = reader.ReadToEnd();
+                    }
+                    var item = Playnite.SDK.Data.Serialization.FromJson<EpicItem>(text);
+                    if (item != null && item.AppName == appName)
+                    {
+                        return item.InstallSize;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Fichier déplacé, en cours d'écriture ou vide (Epic l'écrit parfois
+                    // vide) : on réessaiera au prochain passage.
+                }
+            }
+            return null;
+        }
+
+        private class EpicItem
+        {
+            public string AppName { get; set; }
+            public long InstallSize { get; set; }
         }
 
         private async Task TrackSteam(Guid gameId, string appId)
