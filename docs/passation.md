@@ -10,6 +10,52 @@
 
 ---
 
+## 0. Reprise rapide (fin de la session Windows du 5 octobre 2026)
+
+La session Windows du 5 octobre a atteint la limite de sa conversation. **Commence ici**,
+puis lis le § 3 (état détaillé, phase par phase) et « Prochaines étapes » au § 4.
+
+**Où on en est**
+- Phases 1, 2, 3 validées avec les vrais comptes (Steam, Epic, Xbox, Battle.net connectés).
+- Phase 4 (sentinelle) : écrite ; **test avec une vraie manette jamais fait** (Select +
+  Start). `playscreen-sentinel.exe --focus` fait la même action sans manette (tests).
+- Phase 5 : installation, progression et désinstallation validées pour Steam, Epic,
+  Battle.net. **Xbox à faire.**
+- Interface (`ui/`) : première version des écrans conçue par la personne dans une autre
+  session, branchée sur le vrai moteur, dans la fenêtre Tauri. Menu rapide en jeu (D10)
+  complet et vérifié au clavier avec Among Us. Fenêtres des launchers mises au premier
+  plan (F27, en partie).
+- Design : la personne itère dans **Claude Code web** avec la **version démo** (un seul
+  HTML, faux moteur intégré, `npm --prefix ui run build:demo`), publiée à
+  https://claude.ai/artifact/9kk25a1rgyhnDqY7mp3rDx ; consignes dans `ui/CLAUDE.md`. Ses
+  branches arrivent par pull request : « récupère l'interface » = `git pull`, lancer,
+  vérifier.
+
+**Prochaine tâche annoncée** : écran d'attente (F25, F26) : détecter qu'un launcher
+démarre ou se met à jour, l'annoncer à l'interface. Puis Xbox (phase 5), puis démarrage
+automatique (sentinelle + moteur) **avec l'accord de la personne**.
+
+**La personne t'a donné carte blanche** sur ce PC (lancer, fermer, forcer, relancer des
+applications). Continue de lui dire ce que tu fais, et demande-lui pour ce qui exige sa
+présence (connexion, UAC, manette, achat) ou ce qui est irréversible.
+
+**Environnement de ce PC**
+- Rust en variante **MSVC** par défaut (outils Visual Studio Build Tools 2022 installés) ;
+  `cargo` est dans `%USERPROFILE%\.cargo\bin` (à ajouter au `PATH` d'un terminal).
+- Moteur : `dist\Playscreen\start-engine.cmd` ; arrêt propre :
+  `dist\Playscreen\Playnite\Playnite.DesktopApp.exe --shutdown` ; reconstruire le paquet
+  ne perd plus les données (`%LOCALAPPDATA%\Playscreen\Playnite`). Pour déployer une
+  passerelle recompilée : arrêter, copier `bridge\bin\Release\net462\*` dans
+  `dist\Playscreen\Playnite\Extensions\Playscreen_Bridge`, redémarrer.
+- Interface : `npm --prefix ui run tauri dev` (fenêtre « Playscreen », plein écran).
+- Captures d'écran complètes : processus « DPI-aware » (`SetProcessDPIAware`), affichage
+  à 125 %. Les touches simulées (`SendKeys`) partent dans la fenêtre au premier plan :
+  **vérifier que c'est Playscreen avant d'en envoyer** (des touches sont parties dans
+  Among Us une fois). Un programme en arrière-plan ne peut pas prendre le premier plan :
+  utiliser la sentinelle `--focus`.
+- La personne pilote parfois ce PC à distance par **Parsec** (fenêtres WPF transparentes
+  si accélération graphique : réglé, F22).
+
 ## 1. Le projet et la personne avec qui tu travailles
 
 ### Objectif
