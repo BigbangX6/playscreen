@@ -39,6 +39,8 @@ export interface Game {
   playtimeSeconds: number;
   lastPlayed?: string | null;
   added?: string | null;
+  /** Durée de la dernière partie, notée par le moteur à chaque fin de partie. */
+  lastSessionSeconds?: number | null;
   media?: { cover?: boolean; background?: boolean; icon?: boolean };
 }
 

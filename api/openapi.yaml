@@ -279,6 +279,7 @@ components:
         playtimeSeconds: { type: integer }
         lastPlayed: { type: string, format: date-time, nullable: true }
         added: { type: string, format: date-time, nullable: true }
+        lastSessionSeconds: { type: integer, nullable: true, description: Durée de la dernière partie (notée par le moteur) }
         media:
           type: object
           properties:

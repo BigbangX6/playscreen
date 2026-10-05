@@ -244,6 +244,7 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
     const sessionSeconds = Math.max(1, Math.round((Date.now() - Date.parse(session.startedAt)) / 1000));
     session = null;
     game.playtimeSeconds += sessionSeconds;
+    game.lastSessionSeconds = sessionSeconds;
     game.lastPlayed = new Date().toISOString();
     busy.delete(game.id);
     emit("game.stopped", { gameId: game.id, sessionSeconds });

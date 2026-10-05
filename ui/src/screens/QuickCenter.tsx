@@ -239,7 +239,7 @@ export function QuickCenter(props: Props) {
                     </span>
                     Musique
                   </div>
-                  <span className="bgc-sub">{music ? `${music.service} · ${music.artist}, ${music.title}` : "Rien en lecture"}</span>
+                  <span className="bgc-sub">{music ? `${music.service} · ${[music.artist, music.title].filter(Boolean).join(", ")}` : "Rien en lecture"}</span>
                   <div className="ctl">
                     {music && (
                       <>

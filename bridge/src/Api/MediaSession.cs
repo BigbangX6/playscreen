@@ -81,8 +81,14 @@ namespace Playscreen.Bridge.Api
             {
                 name = name.Substring(0, name.Length - 4);
             }
+            if (name.StartsWith("Microsoft.", StringComparison.OrdinalIgnoreCase))
+            {
+                name = name.Substring("Microsoft.".Length);
+            }
             switch (name.ToLowerInvariant())
             {
+                case "zunemusic": return "Lecteur multimédia";
+                case "zunevideo": return "Films et TV";
                 case "chrome": return "Chrome";
                 case "msedge": return "Edge";
                 case "firefox": return "Firefox";

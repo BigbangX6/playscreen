@@ -66,6 +66,7 @@ namespace Playscreen.Bridge
         public override void OnGameStopped(OnGameStoppedEventArgs args)
         {
             session.Stopped(args.Game.Id);
+            SessionHistory.Record(args.Game.Id, args.ElapsedSeconds);
             events.Publish("game.stopped", new { gameId = args.Game.Id, sessionSeconds = args.ElapsedSeconds });
         }
 

@@ -85,6 +85,8 @@ describe("faux moteur", () => {
     // Premier lancement : le launcher démarre, puis il est prêt avant le jeu.
     const states = events.flatMap((e) => (e.type === "launcher.state" ? [e.data.state] : []));
     assert.deepEqual(states, ["starting", "ready"]);
+    // La durée de la partie est retenue sur le jeu.
+    assert.ok(((await client.game(HADES)).lastSessionSeconds ?? 0) > 0);
     const after = await client.game(HADES);
     assert.ok(after.playtimeSeconds >= before);
     assert.ok(after.lastPlayed);

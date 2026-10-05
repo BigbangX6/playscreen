@@ -137,6 +137,7 @@ namespace Playscreen.Bridge.Api
         [SerializationPropertyName("playtimeSeconds")] public ulong PlaytimeSeconds { get; set; }
         [SerializationPropertyName("lastPlayed")] public DateTime? LastPlayed { get; set; }
         [SerializationPropertyName("added")] public DateTime? Added { get; set; }
+        [SerializationPropertyName("lastSessionSeconds")] public ulong? LastSessionSeconds { get; set; }
         [SerializationPropertyName("media")] public MediaDto Media { get; set; }
 
         public static GameDto From(Game game, IPlayniteAPI api) => new GameDto
@@ -152,6 +153,7 @@ namespace Playscreen.Bridge.Api
             PlaytimeSeconds = game.Playtime,
             LastPlayed = game.LastActivity,
             Added = game.Added,
+            LastSessionSeconds = SessionHistory.Last(game.Id),
             Media = new MediaDto
             {
                 Cover = MediaPath(api, game.CoverImage) != null,

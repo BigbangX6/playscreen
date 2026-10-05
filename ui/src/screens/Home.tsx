@@ -237,7 +237,7 @@ function previewFor(space: SpaceId, sys: SystemSnapshot): Preview {
           <div className={`live ${music.playing ? "" : "live-paused"}`}>
             <span className="live-dot" />
             <span>
-              <b>{music.playing ? "En lecture" : "En pause"}</b> · {music.title} · {music.artist}
+              <b>{music.playing ? "En lecture" : "En pause"}</b> · {[music.title, music.artist].filter(Boolean).join(" · ")}
             </span>
             <LiveButton onClick={() => system.musicPrevious()}>|◀</LiveButton>
             <LiveButton onClick={() => system.musicToggle()}>{music.playing ? "❚❚" : "▶"}</LiveButton>
@@ -432,7 +432,7 @@ export function Home(props: Props) {
             ? "Reprendre"
             : "Nouveau";
     const trophies = system.trophies(game.id);
-    const session = props.sessions[game.id] ?? system.lastSession(game.id);
+    const session = props.sessions[game.id] ?? game.lastSessionSeconds ?? system.lastSession(game.id);
     const line: ReactNode[] = [];
     if (installing) {
       const p = installs[game.id];
