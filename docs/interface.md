@@ -132,7 +132,17 @@ un launcher demande une action, notifications. Chaque écran a ses états : char
 vide, erreur, moteur indisponible.
 ```
 
-## 7. Essayer l'interface
+## 7. Prototyper dans Claude Code sur le web
+
+La façon la plus simple d'itérer : une session **Claude Code web** (claude.ai/code) sur ce
+dépôt. Elle lit `ui/CLAUDE.md`, modifie l'interface, construit la **version démo** (un seul
+fichier HTML avec un faux moteur intégré, `npm --prefix ui run build:demo`) et la publie
+toujours au même lien : https://claude.ai/artifact/9kk25a1rgyhnDqY7mp3rDx. On teste dans
+n'importe quel navigateur, au clavier ou à la manette ; **F2** ouvre le panneau des
+situations (installation qui attend, partie en cours, moteur coupé…). C'est le vrai code :
+l'intégrer ne demande qu'une fusion de la branche.
+
+## 8. Essayer l'interface
 
 ```sh
 npm run mock                 # faux moteur (ou le vrai : dist\Playscreen\start-engine.cmd)

@@ -1,13 +1,13 @@
 // Tuile d'un jeu dans la bibliothèque : jaquette (ou remplacement lisible), nom, état.
 
-import type { PlayscreenClient } from "../../../api/client.ts";
+import type { EngineClient } from "../../../api/client.ts";
 import type { Game } from "../../../api/types.ts";
 import { Cover } from "./Cover.tsx";
 import { ProgressBar, type Progress } from "./ProgressBar.tsx";
 
 interface Props {
   game: Game;
-  client: PlayscreenClient;
+  client: EngineClient;
   progress: Progress | null;
   /** Installation demandée (la progression peut ne pas être encore connue). */
   installing: boolean;

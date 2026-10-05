@@ -19,6 +19,7 @@ jobs:
       - run: npm test
       - run: npm --prefix ui ci
       - run: npm --prefix ui run build
+      - run: npm --prefix ui run build:demo
 
   sentinel:
     name: Sentinelle (${{ matrix.os }})

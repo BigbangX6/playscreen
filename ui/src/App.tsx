@@ -2,7 +2,7 @@
 // installations, partie en cours), écran courant et fenêtres par-dessus.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, type PlayscreenClient } from "../../api/client.ts";
+import { ApiError, type EngineClient } from "../../api/client.ts";
 import type { EngineEvent, Game, Store, StoreId } from "../../api/types.ts";
 import type { Progress } from "./components/ProgressBar.tsx";
 import { Toasts, type Toast, type ToastTone } from "./components/Toasts.tsx";
@@ -84,9 +84,9 @@ export function App() {
   const nameOf = (id: string) => gamesRef.current?.find((g) => g.id === id)?.name ?? "Le jeu";
 
   const engine = useEngine((event) => onEvent(event));
-  const client: PlayscreenClient | null = engine.status === "ready" ? engine.client : null;
+  const client: EngineClient | null = engine.status === "ready" ? engine.client : null;
   // Pendant une coupure, les écrans restent affichés (sous l'écran « moteur indisponible »).
-  const lastClient = useRef<PlayscreenClient | null>(null);
+  const lastClient = useRef<EngineClient | null>(null);
   if (client) lastClient.current = client;
   const view = lastClient.current;
 

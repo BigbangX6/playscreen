@@ -2,7 +2,7 @@
 // rapide en jeu, accompagnement (connexion, installation), confirmation, moteur indisponible.
 
 import { useEffect, useState } from "react";
-import type { PlayscreenClient } from "../../../api/client.ts";
+import type { EngineClient } from "../../../api/client.ts";
 import type { Game, Store } from "../../../api/types.ts";
 import { Cover } from "../components/Cover.tsx";
 import { Hints } from "../components/Hints.tsx";
@@ -57,7 +57,7 @@ export function SystemMenu({ onLibrary, onStores, onReload, onClose }: MenuProps
 // ——— Écran d'attente : un jeu (ou son launcher) démarre (F25, F26) ———
 
 interface LaunchProps {
-  client: PlayscreenClient;
+  client: EngineClient;
   game: Game;
   since: number;
   onHide(): void;
@@ -106,7 +106,7 @@ export function Launching({ client, game, since, onHide }: LaunchProps) {
 // ——— Menu rapide en jeu (D10 : Select + Start pendant une partie, Start ici) ———
 
 interface QuickProps {
-  client: PlayscreenClient;
+  client: EngineClient;
   game: Game;
   since: number;
   onResume(): void;

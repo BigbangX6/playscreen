@@ -1,7 +1,7 @@
 // Fiche d'un jeu : image de fond, temps de jeu, dernière partie ; Jouer / Installer
 // (avec progression) / Désinstaller.
 
-import type { PlayscreenClient } from "../../../api/client.ts";
+import type { EngineClient } from "../../../api/client.ts";
 import type { Game } from "../../../api/types.ts";
 import { Cover, StoreBadge } from "../components/Cover.tsx";
 import { useFocusScope } from "../components/focus.ts";
@@ -13,7 +13,7 @@ import { formatBytes, formatPlaytime, formatRelativeDate } from "../format.ts";
 import { useNavAction } from "../input/navigation.ts";
 
 interface Props {
-  client: PlayscreenClient;
+  client: EngineClient;
   game: Game | null;
   /** Chargement de la bibliothèque en cours (le jeu n'est pas encore connu). */
   loading: boolean;

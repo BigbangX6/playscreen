@@ -1,7 +1,7 @@
 // Bibliothèque : tous les jeux, filtrés par store ou « installés » (LB / RB), triés (X).
 
 import { useEffect, useMemo, useRef } from "react";
-import type { PlayscreenClient } from "../../../api/client.ts";
+import type { EngineClient } from "../../../api/client.ts";
 import type { Game } from "../../../api/types.ts";
 import { Glyph, Hints } from "../components/Hints.tsx";
 import { GameTile } from "../components/GameTile.tsx";
@@ -19,7 +19,7 @@ const SORT_LABELS: Record<LibrarySort, string> = { recent: "Récents", name: "No
 const STORE_ORDER: StoreKey[] = ["steam", "epic", "xbox", "battlenet", "other"];
 
 interface Props {
-  client: PlayscreenClient;
+  client: EngineClient;
   games: Game[] | null;
   error: string | null;
   installs: Record<string, Progress | null>;

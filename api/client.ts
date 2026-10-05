@@ -10,7 +10,25 @@ export class ApiError extends Error {
   }
 }
 
-export class PlayscreenClient {
+/**
+ * Ce que l'interface utilise du moteur. PlayscreenClient l'implémente par HTTP ; la
+ * version démo de l'interface (ui/src/demo) l'implémente en mémoire, dans la page.
+ */
+export interface EngineClient {
+  status(): Promise<Status>;
+  stores(): Promise<Store[]>;
+  games(filter?: { installed?: boolean; store?: StoreId }): Promise<Game[]>;
+  game(id: string): Promise<Game>;
+  start(id: string): Promise<void>;
+  install(id: string): Promise<void>;
+  uninstall(id: string): Promise<void>;
+  sync(storeId: StoreId): Promise<void>;
+  login(storeId: StoreId, options?: { alternative?: boolean }): Promise<void>;
+  mediaUrl(id: string, kind: "cover" | "background" | "icon"): string;
+  events(signal?: AbortSignal): AsyncGenerator<EngineEvent>;
+}
+
+export class PlayscreenClient implements EngineClient {
   readonly baseUrl: string;
   readonly token: string;
 

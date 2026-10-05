@@ -1,8 +1,23 @@
 // Connexion au moteur (faux moteur ou passerelle Playnite) et état partagé par les écrans.
 
 import { useEffect, useRef, useState } from "react";
-import { PlayscreenClient } from "../../api/client.ts";
+import { PlayscreenClient, type EngineClient } from "../../api/client.ts";
 import type { EngineEvent, EngineInfo } from "../../api/types.ts";
+
+/**
+ * Version démo (`npm run dev:demo`, `npm run build:demo`) : faux moteur dans la page,
+ * sans serveur (voir src/demo/). Sinon : le vrai moteur (passerelle ou faux moteur Node).
+ */
+export const DEMO = import.meta.env.MODE === "demo";
+
+async function connect(): Promise<EngineClient> {
+  if (DEMO) {
+    const { demoClient } = await import("./demo/demo-engine.ts");
+    return demoClient;
+  }
+  const info = await loadEngineInfo();
+  return new PlayscreenClient(`http://127.0.0.1:${info.port}/api/v0`, info.token);
+}
 
 /** Dans Tauri : commande engine_info (Rust lit engine.json). Dans un navigateur : Vite sert /engine.json. */
 async function loadEngineInfo(): Promise<EngineInfo> {
@@ -17,7 +32,7 @@ async function loadEngineInfo(): Promise<EngineInfo> {
 
 export type EngineState =
   | { status: "connecting" }
-  | { status: "ready"; client: PlayscreenClient }
+  | { status: "ready"; client: EngineClient }
   | { status: "offline"; error: string };
 
 /**
@@ -37,8 +52,7 @@ export function useEngine(onEvent?: (event: EngineEvent) => void): EngineState {
     async function run() {
       while (!stopped) {
         try {
-          const info = await loadEngineInfo();
-          const client = new PlayscreenClient(`http://127.0.0.1:${info.port}/api/v0`, info.token);
+          const client = await connect();
           await client.status();
           setState({ status: "ready", client });
           for await (const event of client.events(controller.signal)) handler.current?.(event);
@@ -46,7 +60,7 @@ export function useEngine(onEvent?: (event: EngineEvent) => void): EngineState {
           if (stopped) return;
           setState({ status: "offline", error: String(error) });
         }
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, DEMO ? 1000 : 2000));
       }
     }
 
