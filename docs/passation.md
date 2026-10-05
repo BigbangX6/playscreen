@@ -259,7 +259,7 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
 - Reste : démarrage automatique avec Windows (clé `Run` de l'utilisateur, à faire avec
   l'accord de la personne), DualSense / Switch, icône Playscreen.
 
-### Phase 5 : installation et progression Steam (5 octobre 2026, en cours)
+### Phase 5 : installation et progression (5 octobre 2026 ; Steam, Epic, Battle.net validés, Xbox à faire)
 
 - `POST /games/{id}/install` (Steam) : `api.InstallGame` (Steam ouvre sa fenêtre de
   confirmation, F4), puis `InstallProgress.cs` suit l'installation chaque seconde et
@@ -414,6 +414,33 @@ Voir `docs/plan.md`. Dans l'ordre :
    `api/openapi.yaml`, `api/types.ts`, le faux moteur et ses tests, puis la passerelle.
 5. **Test** : `psc sync steam` sur un compte Steam réel. **Arrête-toi pour que la
    personne installe Steam et s'y connecte** (identifiants ou QR code).
+
+### Prochaines étapes (bilan du 5 octobre 2026)
+
+**À tester (code écrit, pas encore vu en vrai)** :
+1. Sentinelle avec une vraie manette : Select + Start, notification, icône, mise au
+   premier plan (test prévu au § 3, phase 4).
+2. Revérification de la connexion Xbox après fermeture de la fenêtre (correction
+   déployée, pas revue sur une nouvelle connexion).
+3. `psc login steam` (Steam a été connecté par l'interface de Playnite).
+
+**À faire, par ordre proposé** :
+1. **Xbox, phase 5** : installation (Microsoft Store ou appli Xbox), progression,
+   désinstallation, avec un jeu gratuit.
+2. **Interface (phase 7)** : bibliothèque, lancement, installation avec progression,
+   connexions, à la manette ; écrans d'attente (F26, F25) ; « Recommencer » /
+   « Retour » dans les connexions (F21).
+3. **Fenêtres des launchers au premier plan** (F27) : confirmations d'installation et
+   de désinstallation, comme pour les connexions.
+4. **Mode assisté (phase 6)** : souris virtuelle au stick, clavier manette ; consigne
+   pour la désinstallation Epic.
+5. **Installateur de Playscreen (D9)** : une autorisation admin ; droits d'écriture
+   sur les dossiers de jeux par défaut ; règle de pare-feu (F19) ; démarrage
+   automatique de la sentinelle ; option « valider l'UAC à la manette » (F24, piste 2).
+6. **Sentinelle** : démarrage avec Windows, DualSense / Switch, icône Playscreen.
+7. **Recherches** : espace disque avant installation et addons Workshop (F23),
+   composants système au premier lancement (F2), catalogue Game Pass, connexion Epic
+   par code sur le téléphone (F20).
 
 ### Quand t'arrêter pour demander une action à la personne
 
