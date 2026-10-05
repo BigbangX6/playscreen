@@ -53,6 +53,6 @@ npm run psc -- events
 cd sentinel
 cargo test
 PLAYSCREEN_EXE=<chemin de Playscreen> PLAYSCREEN_WINDOW=<titre de sa fenêtre> cargo run
-# Windows : manette Xbox (XInput) requise ; Rust en variante GNU suffit
+# Windows : manette Xbox (XInput) requise ; Rust en variante MSVC (outils de compilation Microsoft)
 # Journal : %LOCALAPPDATA%\Playscreen\sentinel.log
 ```

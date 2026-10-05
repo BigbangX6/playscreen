@@ -47,7 +47,10 @@ $storeExtensions = @(
     "https://playnite.link/download/extensions/bins/SteamLibrary_Builtin_2_47.pext",
     "https://playnite.link/download/extensions/bins/EpicGamesLibrary_Builtin_2_30.pext",
     "https://playnite.link/download/extensions/bins/XboxLibrary_Builtin_2_17.pext",
-    "https://playnite.link/download/extensions/bins/BattlenetLibrary_Builtin_2_24.pext"
+    "https://playnite.link/download/extensions/bins/BattlenetLibrary_Builtin_2_24.pext",
+    # Métadonnées IGDB : images et descriptions quand le store n'en fournit pas
+    # (installée aussi par l'assistant de premier démarrage de Playnite).
+    "https://playnite.link/download/extensions/bins/IGDBMetadata_Builtin_2_15.pext"
 )
 
 Write-Host "==> Compilation de la passerelle"

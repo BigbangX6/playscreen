@@ -427,10 +427,14 @@ Voir `docs/plan.md`. Dans l'ordre :
 **Interface (5 octobre 2026)** : `ui/` créé (React + TypeScript + Vite, coque Tauri 2 dans
 `ui/src-tauri`), guide de conception dans `docs/interface.md` (le design se fait dans
 une autre conversation Claude). L'API autorise l'interface en CORS (`ALLOWED_ORIGINS`).
-Vérifié : dans un navigateur, la maquette technique affiche les 38 vrais jeux depuis la
-passerelle, avec leurs images. **La coque Tauri ne compile pas encore** : Rust en
-variante GNU n'a pas `dlltool` (bibliothèques Windows récentes) ; il faut les outils de
-compilation Microsoft (MSVC) ou une distribution MinGW (accord de la personne requis).
+Vérifié : la maquette technique affiche les 38 vrais jeux depuis la passerelle, avec
+leurs images, dans un navigateur **et dans l'application Tauri** (fenêtre plein écran
+sans bordure titrée « Playscreen », `engine_info` lu par Rust). Pour Tauri, les
+**outils de compilation Microsoft** (Visual Studio Build Tools 2022, charge « C++ »)
+ont été installés avec l'accord de la personne, et Rust est passé en variante MSVC
+(`stable-x86_64-pc-windows-msvc` par défaut ; la variante GNU reste installée).
+Ajout de l'extension **IGDB** (métadonnées) au paquet : sans elle, les jeux
+Battle.net, Epic et Xbox restaient sans jaquette.
 **Jaquettes** : notre import maison ne téléchargeait pas les métadonnées. Corrigé :
 `POST /stores/{id}/sync` appelle maintenant l'import de Playnite lui-même
 (`MainViewModelBase.UpdateLibrary(plugin)`, par réflexion via le champ `mainModel` de
