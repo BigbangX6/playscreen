@@ -187,16 +187,35 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
 - Epic, Xbox et Battle.net : launchers installés sur ce PC, comptes pas encore connectés
   dans Playnite (`connected: false`).
 
+### Programme et données séparés (5 octobre 2026)
+
+- **Programme** : `dist\Playscreen\Playnite` (effacé à chaque reconstruction).
+- **Données** : `%LOCALAPPDATA%\Playscreen\Playnite` (réglages, bibliothèque, cache du
+  navigateur avec les connexions aux stores, `ExtensionsData`, **journaux
+  `playnite.log` et `extensions.log`**). `start-engine.cmd` passe
+  `--userdatadir` ; Playnite le transmet aussi quand il redémarre en plein écran.
+- **Réglages par défaut** : `dist\Playscreen\defaults` (dossier `library` vide,
+  `config.json` avec `DisableHwAcceleration`, réglages des 4 extensions).
+  `start-engine.cmd` les copie avec `robocopy /XC /XN /XO` : seulement les fichiers
+  absents, jamais par-dessus un réglage existant (la connexion Steam est gardée).
+- `DisableHwAcceleration` dans `config.json`, en plus de `--forcesoftrender` : Playnite
+  ne transmet pas `--forcesoftrender` quand il passe en plein écran.
+- Vérifié : reconstruction complète sans perte (Steam toujours connecté, 29 jeux) et
+  premier démarrage avec un dossier de données vide (pas d'assistant, réglages appliqués).
+- Les données de ce PC ont été déplacées une fois à la main depuis l'ancien paquet
+  (`DatabasePath` remis à `null` dans `config.json`, car il pointait vers
+  `{PlayniteDir}\library`).
+
 ### Jamais testé sous Windows
 
 - La sentinelle avec une vraie manette (XInput, `SetForegroundWindow`).
 
 ### Points fragiles connus
 
-1. **Reconstruire le paquet efface les données** : `build-bundle.ps1` supprime
-   `dist\Playscreen\Playnite` en entier, bibliothèque et réglages compris. À séparer
-   (programme d'un côté, données de l'autre, par exemple avec `--userdatadir`) avant que
-   la personne s'en serve pour de vrai.
+1. **Ne pas lancer `Playnite.DesktopApp.exe` directement quand le moteur est arrêté** :
+   sans `--userdatadir`, Playnite démarrerait avec un dossier de données vide dans le
+   paquet. Toujours passer par `start-engine.cmd`. Quand le moteur tourne, relancer
+   l'exécutable ramène simplement sa fenêtre.
 2. **Mode plein écran de Playnite** : le menu de l'icône de la zone de notification
    permet de basculer en plein écran, ce qui redémarre Playnite (et notre passerelle).
    La passerelle repart toute seule, mais l'interface devra supporter ce redémarrage.
@@ -235,7 +254,8 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
    - Si l'assistant de premier démarrage s'ouvre : **arrête-toi et demande à la personne
      de le terminer à la souris** (sans connecter de store pour l'instant). Puis cherche
      comment le sauter automatiquement (point fragile 3) et intègre-le au script.
-4. **Lire `dist\Playscreen\Playnite\playnite.log`** : l'extension est-elle chargée ?
+4. **Lire `playnite.log`** (aujourd'hui dans `%LOCALAPPDATA%\Playscreen\Playnite\`) :
+   l'extension est-elle chargée ?
    Le serveur a-t-il démarré (« Playscreen API listening on port 47800 ») ?
    `%LOCALAPPDATA%\Playscreen\engine.json` existe-t-il ?
 5. **`npm run psc -- status`** : doit répondre `engine: 'playnite'`, `ready: true`.

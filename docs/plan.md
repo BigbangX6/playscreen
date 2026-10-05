@@ -90,4 +90,4 @@ phases 3 à 5). Elle s'appuie sur le faux moteur pour être développée et test
    PowerShell).
 2. Vous suivez la section « Votre test » de la phase.
 3. En cas de problème : ouvrez une issue avec la sortie de `psc`, et le journal
-   `playnite.log` du paquet.
+   `playnite.log` (dans `%LOCALAPPDATA%\Playscreen\Playnite\`).

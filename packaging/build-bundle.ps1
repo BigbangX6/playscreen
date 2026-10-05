@@ -8,11 +8,13 @@
   3. Installe les extensions Steam, Epic, Xbox et Battle.net (versions figées) : depuis
      Playnite 10, elles ne sont plus fournies avec Playnite mais téléchargées par
      l'assistant de premier démarrage.
-  4. Préconfigure ces extensions : compte connecté et import des jeux non installés.
-  5. Installe la passerelle dans le dossier Extensions du programme (active d'office).
-  6. Crée le dossier de la bibliothèque, ce qui fait sauter l'assistant de premier
-     démarrage de Playnite.
-  7. Crée start-engine.cmd qui démarre Playnite sans interface.
+  4. Installe la passerelle dans le dossier Extensions du programme (active d'office).
+  5. Prépare les réglages par défaut (<Output>\defaults) : extensions de store avec
+     compte connecté et import des jeux non installés, sans accélération graphique, et
+     dossier de bibliothèque qui fait sauter l'assistant de premier démarrage.
+  6. Crée start-engine.cmd : il copie les réglages par défaut manquants dans le dossier
+     de données (%LOCALAPPDATA%\Playscreen\Playnite), puis démarre Playnite sans
+     interface. Reconstruire le paquet n'efface donc jamais les données.
 
 .PARAMETER PlayniteZip
   Archive portable de Playnite (.7z ou .zip), sur la page des versions de Playnite sur
@@ -36,6 +38,7 @@ if (-not $Output) { $Output = Join-Path $root "dist\Playscreen" }
 $playniteDir = Join-Path $Output "Playnite"
 $extensionsDir = Join-Path $playniteDir "Extensions"
 $extensionDir = Join-Path $extensionsDir "Playscreen_Bridge"
+$defaultsDir = Join-Path $Output "defaults"
 $cacheDir = Join-Path $root "dist\cache"
 
 # Extensions de store officielles de Playnite (base d'extensions de playnite.link).
@@ -82,7 +85,23 @@ foreach ($url in $storeExtensions) {
     Write-Host "    $id"
 }
 
-Write-Host "==> Préconfiguration des extensions de store"
+Write-Host "==> Passerelle -> $extensionDir"
+New-Item -ItemType Directory -Force -Path $extensionDir | Out-Null
+Copy-Item (Join-Path $root "bridge\bin\$Configuration\net462\*") $extensionDir -Recurse -Force
+
+# Les données (réglages, bibliothèque, connexions aux stores) vivent hors du paquet, dans
+# %LOCALAPPDATA%\Playscreen\Playnite (option --userdatadir) : reconstruire le paquet ne
+# les efface pas. Le paquet ne contient que les réglages par défaut, copiés au démarrage
+# seulement s'ils n'existent pas encore.
+Write-Host "==> Réglages par défaut -> $defaultsDir"
+if (Test-Path $defaultsDir) { Remove-Item $defaultsDir -Recurse -Force }
+# Playnite saute l'assistant de premier démarrage si le dossier de la bibliothèque
+# existe déjà (DesktopApplication.ProcessStartupWizard).
+New-Item -ItemType Directory -Force -Path (Join-Path $defaultsDir "library") | Out-Null
+# Sans accélération graphique, dans tous les modes : avec, les fenêtres de Playnite restent
+# transparentes sur certains écrans virtuels (Parsec). --forcesoftrender ne suffit pas :
+# Playnite ne le transmet pas quand il redémarre en plein écran.
+[IO.File]::WriteAllText((Join-Path $defaultsDir "config.json"), '{ "DisableHwAcceleration": true }')
 # Réglages lus dans le code des extensions (*LibrarySettingsViewModel.cs) : « connecter le
 # compte » et « importer les jeux non installés » sont désactivés par défaut. Les réglages
 # absents gardent leur valeur par défaut. Version : évite les migrations de réglages.
@@ -93,26 +112,22 @@ $storeSettings = @{
     "e3c26a3d-d695-4cb7-a769-5ff7612c7edd" = '{ "Version": 1, "ImportInstalledGames": true, "ConnectAccount": true, "ImportUninstalledGames": true }' # Battle.net
 }
 foreach ($pluginId in $storeSettings.Keys) {
-    $dataDir = Join-Path $playniteDir "ExtensionsData\$pluginId"
+    $dataDir = Join-Path $defaultsDir "ExtensionsData\$pluginId"
     New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
     [IO.File]::WriteAllText((Join-Path $dataDir "config.json"), $storeSettings[$pluginId])
 }
-
-Write-Host "==> Passerelle -> $extensionDir"
-New-Item -ItemType Directory -Force -Path $extensionDir | Out-Null
-Copy-Item (Join-Path $root "bridge\bin\$Configuration\net462\*") $extensionDir -Recurse -Force
-
-# Playnite saute l'assistant de premier démarrage si le dossier de la bibliothèque
-# existe déjà (DesktopApplication.ProcessStartupWizard).
-New-Item -ItemType Directory -Force -Path (Join-Path $playniteDir "library") | Out-Null
 
 Write-Host "==> start-engine.cmd"
 $startScript = @"
 @echo off
 rem Demarre Playnite sans interface : la passerelle Playscreen ecoute sur 127.0.0.1.
+rem Donnees hors du paquet : reconstruire le paquet ne les efface pas.
+set "DATA=%LOCALAPPDATA%\Playscreen\Playnite"
+rem Reglages par defaut, copies seulement s'ils n'existent pas encore (/XC /XN /XO).
+robocopy "%~dp0defaults" "%DATA%" /E /XC /XN /XO /NJH /NJS /NFL /NDL /NP >nul
 rem --forcesoftrender : avec l'acceleration graphique, les fenetres de Playnite restent
 rem transparentes sur certains ecrans virtuels (Parsec).
-start "" "%~dp0Playnite\Playnite.DesktopApp.exe" --startclosedtotray --hidesplashscreen --forcesoftrender
+start "" "%~dp0Playnite\Playnite.DesktopApp.exe" --userdatadir "%DATA%" --startclosedtotray --hidesplashscreen --forcesoftrender
 "@
 Set-Content -Path (Join-Path $Output "start-engine.cmd") -Value $startScript -Encoding ASCII
 

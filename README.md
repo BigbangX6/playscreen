@@ -43,7 +43,8 @@ npm run psc -- events
 1. Télécharger l'archive **portable** de Playnite (page des versions du projet Playnite,
    par exemple `10.62.7z`).
 2. `powershell -ExecutionPolicy Bypass -File .\packaging\build-bundle.ps1 -PlayniteZip <chemin de l'archive>`
-3. `.\dist\Playscreen\start-engine.cmd`
+3. `.\dist\Playscreen\start-engine.cmd` (données et journaux : `%LOCALAPPDATA%\Playscreen\Playnite`,
+   jamais effacés par une reconstruction du paquet)
 4. `npm run psc -- status`, puis `npm run psc -- games`, puis `npm run psc -- start <nom>`
 
 ### Sentinelle
