@@ -271,13 +271,16 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
   fichiers (« preallocated » dans `logs\content_log.txt`) : la taille du dossier
   `downloading\<id>` est donc inutilisable (essayé : 99 % dès la 1re seconde).
 - **Mesure retenue** : octets écrits sur le disque par `steam.exe` depuis la demande
-  (`GetProcessIoCounters`, `ProcessWrites.cs`), rapportés à
-  `BytesToDownload + BytesToStage` (Steam écrit les données deux fois), affichés en
-  taille installée, plafonnés à 99 % jusqu'à `StateFlags` « installé ». **À valider**
-  sur une prochaine installation : la formule n'a été vue que sur Among Us (11 s) et
-  Garry's Mod (mêlé au début de ses addons Workshop).
-- Testé : Among Us installé de bout en bout (`game.installed` reçu). Garry's Mod
-  installé puis désinstallé par la personne (addons Workshop : F23).
+  (`GetProcessIoCounters`, `ProcessWrites.cs`), rapportés à `BytesToStage` (taille
+  installée), plafonnés à 99 % jusqu'à `StateFlags` « installé ». **Validé** sur
+  MOTiON by RADiCAL (2,2 Go, 40 s) en comparant à la barre « Installation des
+  fichiers » de Steam par captures d'écran : 46 % contre 43 %, puis 99 % contre 98 %.
+  (Une première formule, « Steam écrit tout deux fois », venait d'une mesure faussée
+  par les addons de Garry's Mod.)
+- Captures d'écran complètes : le processus doit être « DPI-aware »
+  (`SetProcessDPIAware`), sinon l'image est tronquée (affichage à 125 %).
+- Testé : Among Us et MOTiON by RADiCAL installés de bout en bout (`game.installed`
+  reçu). Garry's Mod installé puis désinstallé par la personne (addons Workshop : F23).
 - Reste : Epic, Battle.net, Xbox (pas de suivi), téléchargements Workshop, annonce de
   l'espace nécessaire.
 

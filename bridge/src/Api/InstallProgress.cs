@@ -87,10 +87,11 @@ namespace Playscreen.Bridge.Api
                         {
                             // Steam n'écrit le manifeste qu'au début et à la fin, et réserve
                             // d'emblée la place des fichiers (la taille du dossier ne dit rien).
-                            // En direct : les octets réellement écrits par Steam depuis le début.
-                            // Il écrit les données deux fois (téléchargement puis installation) :
-                            // mesuré sur Among Us et Garry's Mod le 5 octobre 2026.
-                            var written = (double)steamWrites.Since() / Math.Max(1, toDownload + toStage);
+                            // En direct : les octets réellement écrits par Steam depuis le début,
+                            // qui suivent la taille installée. Comparé à la barre « Installation
+                            // des fichiers » de Steam le 5 octobre 2026 (MOTiON, 2,2 Go) :
+                            // 46 % contre 43 %, puis 99 % contre 98 %.
+                            var written = (double)steamWrites.Since() / Math.Max(1, total);
                             // Plafonné à 99 % tant que Steam n'a pas fini.
                             done = (long)(total * Math.Min(0.99, written));
                         }
