@@ -58,9 +58,16 @@ En vrai, sur le PC Windows : `dist\Playscreen\start-engine.cmd` à la place de
   désinstallation ; `App.tsx` la met au premier plan (`focusLauncherWindow` dans
   `src/shell.ts`) et, pour une installation, affiche la consigne.
 
+- État des launchers (F25, F26) : événement `launcher.state` (`storeId`, `state` : `closed`,
+  `starting`, `updating`, `ready`) pendant quelques minutes après un lancement, une
+  installation ou une désinstallation (Steam, Epic, Battle.net ; pas Xbox). `App.tsx` le garde
+  dans `launchers` ; l'écran d'attente du lancement et la consigne d'installation disent
+  « Steam démarre… », « Epic se met à jour… » (sinon, message selon le temps d'attente). Une
+  installation demandée avant « prêt » est renvoyée au launcher par le moteur. Démo : réglage
+  « Launcher au lancement ou à l'installation » dans le panneau F2.
+
 ## Pas encore possible (manque côté moteur)
 
-- Écran d'attente : savoir que le launcher **se met à jour** (aujourd'hui le message
-  évolue avec le temps d'attente, F25 / F26).
 - Accompagnement : savoir qu'une fenêtre de launcher attend une action (aujourd'hui :
   consigne par store si l'installation ne démarre pas après 1,5 s).
+- État du launcher pour Xbox, et « le launcher vérifie les fichiers du jeu ».

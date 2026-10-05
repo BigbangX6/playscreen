@@ -47,6 +47,8 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
   const volume: Volume = { level: 60, muted: false };
   // Une seule fenêtre de connexion à la fois, comme la passerelle.
   let loggingIn = false;
+  // Launchers déjà ouverts : la première demande les fait démarrer.
+  const openLaunchers = new Set<StoreId>();
 
   const later = (ms: number, fn: () => void) => {
     const timer = setTimeout(() => {
@@ -60,6 +62,20 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
     const event = { type, data } as EngineEvent;
     const message = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
     for (const subscriber of subscribers) subscriber.write(message);
+  };
+
+  /** Comme la passerelle : état du launcher au départ, puis « prêt » au tick suivant. */
+  const watchLauncher = (store: Game["store"]) => {
+    if (store === "other" || store === "xbox") return;
+    if (openLaunchers.has(store)) {
+      emit("launcher.state", { storeId: store, state: "ready" });
+      return;
+    }
+    emit("launcher.state", { storeId: store, state: "starting" });
+    later(tickMs / 2, () => {
+      openLaunchers.add(store);
+      emit("launcher.state", { storeId: store, state: "ready" });
+    });
   };
 
   const storeView = (store: Store): Store => ({
@@ -119,6 +135,7 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
         busy.add(game.id);
         session = { gameId: game.id, phase: "starting", startedAt: new Date().toISOString() };
         emit("game.starting", { gameId: game.id });
+        watchLauncher(game.store);
         later(tickMs, () => {
           if (session?.gameId !== game.id) return;
           session.phase = "running";

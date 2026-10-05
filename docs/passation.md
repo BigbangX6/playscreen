@@ -31,9 +31,14 @@ puis lis le § 3 (état détaillé, phase par phase) et « Prochaines étapes »
   branches arrivent par pull request : « récupère l'interface » = `git pull`, lancer,
   vérifier.
 
-**Prochaine tâche annoncée** : écran d'attente (F25, F26) : détecter qu'un launcher
-démarre ou se met à jour, l'annoncer à l'interface. Puis Xbox (phase 5), puis démarrage
-automatique (sentinelle + moteur) **avec l'accord de la personne**.
+- **Écran d'attente (F25, F26), fait le 5 octobre au soir** : `LauncherMonitor.cs` publie
+  `launcher.state` (fermé, démarre, se met à jour, prêt) pour Steam, Epic et Battle.net,
+  l'interface l'affiche ; installation renvoyée au launcher quand il devient prêt. Vérifié
+  avec chaque launcher fermé (voir § 3, « État des launchers »).
+
+**Prochaine tâche annoncée** : Xbox (phase 5), puis démarrage automatique (sentinelle +
+moteur) **avec l'accord de la personne**. Nouvelles frictions à traiter : F28 (pare-feu au
+premier lancement d'un jeu), F29 (page web ouverte par le jeu).
 
 **La personne t'a donné carte blanche** sur ce PC (lancer, fermer, forcer, relancer des
 applications). Continue de lui dire ce que tu fais, et demande-lui pour ce qui exige sa
@@ -369,6 +374,34 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
 - Reste : Battle.net, Xbox (pas de suivi), téléchargements Workshop, annonce de
   l'espace nécessaire.
 
+### État des launchers (F25, F26), 5 octobre 2026 au soir
+
+- `bridge/src/Api/LauncherMonitor.cs` : surveillance chaque seconde pendant 5 min après
+  `game.starting`, une installation ou une désinstallation ; `launcher.state` au départ puis à
+  chaque changement. Repères relevés en fermant et relançant chaque launcher :
+  - **Steam** : prêt quand `HKCU\Software\Valve\Steam\ActiveProcess` a `ActiveUser` ≠ 0 et
+    un `pid` de steam.exe (connexion automatique comprise : 16 à 25 s) ; mise à jour :
+    `logsootstrap_log.txt`, « Downloaded new manifest » / « Found pending update » depuis
+    le dernier « Startup - » (messages en anglais, le reste est traduit).
+  - **Epic** : `EpicGamesLauncher.log` (heures en UTC), « Stage of update started » = se met à
+    jour, « Waiting for next version update » = prêt (≈ 1 s après le démarrage). Epic se
+    relance seul par `EpicGamesUpdater` (vu après la fermeture d'Unrailed, sans mise à
+    jour) : annoncé « démarre ». Le processus apparaît ≈ 6 s après la demande.
+  - **Battle.net** : journal le plus récent « mode=server » de
+    `%LOCALAPPDATA%\Battle.net\Logs`, « Logged into Battle.net successfully » = prêt (au
+    moment où sa fenêtre s'affiche) ; « UPDATE operation for "battle.net" » jusqu'à
+    « Update completed: battle.net » = se met à jour (relevé dans un journal du matin).
+- **F25** : installation demandée avant « prêt » → renvoyée une fois prêt, sans Playnite
+  (Epic : lien `?action=install` ; Battle.net : `Battle.net.exe --game=<InternalId>`).
+  Pas pour Steam (pas de perte constatée).
+- **Vérifié** : Among Us avec Steam fermé (fermé → démarre → prêt en 25 s → jeu lancé),
+  Unrailed avec Epic fermé (prêt en 4 s), Warcraft Rumble avec Battle.net fermé (prêt en
+  7 s), installation d'Overwatch 2 avec Battle.net fermé (demande renvoyée, reçue par
+  Battle.net ; rien installé). **Pas vu en vrai** : une mise à jour d'Epic, de Steam ou de
+  Battle.net pendant l'attente (repères lus dans des journaux passés) ; l'écran d'attente dans
+  la fenêtre Playscreen et dans la démo (code compilé, écran pas encore regardé).
+- `psc` n'a pas de commande pour quitter un jeu : `POST /games/{id}/stop` par l'API.
+
 ### Jamais testé sous Windows
 
 - La sentinelle avec une vraie manette (XInput, mise au premier plan).
@@ -505,8 +538,8 @@ vide) : l'interface reconnaît aussi les touches par leur nom.
 1. **Xbox, phase 5** : installation (Microsoft Store ou appli Xbox), progression,
    désinstallation, avec un jeu gratuit.
 2. **Interface (phase 7)** : bibliothèque, lancement, installation avec progression,
-   connexions, à la manette ; écrans d'attente (F26, F25) ; « Recommencer » /
-   « Retour » dans les connexions (F21).
+   connexions, à la manette ; « Recommencer » / « Retour » dans les connexions (F21).
+   Écrans d'attente (F25, F26) : faits pour Steam, Epic, Battle.net.
 3. **Fenêtres des launchers au premier plan** (F27) : confirmations d'installation et
    de désinstallation, comme pour les connexions.
 4. **Mode assisté (phase 6)** : souris virtuelle au stick, clavier manette ; consigne

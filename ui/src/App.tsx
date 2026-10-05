@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type EngineClient } from "../../api/client.ts";
-import type { EngineEvent, Game, Store, StoreId } from "../../api/types.ts";
+import type { EngineEvent, Game, LauncherState, Store, StoreId } from "../../api/types.ts";
 import type { Progress } from "./components/ProgressBar.tsx";
 import { Toasts, type Toast, type ToastTone } from "./components/Toasts.tsx";
 import { useEngine } from "./engine.ts";
@@ -62,6 +62,8 @@ export function App() {
   const [stores, setStores] = useState<Store[] | null>(null);
   const [storesError, setStoresError] = useState<string | null>(null);
   const [installs, setInstalls] = useState<Record<string, Progress | null>>({});
+  // État des launchers pendant une demande (launcher.state), pour les écrans d'attente.
+  const [launchers, setLaunchers] = useState<Partial<Record<StoreId, LauncherState>>>({});
   const [syncing, setSyncing] = useState<StoreId[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: "library" });
@@ -217,6 +219,9 @@ export function App() {
         }
         break;
       }
+      case "launcher.state":
+        setLaunchers((all) => ({ ...all, [event.data.storeId]: event.data.state }));
+        break;
       case "store.updated": {
         const store = event.data;
         setStores((list) => list?.map((s) => (s.id === store.id ? store : s)) ?? list);
@@ -233,8 +238,13 @@ export function App() {
 
   // ——— Actions ———
 
+  /** Oublie l'ancien état du launcher : le moteur renvoie l'état actuel à chaque demande. */
+  const forgetLauncher = (game: Game) =>
+    setLaunchers(({ [game.store as StoreId]: _, ...rest }) => rest);
+
   const play = (game: Game) => {
     if (!client) return;
+    forgetLauncher(game);
     setSession({ gameId: game.id, phase: "starting", since: Date.now(), hidden: false });
     client.start(game.id).catch((error) => {
       setSession(null);
@@ -244,6 +254,7 @@ export function App() {
 
   const install = (game: Game) => {
     if (!client) return;
+    forgetLauncher(game);
     setInstalls((all) => ({ ...all, [game.id]: null }));
     client.install(game.id).then(
       () =>
@@ -331,6 +342,7 @@ export function App() {
   const dialogGame = dialog && "gameId" in dialog ? games?.find((g) => g.id === dialog.gameId) : undefined;
   const loginStore = dialog?.kind === "login" ? stores?.find((s) => s.id === dialog.storeId) : undefined;
   const overlayOpen = Boolean(dialog || showLaunching || !client);
+  const launcherOf = (game: Game) => (game.store === "other" ? undefined : launchers[game.store]);
 
   let current;
   if (screen.name === "game") {
@@ -401,6 +413,7 @@ export function App() {
           client={client}
           game={sessionGame}
           since={session.since}
+          launcher={launcherOf(sessionGame)}
           onHide={() => setSession((s) => (s ? { ...s, hidden: true } : s))}
         />
       )}
@@ -440,7 +453,7 @@ export function App() {
           onClose={() => setDialog(null)}
         />
       )}
-      {client && dialog?.kind === "install" && dialogGame && <InstallGuide game={dialogGame} onClose={() => setDialog(null)} />}
+      {client && dialog?.kind === "install" && dialogGame && <InstallGuide game={dialogGame} launcher={launcherOf(dialogGame)} onClose={() => setDialog(null)} />}
       {client && dialog?.kind === "uninstall" && dialogGame && (
         <UninstallConfirm game={dialogGame} onConfirm={() => uninstall(dialogGame)} onClose={() => setDialog(null)} />
       )}

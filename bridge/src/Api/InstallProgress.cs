@@ -206,7 +206,7 @@ namespace Playscreen.Bridge.Api
         /// Nom de code du jeu pour l'agent (« gryphon » pour Warcraft Rumble, dont l'identifiant
         /// Playnite est « GRY ») : table BattleNetGames.Games de l'extension, lue par réflexion.
         /// </summary>
-        private string BattleNetUid(Game game)
+        internal string BattleNetUid(Game game)
         {
             try
             {

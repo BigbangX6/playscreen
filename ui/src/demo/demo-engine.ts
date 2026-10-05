@@ -17,6 +17,8 @@ export interface DemoSettings {
   loginSucceeds: boolean;
   /** Bibliothèque vide (premier lancement). */
   emptyLibrary: boolean;
+  /** État du launcher quand on lance ou installe un jeu (F25, F26). */
+  launcher: "ready" | "starting" | "updating";
 }
 
 const DEFAULTS: DemoSettings = {
@@ -25,7 +27,12 @@ const DEFAULTS: DemoSettings = {
   sessionSeconds: 0,
   loginSucceeds: true,
   emptyLibrary: false,
+  launcher: "ready",
 };
+
+/** Durées simulées : le launcher démarre, ou se met à jour puis redémarre. */
+const LAUNCHER_START_MS = 6000;
+const LAUNCHER_UPDATE_MS = 15000;
 
 const PROGRESS_STEP_MS = 500;
 
@@ -144,13 +151,34 @@ class DemoEngine implements EngineClient {
     return { ...game };
   }
 
+  /**
+   * Comme la passerelle : launcher.state au départ puis à chaque changement, selon le
+   * réglage du panneau. Renvoie le délai avant que le launcher soit prêt.
+   */
+  private launcherSequence(store: Game["store"]): number {
+    if (store === "other" || store === "xbox") return 0;
+    const storeId = store;
+    const mode = this.settings.launcher;
+    if (mode === "ready") {
+      this.emit("launcher.state", { storeId, state: "ready" });
+      return 0;
+    }
+    const updateMs = mode === "updating" ? LAUNCHER_UPDATE_MS : 0;
+    if (mode === "updating") this.emit("launcher.state", { storeId, state: "updating" });
+    else this.emit("launcher.state", { storeId, state: "starting" });
+    if (updateMs) this.later(updateMs, () => this.emit("launcher.state", { storeId, state: "starting" }));
+    this.later(updateMs + LAUNCHER_START_MS, () => this.emit("launcher.state", { storeId, state: "ready" }));
+    return updateMs + LAUNCHER_START_MS;
+  }
+
   async start(id: string): Promise<void> {
     const game = this.free(id);
     if (!game.installed) throw new ApiError(409, "not installed");
     this.busy.add(id);
     this.current = { gameId: id, phase: "starting", startedAt: new Date().toISOString() };
     this.emit("game.starting", { gameId: id });
-    this.later(2000, () => {
+    const ready = this.launcherSequence(game.store);
+    this.later(ready + 2000, () => {
       if (this.current?.gameId !== id) return;
       this.current.phase = "running";
       this.emit("game.started", { gameId: id });
@@ -165,10 +193,11 @@ class DemoEngine implements EngineClient {
     this.busy.add(id);
     const total = game.installSizeBytes ?? 4 * 1024 ** 3;
     const steps = Math.max(1, Math.round((this.settings.installSeconds * 1000) / PROGRESS_STEP_MS));
-    const wait = this.settings.installWaitSeconds * 1000;
-    if (wait > 0 && game.store !== "other") {
+    const ready = this.launcherSequence(game.store);
+    const wait = ready + this.settings.installWaitSeconds * 1000;
+    if (wait > ready && game.store !== "other") {
       // Le launcher ouvre sa fenêtre de confirmation (pas de vraie fenêtre dans la démo).
-      this.later(500, () =>
+      this.later(ready + 500, () =>
         this.emit("launcher.prompt", { gameId: id, storeId: game.store as StoreId, title: `Installer ${game.name}`, handle: 0 }),
       );
     }

@@ -50,6 +50,13 @@ export interface Session {
   startedAt: string;
 }
 
+/**
+ * État d'un launcher pendant une demande (lancement, installation, désinstallation) :
+ * fermé, démarre, se met à jour, prêt. F25, F26.
+ */
+export const LAUNCHER_STATES = ["closed", "starting", "updating", "ready"] as const;
+export type LauncherState = (typeof LAUNCHER_STATES)[number];
+
 /** Volume principal de Windows. */
 export interface Volume {
   /** 0 à 100. */
@@ -75,6 +82,11 @@ export interface EventMap {
    * (`handle`, fenêtre Windows) et affiche une consigne. F4, F27.
    */
   "launcher.prompt": { gameId: string | null; storeId: StoreId; title: string; handle: number };
+  /**
+   * Le launcher change d'état pendant quelques minutes après une demande (le premier
+   * envoi donne l'état de départ). Steam, Epic et Battle.net ; pas Xbox.
+   */
+  "launcher.state": { storeId: StoreId; state: LauncherState };
 }
 
 export type EventType = keyof EventMap;

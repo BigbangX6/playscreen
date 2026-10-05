@@ -267,3 +267,7 @@ components:
         - launcher.prompt : { gameId, storeId, title, handle } — une fenêtre du launcher
           s'est ouverte après une demande (installation, désinstallation) ; `handle` est la
           fenêtre Windows, que l'interface met au premier plan
+        - launcher.state : { storeId, state } — état du launcher (closed, starting, updating,
+          ready) pendant quelques minutes après un lancement, une installation ou une
+          désinstallation ; envoyé au départ puis à chaque changement (Steam, Epic, Battle.net).
+          Une installation demandée avant « ready » est renvoyée au launcher une fois prêt
