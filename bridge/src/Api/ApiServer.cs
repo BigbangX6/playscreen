@@ -39,19 +39,25 @@ namespace Playscreen.Bridge.Api
         private readonly StoreSync sync;
         private readonly StoreLogin login;
         private readonly InstallProgress progress;
+        private readonly SessionState session;
+        private readonly LauncherWindows launcherWindows;
+        private readonly LauncherMonitor launchers;
         private readonly string token = NewToken();
         private readonly List<Route> routes;
         private HttpListener listener;
 
         public int Port { get; private set; }
 
-        public ApiServer(IPlayniteAPI api, EventHub events, StoreSync sync)
+        public ApiServer(IPlayniteAPI api, EventHub events, StoreSync sync, SessionState session, LauncherMonitor launchers)
         {
             this.api = api;
             this.events = events;
             this.sync = sync;
+            this.session = session;
+            this.launchers = launchers;
             login = new StoreLogin(api, events, sync);
             progress = new InstallProgress(api, events);
+            launcherWindows = new LauncherWindows(events);
             routes = new List<Route>
             {
                 new Route("GET", @"^/status$", _ => Json(200, GetStatus())),
@@ -71,22 +77,41 @@ namespace Playscreen.Bridge.Api
                     {
                         return Json(409, new { error = "already installed" });
                     }
+                    var storeId = Stores.FromPluginId(game.PluginId);
+                    var wasReady = launchers.Current(storeId) == LauncherMonitor.Ready;
                     var reply = RunOnUi(() => api.InstallGame(game.Id));
-                    if (Stores.FromPluginId(game.PluginId) == "epic")
+                    if (storeId == "epic")
                     {
                         // L'extension Epic ouvre seulement la bibliothèque : on ouvre en plus la
                         // fenêtre d'installation du jeu (testé le 5 octobre 2026, un clic sur
                         // « Installer »). Playnite garde son suivi d'installation.
-                        Process.Start($"com.epicgames.launcher://apps/{Uri.EscapeDataString(game.GameId)}?action=install");
+                        OpenEpicInstall(game);
                     }
                     progress.Track(game);
+                    launcherWindows.Watch(storeId, game.Id);
+                    // Demande faite pendant que le launcher démarre ou se met à jour : il
+                    // l'ignore parfois (F25). On la renvoie une fois qu'il est prêt.
+                    launchers.Watch(storeId, wasReady ? null : (Action)(() => ResendInstall(game.Id)));
                     return reply;
                 })),
                 // Epic : l'extension ouvre seulement la bibliothèque, et il n'existe pas de lien
                 // de désinstallation directe (?action=uninstall ignoré, testé le 5 octobre 2026).
                 new Route("POST", @"^/games/([^/]+)/uninstall$", ctx => WithGame(ctx, game =>
-                    !game.IsInstalled ? Json(409, new { error = "not installed" }) : RunOnUi(() => api.UninstallGame(game.Id)))),
+                {
+                    if (!game.IsInstalled)
+                    {
+                        return Json(409, new { error = "not installed" });
+                    }
+                    var reply = RunOnUi(() => api.UninstallGame(game.Id));
+                    launcherWindows.Watch(Stores.FromPluginId(game.PluginId), game.Id);
+                    launchers.Watch(Stores.FromPluginId(game.PluginId));
+                    return reply;
+                })),
                 new Route("GET", @"^/games/([^/]+)/media/(cover|background|icon)$", ctx => WithGame(ctx, game => Media(game, ctx.Params[1]))),
+                new Route("POST", @"^/games/([^/]+)/stop$", ctx => WithGame(ctx, game => Stop(game, ctx.Request.QueryString["force"] == "true"))),
+                new Route("GET", @"^/session$", _ => Json(200, session.Current)),
+                new Route("GET", @"^/system/volume$", _ => Json(200, SystemVolume.Get())),
+                new Route("POST", @"^/system/volume$", ctx => SetVolume(ctx.Request.QueryString)),
             };
         }
 
@@ -193,6 +218,63 @@ namespace Playscreen.Bridge.Api
             EngineVersion = api.ApplicationInfo.ApplicationVersion.ToString(),
             Ready = true,
         };
+
+        /// <summary>
+        /// Quitte le jeu en cours : fermeture demandée à ses fenêtres, ou de force. Playnite
+        /// voit ses processus s'arrêter et envoie game.stopped.
+        /// </summary>
+        private Reply Stop(Playnite.SDK.Models.Game game, bool force)
+        {
+            if (session.Current?.GameId != game.Id)
+            {
+                return Json(409, new { error = "not running" });
+            }
+            var count = GameProcesses.Stop(game, force);
+            logger.Info($"Playscreen: stop {game.Name} (force: {force}) -> {count} process(es)");
+            return count > 0 ? new Reply(202) : Json(409, new { error = "no process found" });
+        }
+
+        private static void OpenEpicInstall(Playnite.SDK.Models.Game game) =>
+            Process.Start($"com.epicgames.launcher://apps/{Uri.EscapeDataString(game.GameId)}?action=install");
+
+        /// <summary>
+        /// Renvoie au launcher, devenu prêt, une demande d'installation qu'il a pu ignorer
+        /// (F25, constaté le 5 octobre 2026 : Epic après sa mise à jour, Battle.net fermé). Sans
+        /// passer par Playnite, qui suit déjà l'installation. Rouvrir la fenêtre ou la page du
+        /// jeu est sans effet si elle est déjà ouverte.
+        /// </summary>
+        private void ResendInstall(Guid gameId)
+        {
+            var game = api.Database.Games.Get(gameId);
+            if (game == null || game.IsInstalled)
+            {
+                return;
+            }
+            var storeId = Stores.FromPluginId(game.PluginId);
+            logger.Info($"Playscreen: {storeId} ready, install request sent again for {game.Name}");
+            if (storeId == "epic")
+            {
+                OpenEpicInstall(game);
+            }
+            else if (storeId == "battlenet")
+            {
+                var folder = Microsoft.Win32.Registry.GetValue(
+                    @"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Battle.net",
+                    "InstallLocation", null) as string;
+                var exe = Path.Combine(folder ?? @"C:\Program Files (x86)\Battle.net", "Battle.net.exe");
+                // Même commande que l'extension Battle.net de Playnite.
+                Process.Start(exe, $"--game={progress.BattleNetUid(game)}");
+            }
+        }
+
+        private Reply SetVolume(System.Collections.Specialized.NameValueCollection query)
+        {
+            int? level = int.TryParse(query["level"], out var l) ? l : (int?)null;
+            bool? muted = bool.TryParse(query["muted"], out var m) ? m : (bool?)null;
+            var volume = SystemVolume.Set(level, muted);
+            events.Publish("volume.changed", volume);
+            return Json(200, volume);
+        }
 
         private Reply WithStore(RequestContext ctx, Func<Stores.StoreInfo, Playnite.SDK.Plugins.LibraryPlugin, Reply> handler)
         {

@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type EngineClient } from "../../api/client.ts";
-import type { EngineEvent, Game, Store, StoreId } from "../../api/types.ts";
+import type { EngineEvent, Game, LauncherState, Store, StoreId, Volume } from "../../api/types.ts";
 import type { Progress } from "./components/ProgressBar.tsx";
 import { Toasts, type Toast, type ToastTone } from "./components/Toasts.tsx";
 import { DEMO, useEngine } from "./engine.ts";
@@ -21,6 +21,7 @@ import { Relay } from "./screens/Relay.tsx";
 import { Settings } from "./screens/Settings.tsx";
 import { SITES, type BrowserWindow, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
 import { Stores } from "./screens/Stores.tsx";
+import { focusLauncherWindow, resumeGame } from "./shell.ts";
 import { system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
@@ -73,6 +74,8 @@ interface Session {
   since: number;
   /** Écran d'attente masqué par le joueur (B). */
   hidden: boolean;
+  /** « Quitter le jeu » demandé, en attente de la fin de partie. */
+  stopping?: boolean;
 }
 
 /** Sans progression après ce délai, on explique ce que le launcher attend (F4). */
@@ -94,6 +97,8 @@ export function App() {
   const [stores, setStores] = useState<Store[] | null>(null);
   const [storesError, setStoresError] = useState<string | null>(null);
   const [installs, setInstalls] = useState<Record<string, Progress | null>>({});
+  // État des launchers pendant une demande (launcher.state), pour les écrans d'attente.
+  const [launchers, setLaunchers] = useState<Partial<Record<StoreId, LauncherState>>>({});
   const [syncing, setSyncing] = useState<StoreId[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: "home" });
@@ -114,6 +119,8 @@ export function App() {
     internet: "new-page",
   });
   const [history, setHistory] = useState<NotificationEntry[]>([]);
+  /** Volume de Windows (moteur) ; null si indisponible. */
+  const [volume, setVolume] = useState<Volume | null>(null);
   const [unread, setUnread] = useState(0);
 
   // Les gestionnaires d'événements lisent toujours l'état le plus récent.
@@ -162,12 +169,34 @@ export function App() {
     }
   }, [client]);
 
-  // À chaque (re)connexion : le jeton a changé, on relit tout.
+  // À chaque (re)connexion : le jeton a changé, on relit tout, y compris la partie en cours
+  // (l'interface a pu redémarrer pendant qu'un jeu tournait).
   useEffect(() => {
     if (!client) return;
     void loadGames();
     void loadStores();
+    client.volume().then(setVolume, () => setVolume(null));
+    client.session().then(
+      (current) =>
+        setSession((s) =>
+          current
+            ? { gameId: current.gameId, phase: current.phase, since: Date.parse(current.startedAt), hidden: s?.hidden ?? false }
+            : null,
+        ),
+      () => undefined,
+    );
   }, [client, loadGames, loadStores]);
+
+  // Retour sur Playscreen pendant une partie (Select + Start, D10) : menu rapide d'abord.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  useEffect(() => {
+    const onFocus = () => {
+      if (sessionRef.current?.phase === "running") setDialog((d) => d ?? { kind: "quick" });
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   // Manette branchée / débranchée.
   useEffect(() => {
@@ -208,11 +237,16 @@ export function App() {
       case "game.starting":
         setSession((s) => (s?.gameId === event.data.gameId ? s : { gameId: event.data.gameId, phase: "starting", since: Date.now(), hidden: false }));
         break;
-      case "game.started":
+      case "game.started": {
         setSession((s) => ({ gameId: event.data.gameId, phase: "running", since: s?.since ?? Date.now(), hidden: false }));
         // Ce que le joueur verra en revenant sur Playscreen pendant la partie (D10).
         setDialog({ kind: "quick" });
+        // Windows empêche le jeu (lancé en arrière-plan par son launcher) de passer devant
+        // Playscreen : c'est Playscreen, au premier plan, qui lui cède la place.
+        const game = gamesRef.current?.find((g) => g.id === event.data.gameId);
+        if (game) void resumeGame(game);
         break;
+      }
       case "game.stopped":
         setSession(null);
         setSessions((all) => ({ ...all, [event.data.gameId]: event.data.sessionSeconds }));
@@ -234,6 +268,21 @@ export function App() {
         void loadStores();
         break;
       }
+      case "launcher.prompt": {
+        // Fenêtre du launcher ouverte derrière Playscreen (F27) : on la met devant.
+        void focusLauncherWindow(event.data.handle);
+        const { gameId } = event.data;
+        if (gameId && gameId in installsRef.current && installsRef.current[gameId] === null) {
+          setDialog({ kind: "install", gameId });
+        }
+        break;
+      }
+      case "volume.changed":
+        setVolume(event.data);
+        break;
+      case "launcher.state":
+        setLaunchers((all) => ({ ...all, [event.data.storeId]: event.data.state }));
+        break;
       case "store.updated": {
         const store = event.data;
         setStores((list) => list?.map((s) => (s.id === store.id ? store : s)) ?? list);
@@ -250,12 +299,17 @@ export function App() {
 
   // ——— Actions ———
 
+  /** Oublie l'ancien état du launcher : le moteur renvoie l'état actuel à chaque demande. */
+  const forgetLauncher = (game: Game) =>
+    setLaunchers(({ [game.store as StoreId]: _, ...rest }) => rest);
+
   const play = (game: Game) => {
     if (!client) return;
     if (session && session.gameId !== game.id) {
       notify("warning", "Une partie est déjà en cours", `Quitte ${nameOf(session.gameId)} depuis le centre rapide (Start).`);
       return;
     }
+    forgetLauncher(game);
     setSession({ gameId: game.id, phase: "starting", since: Date.now(), hidden: false });
     client.start(game.id).catch((error) => {
       setSession(null);
@@ -265,6 +319,7 @@ export function App() {
 
   const install = (game: Game) => {
     if (!client) return;
+    forgetLauncher(game);
     setInstalls((all) => ({ ...all, [game.id]: null }));
     client.install(game.id).then(
       () =>
@@ -307,11 +362,31 @@ export function App() {
     });
   };
 
-  const quitGame = (force: boolean) => {
-    const name = session ? nameOf(session.gameId) : "Le jeu";
-    setDialog(null);
-    if (!system.quitGame(force)) notify("warning", `Impossible de quitter ${name} d'ici`, "Cette action arrive avec le moteur.");
+  const changeVolume = (level: number) => {
+    if (!client) return;
+    client.setVolume({ level: Math.max(0, Math.min(100, level)), muted: false }).then(setVolume, () => undefined);
   };
+
+  /** Reprendre : on ferme le menu et on remet le jeu au premier plan (dans Tauri). */
+  const resume = (game: Game) => {
+    setDialog(null);
+    void resumeGame(game);
+  };
+
+  /** Quitter le jeu (ou forcer sa fermeture) ; la fin arrive par game.stopped. */
+  const quit = (game: Game, force: boolean) => {
+    if (!client) return;
+    setSession((s) => (s ? { ...s, stopping: true } : s));
+    client.stop(game.id, { force }).catch((error) => {
+      setSession((s) => (s ? { ...s, stopping: false } : s));
+      notify(
+        "error",
+        `Impossible de fermer ${game.name}`,
+        error instanceof ApiError && error.status === 409 ? "Le jeu ne répond pas : essaie « Forcer la fermeture »." : describeError(error),
+      );
+    });
+  };
+
 
   const power = (action: PowerAction) => {
     if (action === "shutdown" || action === "restart") {
@@ -390,6 +465,7 @@ export function App() {
   const dialogGame = dialog && "gameId" in dialog ? games?.find((g) => g.id === dialog.gameId) : undefined;
   const loginStore = dialog?.kind === "login" ? stores?.find((s) => s.id === dialog.storeId) : undefined;
   const overlayOpen = Boolean(dialog || showLaunching || !client);
+  const launcherOf = (game: Game) => (game.store === "other" ? undefined : launchers[game.store]);
 
   // Téléchargement en cours (le premier), pour le centre rapide.
   let download: Download | null = null;
@@ -473,6 +549,7 @@ export function App() {
         onNavigate={navigate}
         onOpenGame={openGame}
         onUninstall={(g) => setDialog({ kind: "uninstall", gameId: g.id })}
+        volume={volume}
         onPower={power}
         onBack={() => back()}
       />
@@ -533,6 +610,7 @@ export function App() {
           client={client}
           game={sessionGame}
           since={session.since}
+          launcher={launcherOf(sessionGame)}
           onHide={() => setSession((s) => (s ? { ...s, hidden: true } : s))}
         />
       )}
@@ -543,9 +621,12 @@ export function App() {
           since={session?.since ?? Date.now()}
           download={download}
           notifications={unread}
-          onResume={() => setDialog(null)}
+          stopping={Boolean(session?.stopping)}
+          volume={volume}
+          onVolume={changeVolume}
+          onResume={() => (sessionGame ? resume(sessionGame) : setDialog(null))}
           onClose={() => setDialog(null)}
-          onQuit={() => quitGame(false)}
+          onQuit={() => sessionGame && quit(sessionGame, false)}
           onForceQuit={() => session && setDialog({ kind: "force", gameId: session.gameId })}
           onNavigate={navigate}
           onOpenGame={openGame}
@@ -556,7 +637,10 @@ export function App() {
         <Overlay title={`Forcer la fermeture de ${dialogGame.name} ?`} onBack={() => setDialog({ kind: "quick" })} initialFocus=".dialog-cancel">
           <p className="guide-text">À utiliser si le jeu ne répond plus. Ce qui n'a pas été sauvegardé sera perdu.</p>
           <div className="dialog-actions">
-            <button className="btn btn-danger" data-focusable onClick={() => quitGame(true)}>
+            <button className="btn btn-danger" data-focusable onClick={() => {
+                if (sessionGame) quit(sessionGame, true);
+                setDialog({ kind: "quick" });
+              }}>
               Forcer la fermeture
             </button>
             <button className="btn btn-ghost dialog-cancel" data-focusable onClick={() => setDialog({ kind: "quick" })}>
@@ -622,7 +706,7 @@ export function App() {
           onClose={() => setDialog(null)}
         />
       )}
-      {client && dialog?.kind === "install" && dialogGame && <InstallGuide game={dialogGame} onClose={() => setDialog(null)} />}
+      {client && dialog?.kind === "install" && dialogGame && <InstallGuide game={dialogGame} launcher={launcherOf(dialogGame)} onClose={() => setDialog(null)} />}
       {client && dialog?.kind === "uninstall" && dialogGame && (
         <UninstallConfirm game={dialogGame} onConfirm={() => uninstall(dialogGame)} onClose={() => setDialog(null)} />
       )}

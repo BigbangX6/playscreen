@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import type { EngineClient } from "../../../api/client.ts";
-import type { Game, Store } from "../../../api/types.ts";
+import type { Game, LauncherState, Store } from "../../../api/types.ts";
 import { Cover } from "../components/Cover.tsx";
 import { Hints } from "../components/Hints.tsx";
 import { Overlay } from "../components/Overlay.tsx";
@@ -27,21 +27,28 @@ interface LaunchProps {
   client: EngineClient;
   game: Game;
   since: number;
+  /** État du launcher envoyé par le moteur (absent pour Xbox et les jeux hors store). */
+  launcher?: LauncherState;
   onHide(): void;
 }
 
-export function Launching({ client, game, since, onHide }: LaunchProps) {
-  const elapsed = useElapsed(since);
+/** Message de l'écran d'attente : ce que fait le launcher, sinon une estimation selon le temps. */
+function launchMessage(game: Game, launcher: LauncherState | undefined, elapsed: number): string {
   const store = STORE_LABELS[game.store];
-  // Jamais un écran figé : le message évolue avec le temps d'attente.
-  const message =
-    elapsed < 8
-      ? game.store === "other"
-        ? "Le jeu démarre…"
-        : `${store} démarre le jeu…`
-      : elapsed < 25
-        ? `${store} prend un peu plus de temps : il vérifie peut-être le jeu.`
-        : `${store} se met peut-être à jour. Le jeu se lancera ensuite tout seul.`;
+  if (launcher === "updating") return `${store} se met à jour. Le jeu se lancera ensuite tout seul.`;
+  // « Fermé » juste après la demande : le launcher n'a pas encore eu le temps de démarrer.
+  if (launcher === "starting" || launcher === "closed") return `${store} démarre, puis il lancera le jeu…`;
+  if (elapsed < 8) return game.store === "other" ? "Le jeu démarre…" : `${store} démarre le jeu…`;
+  if (launcher === "ready") return `Le jeu prend un peu plus de temps : ${store} le vérifie peut-être.`;
+  // Jamais un écran figé : sans nouvelles du launcher, le message évolue avec le temps.
+  return elapsed < 25
+    ? `${store} prend un peu plus de temps : il vérifie peut-être le jeu.`
+    : `${store} se met peut-être à jour. Le jeu se lancera ensuite tout seul.`;
+}
+
+export function Launching({ client, game, since, launcher, onHide }: LaunchProps) {
+  const elapsed = useElapsed(since);
+  const message = launchMessage(game, launcher, elapsed);
   return (
     <Overlay variant="fullscreen" onBack={onHide}>
       <div className="launch-bg">
@@ -112,12 +119,19 @@ export function LoginGuide({ store, alternative, failed, onRetry, onClose }: Log
 
 // ——— Accompagnement : le launcher demande une action pour installer (F4, F27) ———
 
-export function InstallGuide({ game, onClose }: { game: Game; onClose(): void }) {
+export function InstallGuide({ game, launcher, onClose }: { game: Game; launcher?: LauncherState; onClose(): void }) {
+  const store = STORE_LABELS[game.store];
+  const status =
+    launcher === "updating"
+      ? `${store} se met à jour. Playscreen lui renverra la demande dès qu'il sera prêt.`
+      : launcher === "starting" || launcher === "closed"
+        ? `${store} démarre…`
+        : `${store} prend la main…`;
   return (
     <Overlay title={`Installer ${game.name}`} onBack={onClose}>
       <div className="guide">
         <p className="guide-status">
-          <Spinner size={3} /> {STORE_LABELS[game.store]} prend la main…
+          <Spinner size={3} /> {status}
         </p>
         <p className="guide-text guide-text-strong">{INSTALL_GUIDANCE[game.store]}</p>
         <p className="muted">Playscreen suit le téléchargement dès qu'il commence.</p>

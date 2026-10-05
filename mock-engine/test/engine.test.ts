@@ -12,7 +12,7 @@ let engine: MockEngine;
 let client: PlayscreenClient;
 
 before(async () => {
-  engine = await startMockEngine({ token: TOKEN, tickMs: 5, sessionMs: 20 });
+  engine = await startMockEngine({ token: TOKEN, tickMs: 5, sessionMs: 300 });
   client = new PlayscreenClient(engine.url, TOKEN);
 });
 
@@ -81,10 +81,31 @@ describe("faux moteur", () => {
   it("lance un jeu et compte le temps de jeu", async () => {
     const before = (await client.game(HADES)).playtimeSeconds;
     const events = await collectUntil("game.stopped", () => client.start(HADES));
-    assert.deepEqual(events.map((e) => e.type), ["game.starting", "game.started", "game.stopped"]);
+    assert.deepEqual(events.map((e) => e.type), ["game.starting", "launcher.state", "launcher.state", "game.started", "game.stopped"]);
+    // Premier lancement : le launcher démarre, puis il est prêt avant le jeu.
+    const states = events.flatMap((e) => (e.type === "launcher.state" ? [e.data.state] : []));
+    assert.deepEqual(states, ["starting", "ready"]);
     const after = await client.game(HADES);
     assert.ok(after.playtimeSeconds >= before);
     assert.ok(after.lastPlayed);
+  });
+
+  it("donne la partie en cours et la quitte sur demande", async () => {
+    const events = await collectUntil("game.started", () => client.start(HADES));
+    assert.equal(events.at(-1)?.type, "game.started");
+    const session = await client.session();
+    assert.equal(session?.gameId, HADES);
+    assert.equal(session?.phase, "running");
+    await collectUntil("game.stopped", () => client.stop(HADES));
+    assert.equal(await client.session(), null);
+    await assert.rejects(client.stop(HADES), (e: unknown) => e instanceof ApiError && e.status === 409);
+  });
+
+  it("règle le volume", async () => {
+    const changed = await client.setVolume({ level: 35, muted: true });
+    assert.deepEqual(changed, { level: 35, muted: true });
+    assert.deepEqual(await client.volume(), { level: 35, muted: true });
+    assert.equal((await client.setVolume({ level: 250 })).level, 100);
   });
 
   it("installe un jeu avec une progression croissante", async () => {

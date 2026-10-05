@@ -4,7 +4,7 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { EngineClient } from "../../../api/client.ts";
-import type { Game } from "../../../api/types.ts";
+import type { Game, Volume } from "../../../api/types.ts";
 import { useFocusScope } from "../components/focus.ts";
 import { Icon, type IconName } from "../components/Icons.tsx";
 import { PadHints } from "../components/PadHints.tsx";
@@ -28,6 +28,11 @@ interface Props {
   since: number;
   download: Download | null;
   notifications: number;
+  /** Volume de Windows (moteur) ; null si indisponible. */
+  volume: Volume | null;
+  /** « Quitter le jeu » demandé : on attend la fin de partie. */
+  stopping: boolean;
+  onVolume(level: number): void;
   onResume(): void;
   onClose(): void;
   onQuit(): void;
@@ -69,8 +74,8 @@ export function QuickCenter(props: Props) {
   const original = useRef(0);
   const ref = useFocusScope<HTMLDivElement>(game ? ".qc-resume" : ".st");
 
-  const value = (kind: Adjustable) => (kind === "volume" ? sys.volume : sys.brightness) ?? 0;
-  const set = (kind: Adjustable, v: number) => (kind === "volume" ? system.setVolume(v) : system.setBrightness(v));
+  const value = (kind: Adjustable) => (kind === "volume" ? props.volume?.level : sys.brightness) ?? 0;
+  const set = (kind: Adjustable, v: number) => (kind === "volume" ? props.onVolume(v) : system.setBrightness(v));
 
   const startAdjust = (kind: Adjustable) => {
     original.current = value(kind);
@@ -111,8 +116,19 @@ export function QuickCenter(props: Props) {
   // ——— Système : tuiles, et le réglage ouvert sous sa ligne ———
   const tiles: { id: string; node: ReactNode }[] = [];
   const tileClass = (id: string) => (adjusting ? (adjusting === id ? "st-f2" : "dimmed") : "");
-  if (sys.volume !== null)
-    tiles.push({ id: "volume", node: <Tile id="volume" label="Volume" value={String(sys.volume)} className={tileClass("volume")} onClick={() => startAdjust("volume")} /> });
+  if (props.volume)
+    tiles.push({
+      id: "volume",
+      node: (
+        <Tile
+          id="volume"
+          label="Volume"
+          value={props.volume.muted ? "Coupé" : String(props.volume.level)}
+          className={tileClass("volume")}
+          onClick={() => startAdjust("volume")}
+        />
+      ),
+    });
   if (sys.brightness !== null)
     tiles.push({
       id: "brightness",
@@ -173,8 +189,8 @@ export function QuickCenter(props: Props) {
               <button className="pill2 qc-resume" data-focusable onClick={props.onResume}>
                 ▶ Reprendre
               </button>
-              <button className="pill2" data-focusable onClick={props.onQuit}>
-                Quitter le jeu
+              <button className="pill2" data-focusable onClick={() => !props.stopping && props.onQuit()}>
+                {props.stopping ? "Fermeture…" : "Quitter le jeu"}
               </button>
               <button className="pill2 pill2-danger" data-focusable onClick={props.onForceQuit}>
                 Forcer la fermeture

@@ -56,10 +56,33 @@ En vrai, sur le PC Windows : `dist\Playscreen\start-engine.cmd` à la place de
 `npm run mock`, puis `npm --prefix ui run dev` (navigateur) ou `npm --prefix ui run tauri dev`
 (fenêtre plein écran de Playscreen), manette en main devant la télé.
 
+## Fait côté moteur (5 octobre 2026)
+
+- Menu rapide : `client.stop(id)` / `client.stop(id, { force: true })`, `client.volume()` /
+  `client.setVolume(…)` (événement `volume.changed`), `client.session()` (partie en cours
+  après un redémarrage de l'interface), `resumeGame(game)` dans `src/shell.ts` (remet le jeu
+  au premier plan ; ne fait rien hors de la fenêtre Windows). Au lancement d'un jeu,
+  Playscreen lui cède la place ; quand on revient sur Playscreen pendant une partie, il
+  s'ouvre sur le menu rapide (D10).
+
+- Fenêtres des launchers (F27) : événement `launcher.prompt` (`gameId`, `storeId`, `title`,
+  `handle`) quand une fenêtre du launcher s'ouvre après une installation ou une
+  désinstallation ; `App.tsx` la met au premier plan (`focusLauncherWindow` dans
+  `src/shell.ts`) et, pour une installation, affiche la consigne.
+
+- État des launchers (F25, F26) : événement `launcher.state` (`storeId`, `state` : `closed`,
+  `starting`, `updating`, `ready`) pendant quelques minutes après un lancement, une
+  installation ou une désinstallation (Steam, Epic, Battle.net ; pas Xbox). `App.tsx` le garde
+  dans `launchers` ; l'écran d'attente du lancement et la consigne d'installation disent
+  « Steam démarre… », « Epic se met à jour… » (sinon, message selon le temps d'attente). Une
+  installation demandée avant « prêt » est renvoyée au launcher par le moteur. Démo : réglage
+  « Launcher au lancement ou à l'installation » dans le panneau F2.
+
 ## Pas encore possible (manque côté moteur)
 
-- Centre rapide : quitter le jeu, forcer la fermeture, **Reprendre** (ramener le jeu au
-  premier plan) ; volume et sortie audio (API audio de Windows) ; **luminosité** (écran
+Détail, priorités et où brancher : [`docs/interface-moteur.md`](../docs/interface-moteur.md).
+
+- Centre rapide : sortie audio (API audio de Windows) ; **luminosité** (écran
   intégré des portables ; écran externe par DDC/CI, souvent absent : le moteur dit si c'est
   réglable) ; batterie de la manette ; réseau ; veille, éteindre, redémarrer, « Bureau
   Windows » (cacher Playscreen).
@@ -76,10 +99,9 @@ En vrai, sur le PC Windows : `dist\Playscreen\start-engine.cmd` à la place de
 - Trophées par jeu et dernier obtenu (extension Playnite SuccessStory).
 - Durée de la dernière partie (« Joué hier, 1 h 12 ») : aujourd'hui seulement pour les
   parties jouées depuis l'ouverture de Playscreen (`game.stopped`).
-- Écran d'attente : savoir que le launcher **se met à jour** (aujourd'hui le message
-  évolue avec le temps d'attente, F25 / F26).
 - Accompagnement : savoir qu'une fenêtre de launcher attend une action (aujourd'hui :
   consigne par store si l'installation ne démarre pas après 1,5 s).
 - Saisie de texte (recherche, navigateur, connexions) : ouvrir le **clavier manette de
   Windows** (clavier tactile, disposition « Gamepad ») quand un champ a le focus, et le
   refermer ensuite. Il garde la disposition et la langue de l'utilisateur.
+- État du launcher pour Xbox, et « le launcher vérifie les fichiers du jeu ».

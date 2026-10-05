@@ -45,6 +45,21 @@ const KEYS: Record<string, NavAction> = {
   PageDown: "nextTab",
 };
 
+const KEYS_BY_NAME: Record<string, NavAction> = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  Enter: "confirm",
+  Escape: "back",
+  Backspace: "back",
+  x: "options",
+  y: "search",
+  m: "menu",
+  PageUp: "previousTab",
+  PageDown: "nextTab",
+};
+
 const DIRECTIONS = new Set<NavAction>(["up", "down", "left", "right"]);
 const STICK_THRESHOLD = 0.5;
 /** Maintenir une direction : premier pas, puis répétition (défilement d'une liste). */
@@ -92,7 +107,9 @@ export function startInput(): () => void {
   };
 
   const onKey = (event: KeyboardEvent) => {
-    const action = KEYS[event.code];
+    // Par position (event.code), sinon par nom (event.key) : les touches simulées par un
+    // autre logiciel (tests, claviers virtuels) n'ont pas toujours de position.
+    const action = KEYS[event.code] ?? KEYS_BY_NAME[event.key.length === 1 ? event.key.toLowerCase() : event.key];
     if (!action) return;
     event.preventDefault();
     emit(action);

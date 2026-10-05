@@ -10,6 +10,57 @@
 
 ---
 
+## 0. Reprise rapide (fin de la session Windows du 5 octobre 2026)
+
+La session Windows du 5 octobre a atteint la limite de sa conversation. **Commence ici**,
+puis lis le § 3 (état détaillé, phase par phase) et « Prochaines étapes » au § 4.
+
+**Où on en est**
+- Phases 1, 2, 3 validées avec les vrais comptes (Steam, Epic, Xbox, Battle.net connectés).
+- Phase 4 (sentinelle) : écrite ; **test avec une vraie manette jamais fait** (Select +
+  Start). `playscreen-sentinel.exe --focus` fait la même action sans manette (tests).
+- Phase 5 : installation, progression et désinstallation validées pour Steam, Epic,
+  Battle.net. **Xbox à faire.**
+- Interface (`ui/`) : première version des écrans conçue par la personne dans une autre
+  session, branchée sur le vrai moteur, dans la fenêtre Tauri. Menu rapide en jeu (D10)
+  complet et vérifié au clavier avec Among Us. Fenêtres des launchers mises au premier
+  plan (F27, en partie).
+- Design : la personne itère dans **Claude Code web** avec la **version démo** (un seul
+  HTML, faux moteur intégré, `npm --prefix ui run build:demo`), publiée à
+  https://claude.ai/artifact/9kk25a1rgyhnDqY7mp3rDx ; consignes dans `ui/CLAUDE.md`. Ses
+  branches arrivent par pull request : « récupère l'interface » = `git pull`, lancer,
+  vérifier.
+
+- **Écran d'attente (F25, F26), fait le 5 octobre au soir** : `LauncherMonitor.cs` publie
+  `launcher.state` (fermé, démarre, se met à jour, prêt) pour Steam, Epic et Battle.net,
+  l'interface l'affiche ; installation renvoyée au launcher quand il devient prêt. Vérifié
+  avec chaque launcher fermé (voir § 3, « État des launchers »).
+
+**Prochaine tâche annoncée** : Xbox (phase 5), puis démarrage automatique (sentinelle +
+moteur) **avec l'accord de la personne**. Nouvelles frictions à traiter : F28 (pare-feu au
+premier lancement d'un jeu), F29 (page web ouverte par le jeu).
+
+**La personne t'a donné carte blanche** sur ce PC (lancer, fermer, forcer, relancer des
+applications). Continue de lui dire ce que tu fais, et demande-lui pour ce qui exige sa
+présence (connexion, UAC, manette, achat) ou ce qui est irréversible.
+
+**Environnement de ce PC**
+- Rust en variante **MSVC** par défaut (outils Visual Studio Build Tools 2022 installés) ;
+  `cargo` est dans `%USERPROFILE%\.cargo\bin` (à ajouter au `PATH` d'un terminal).
+- Moteur : `dist\Playscreen\start-engine.cmd` ; arrêt propre :
+  `dist\Playscreen\Playnite\Playnite.DesktopApp.exe --shutdown` ; reconstruire le paquet
+  ne perd plus les données (`%LOCALAPPDATA%\Playscreen\Playnite`). Pour déployer une
+  passerelle recompilée : arrêter, copier `bridge\bin\Release\net462\*` dans
+  `dist\Playscreen\Playnite\Extensions\Playscreen_Bridge`, redémarrer.
+- Interface : `npm --prefix ui run tauri dev` (fenêtre « Playscreen », plein écran).
+- Captures d'écran complètes : processus « DPI-aware » (`SetProcessDPIAware`), affichage
+  à 125 %. Les touches simulées (`SendKeys`) partent dans la fenêtre au premier plan :
+  **vérifier que c'est Playscreen avant d'en envoyer** (des touches sont parties dans
+  Among Us une fois). Un programme en arrière-plan ne peut pas prendre le premier plan :
+  utiliser la sentinelle `--focus`.
+- La personne pilote parfois ce PC à distance par **Parsec** (fenêtres WPF transparentes
+  si accélération graphique : réglé, F22).
+
 ## 1. Le projet et la personne avec qui tu travailles
 
 ### Objectif
@@ -323,6 +374,34 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
 - Reste : Battle.net, Xbox (pas de suivi), téléchargements Workshop, annonce de
   l'espace nécessaire.
 
+### État des launchers (F25, F26), 5 octobre 2026 au soir
+
+- `bridge/src/Api/LauncherMonitor.cs` : surveillance chaque seconde pendant 5 min après
+  `game.starting`, une installation ou une désinstallation ; `launcher.state` au départ puis à
+  chaque changement. Repères relevés en fermant et relançant chaque launcher :
+  - **Steam** : prêt quand `HKCU\Software\Valve\Steam\ActiveProcess` a `ActiveUser` ≠ 0 et
+    un `pid` de steam.exe (connexion automatique comprise : 16 à 25 s) ; mise à jour :
+    `logsootstrap_log.txt`, « Downloaded new manifest » / « Found pending update » depuis
+    le dernier « Startup - » (messages en anglais, le reste est traduit).
+  - **Epic** : `EpicGamesLauncher.log` (heures en UTC), « Stage of update started » = se met à
+    jour, « Waiting for next version update » = prêt (≈ 1 s après le démarrage). Epic se
+    relance seul par `EpicGamesUpdater` (vu après la fermeture d'Unrailed, sans mise à
+    jour) : annoncé « démarre ». Le processus apparaît ≈ 6 s après la demande.
+  - **Battle.net** : journal le plus récent « mode=server » de
+    `%LOCALAPPDATA%\Battle.net\Logs`, « Logged into Battle.net successfully » = prêt (au
+    moment où sa fenêtre s'affiche) ; « UPDATE operation for "battle.net" » jusqu'à
+    « Update completed: battle.net » = se met à jour (relevé dans un journal du matin).
+- **F25** : installation demandée avant « prêt » → renvoyée une fois prêt, sans Playnite
+  (Epic : lien `?action=install` ; Battle.net : `Battle.net.exe --game=<InternalId>`).
+  Pas pour Steam (pas de perte constatée).
+- **Vérifié** : Among Us avec Steam fermé (fermé → démarre → prêt en 25 s → jeu lancé),
+  Unrailed avec Epic fermé (prêt en 4 s), Warcraft Rumble avec Battle.net fermé (prêt en
+  7 s), installation d'Overwatch 2 avec Battle.net fermé (demande renvoyée, reçue par
+  Battle.net ; rien installé). **Pas vu en vrai** : une mise à jour d'Epic, de Steam ou de
+  Battle.net pendant l'attente (repères lus dans des journaux passés) ; l'écran d'attente dans
+  la fenêtre Playscreen et dans la démo (code compilé, écran pas encore regardé).
+- `psc` n'a pas de commande pour quitter un jeu : `POST /games/{id}/stop` par l'API.
+
 ### Jamais testé sous Windows
 
 - La sentinelle avec une vraie manette (XInput, mise au premier plan).
@@ -443,12 +522,24 @@ puis il rattrape les jeux sans jaquette avec `Playnite.Metadata.MetadataDownload
 L'ancien import reste en repli. Vérifié : 23 jeux Steam rattrapés, visibles dans
 l'interface.
 
+**Menu rapide en jeu (D10), 5 octobre 2026** : `POST /games/{id}/stop[?force=true]`
+(processus du jeu = exécutables sous son dossier d'installation, `GameProcesses.cs` ;
+fermeture polie par `CloseMainWindow`, forcée par `Kill`), `GET /session`
+(`SessionState`, tenu par les événements de Playnite), `GET/POST /system/volume`
+(Core Audio, `SystemVolume.cs`), commande Tauri `focus_game` (« Reprendre »). Vérifié avec
+Among Us dans la fenêtre Playscreen : au lancement, Playscreen cède la place au jeu
+(Windows empêche le jeu de la prendre) ; `playscreen-sentinel.exe --focus` (même action
+que Select + Start) ramène Playscreen devant le jeu, sur le menu rapide ; « Reprendre »
+remet le jeu devant ; « Quitter le jeu » le ferme (`game.stopped`). Fermeture forcée et
+volume vérifiés par l'API. Les touches simulées n'ont pas de position (`event.code`
+vide) : l'interface reconnaît aussi les touches par leur nom.
+
 **À faire, par ordre proposé** :
 1. **Xbox, phase 5** : installation (Microsoft Store ou appli Xbox), progression,
    désinstallation, avec un jeu gratuit.
 2. **Interface (phase 7)** : bibliothèque, lancement, installation avec progression,
-   connexions, à la manette ; écrans d'attente (F26, F25) ; « Recommencer » /
-   « Retour » dans les connexions (F21).
+   connexions, à la manette ; « Recommencer » / « Retour » dans les connexions (F21).
+   Écrans d'attente (F25, F26) : faits pour Steam, Epic, Battle.net.
 3. **Fenêtres des launchers au premier plan** (F27) : confirmations d'installation et
    de désinstallation, comme pour les connexions.
 4. **Mode assisté (phase 6)** : souris virtuelle au stick, clavier manette ; consigne

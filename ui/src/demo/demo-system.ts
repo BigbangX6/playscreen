@@ -1,4 +1,4 @@
-// Système simulé de la version démo : son, luminosité, Discord, musique, disques, trophées.
+// Système simulé de la version démo : sortie audio, luminosité, Discord, musique, disques, trophées.
 // Réglable depuis le panneau F2 (appel en cours, musique, luminosité disponible).
 
 import type { Disk, PowerAction, SystemBridge, SystemSnapshot, Trophies } from "../system.ts";
@@ -39,7 +39,6 @@ class DemoSystem implements SystemBridge {
       { letter: "C:", label: "Système", totalBytes: 931 * GB, freeBytes: 214 * GB, gamesBytes: 410 * GB },
     ];
     return {
-      volume: 62,
       brightness: this.settings.brightness ? 70 : null,
       audioOutput: OUTPUTS[this.output]!,
       controllerBattery: 64,
@@ -92,10 +91,6 @@ class DemoSystem implements SystemBridge {
   watch(callback: () => void) {
     this.watchers.add(callback);
     return () => this.watchers.delete(callback);
-  }
-
-  setVolume(value: number) {
-    this.update({ volume: Math.max(0, Math.min(100, Math.round(value))) });
   }
 
   setBrightness(value: number) {
@@ -156,12 +151,6 @@ class DemoSystem implements SystemBridge {
     if (!game?.lastPlayed) return null;
     if (game.name === "Hades II") return 72 * 60;
     return (20 + (hash(game.name) % 100)) * 60;
-  }
-
-  quitGame(): boolean {
-    if (!demoClient.runningId) return false;
-    demoClient.stopGame();
-    return true;
   }
 
   power(_action: PowerAction) {

@@ -1,4 +1,4 @@
-// Ce que l'interface sait du PC en dehors des jeux : son, luminosité, manette, réseau,
+// Ce que l'interface sait du PC en dehors des jeux : sortie audio, luminosité, manette, réseau,
 // Discord, musique, disques, trophées, alimentation. Le moteur ne fournit rien de tout cela
 // pour l'instant (voir « Pas encore possible » dans ui/README.md) : la version démo le simule
 // (src/demo/demo-system.ts) ; ailleurs, tout est « indisponible » et les écrans le cachent.
@@ -34,8 +34,6 @@ export interface Trophies {
 }
 
 export interface SystemSnapshot {
-  /** 0 à 100 ; null = indisponible. */
-  volume: number | null;
   /** 0 à 100 ; null = l'écran ne se règle pas (télé, la plupart des écrans externes). */
   brightness: number | null;
   audioOutput: string | null;
@@ -57,7 +55,6 @@ export type PowerAction = "sleep" | "shutdown" | "restart" | "desktop";
 export interface SystemBridge {
   snapshot(): SystemSnapshot;
   watch(callback: () => void): () => void;
-  setVolume(value: number): void;
   setBrightness(value: number): void;
   nextAudioOutput(): void;
   toggleMicrophone(): void;
@@ -68,13 +65,10 @@ export interface SystemBridge {
   trophies(gameId: string): Trophies | null;
   /** Durée de la dernière partie (secondes), si connue. */
   lastSession(gameId: string): number | null;
-  /** Quitter le jeu en cours (`force` : forcer la fermeture). false = impossible ici. */
-  quitGame(force: boolean): boolean;
   power(action: PowerAction): void;
 }
 
 const UNAVAILABLE: SystemSnapshot = {
-  volume: null,
   brightness: null,
   audioOutput: null,
   controllerBattery: null,
@@ -93,7 +87,6 @@ const noop = () => undefined;
 const NO_SYSTEM: SystemBridge = {
   snapshot: () => UNAVAILABLE,
   watch: () => noop,
-  setVolume: noop,
   setBrightness: noop,
   nextAudioOutput: noop,
   toggleMicrophone: noop,
@@ -103,7 +96,6 @@ const NO_SYSTEM: SystemBridge = {
   musicNext: noop,
   trophies: () => null,
   lastSession: () => null,
-  quitGame: () => false,
   power: noop,
 };
 
@@ -126,7 +118,6 @@ export const system: SystemBridge = {
     subscribers.add(callback);
     return () => subscribers.delete(callback);
   },
-  setVolume: (v) => bridge.setVolume(v),
   setBrightness: (v) => bridge.setBrightness(v),
   nextAudioOutput: () => bridge.nextAudioOutput(),
   toggleMicrophone: () => bridge.toggleMicrophone(),
@@ -136,7 +127,6 @@ export const system: SystemBridge = {
   musicNext: () => bridge.musicNext(),
   trophies: (id) => bridge.trophies(id),
   lastSession: (id) => bridge.lastSession(id),
-  quitGame: (force) => bridge.quitGame(force),
   power: (action) => bridge.power(action),
 };
 

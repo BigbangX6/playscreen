@@ -15,7 +15,7 @@ export const STORE_LABELS: Record<StoreKey, string> = {
 /** Ce que le joueur doit faire quand le launcher prend la main pour une installation (F4). */
 export const INSTALL_GUIDANCE: Record<StoreKey, string> = {
   steam: "Steam ouvre une fenêtre de confirmation : choisis « Installer ».",
-  epic: "La bibliothèque Epic s'ouvre : sélectionne le jeu, puis « Installer ».",
+  epic: "Epic ouvre la fenêtre d'installation du jeu : choisis « Installer ».",
   xbox: "La page du Microsoft Store s'ouvre : choisis « Installer ».",
   battlenet: "La page du jeu s'ouvre dans Battle.net : appuie sur « Installer ».",
   other: "Suis les instructions qui s'affichent dans le launcher.",

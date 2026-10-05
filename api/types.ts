@@ -42,6 +42,28 @@ export interface Game {
   media?: { cover?: boolean; background?: boolean; icon?: boolean };
 }
 
+/** Partie en cours (une seule à la fois), ou null. */
+export interface Session {
+  gameId: string;
+  /** « starting » : lancé, le jeu n'a pas encore démarré ; « running » : il tourne. */
+  phase: "starting" | "running";
+  startedAt: string;
+}
+
+/**
+ * État d'un launcher pendant une demande (lancement, installation, désinstallation) :
+ * fermé, démarre, se met à jour, prêt. F25, F26.
+ */
+export const LAUNCHER_STATES = ["closed", "starting", "updating", "ready"] as const;
+export type LauncherState = (typeof LAUNCHER_STATES)[number];
+
+/** Volume principal de Windows. */
+export interface Volume {
+  /** 0 à 100. */
+  level: number;
+  muted: boolean;
+}
+
 export interface EventMap {
   "game.starting": { gameId: string };
   "game.started": { gameId: string };
@@ -53,6 +75,18 @@ export interface EventMap {
   "sync.started": { storeId: StoreId };
   "sync.finished": { storeId: StoreId; ok: boolean; error?: string };
   "store.updated": Store;
+  "volume.changed": Volume;
+  /**
+   * Une fenêtre du launcher vient de s'ouvrir après une demande (confirmation
+   * d'installation, de désinstallation…) : l'interface la met au premier plan
+   * (`handle`, fenêtre Windows) et affiche une consigne. F4, F27.
+   */
+  "launcher.prompt": { gameId: string | null; storeId: StoreId; title: string; handle: number };
+  /**
+   * Le launcher change d'état pendant quelques minutes après une demande (le premier
+   * envoi donne l'état de départ). Steam, Epic et Battle.net ; pas Xbox.
+   */
+  "launcher.state": { storeId: StoreId; state: LauncherState };
 }
 
 export type EventType = keyof EventMap;

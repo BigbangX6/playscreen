@@ -111,6 +111,7 @@ export function DemoPanel() {
         <button style={{ ...button, background: "transparent", padding: 0 }} onClick={() => setOpen(false)}>✕</button>
       </strong>
       <Choice label="Avant le téléchargement (le launcher attend une action)" field="installWaitSeconds" options={[[0, "0 s"], [3, "3 s"], [15, "15 s"]]} />
+      <Choice label="Launcher au lancement ou à l'installation" field="launcher" options={[["ready", "déjà ouvert"], ["starting", "démarre (6 s)"], ["updating", "se met à jour (15 s)"]]} />
       <Choice label="Durée d'une installation" field="installSeconds" options={[[5, "5 s"], [20, "20 s"], [90, "90 s"]]} />
       <Choice label="Durée d'une partie" field="sessionSeconds" options={[[0, "jusqu'à l'arrêt"], [15, "15 s"], [60, "60 s"]]} />
       <Choice label="Connexion à un store" field="loginSucceeds" options={[[true, "réussit"], [false, "échoue"]]} />

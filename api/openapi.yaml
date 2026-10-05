@@ -110,6 +110,49 @@ paths:
         "202": { description: Lancement demandé (événements game.*) }
         "404": { description: Jeu inconnu }
         "409": { description: Jeu non installé }
+  /games/{gameId}/stop:
+    post:
+      summary: Quitte le jeu en cours
+      description: |
+        Demande au jeu de se fermer (comme la croix de sa fenêtre) ; avec `force=true`,
+        ferme ses processus de force (jeu bloqué). La fin arrive par `game.stopped`.
+      parameters:
+        - { $ref: "#/components/parameters/GameId" }
+        - { name: force, in: query, schema: { type: boolean } }
+      responses:
+        "202": { description: Fermeture demandée (événement game.stopped) }
+        "404": { description: Jeu inconnu }
+        "409": { description: "Ce jeu n'est pas en cours, ou aucun de ses processus n'a été trouvé" }
+  /session:
+    get:
+      summary: Partie en cours
+      description: Pour retrouver la partie après un redémarrage de l'interface.
+      responses:
+        "200":
+          description: La partie en cours, ou null
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+  /system/volume:
+    get:
+      summary: Volume principal de Windows
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Volume" }
+    post:
+      summary: Change le volume principal (événement volume.changed)
+      parameters:
+        - { name: level, in: query, schema: { type: integer, minimum: 0, maximum: 100 } }
+        - { name: muted, in: query, schema: { type: boolean } }
+      responses:
+        "200":
+          description: Le volume après le changement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Volume" }
   /games/{gameId}/install:
     post:
       summary: Installe le jeu
@@ -195,6 +238,20 @@ components:
             cover: { type: boolean }
             background: { type: boolean }
             icon: { type: boolean }
+    Session:
+      type: object
+      nullable: true
+      required: [gameId, phase, startedAt]
+      properties:
+        gameId: { type: string, format: uuid }
+        phase: { type: string, enum: [starting, running] }
+        startedAt: { type: string, format: date-time }
+    Volume:
+      type: object
+      required: [level, muted]
+      properties:
+        level: { type: integer, minimum: 0, maximum: 100 }
+        muted: { type: boolean }
     Event:
       type: object
       description: |
@@ -206,3 +263,11 @@ components:
         - library.updated : { added: [gameId], updated: [gameId], removed: [gameId] }
         - sync.started : { storeId } ; sync.finished : { storeId, ok, error? }
         - store.updated : Store
+        - volume.changed : Volume
+        - launcher.prompt : { gameId, storeId, title, handle } — une fenêtre du launcher
+          s'est ouverte après une demande (installation, désinstallation) ; `handle` est la
+          fenêtre Windows, que l'interface met au premier plan
+        - launcher.state : { storeId, state } — état du launcher (closed, starting, updating,
+          ready) pendant quelques minutes après un lancement, une installation ou une
+          désinstallation ; envoyé au départ puis à chaque changement (Steam, Epic, Battle.net).
+          Une installation demandée avant « ready » est renvoyée au launcher une fois prêt

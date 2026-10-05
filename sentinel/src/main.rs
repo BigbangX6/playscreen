@@ -18,7 +18,13 @@ pub const POLL_INTERVAL: Duration = Duration::from_millis(16);
 
 #[cfg(windows)]
 fn main() {
-    tray::run(actions::Config::from_env());
+    let config = actions::Config::from_env();
+    // `--focus` : fait une fois ce que fait Select + Start, puis s'arrête (tests, scripts).
+    if std::env::args().any(|arg| arg == "--focus") {
+        actions::launch_or_focus(&config);
+        return;
+    }
+    tray::run(config);
 }
 
 /// Hors Windows : même boucle, sans icône ni notification (aucune manette n'est lue).

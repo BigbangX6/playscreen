@@ -2,7 +2,7 @@
 // courants ; la dernière ligne ouvre les vrais Paramètres Windows par le relais.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Game, Store } from "../../../api/types.ts";
+import type { Game, Store, Volume } from "../../../api/types.ts";
 import { PadHints, type Pad } from "../components/PadHints.tsx";
 import { formatBytes, formatRelativeDate, STORE_LABELS } from "../format.ts";
 import { useNavAction } from "../input/navigation.ts";
@@ -14,6 +14,7 @@ interface Props {
   section: SettingsSection;
   games: Game[] | null;
   stores: Store[] | null;
+  volume: Volume | null;
   onSection(section: SettingsSection): void;
   onNavigate(route: Route): void;
   onOpenGame(game: Game): void;
@@ -71,14 +72,11 @@ export function Settings(props: Props) {
       ];
       break;
     case "son":
-      rows =
-        sys.volume !== null
-          ? [
-              { label: "Volume", value: String(sys.volume) },
-              { label: "Sortie audio", value: sys.audioOutput ?? "—", run: () => system.nextAudioOutput() },
-              windows("Autres réglages du son"),
-            ]
-          : [unavailable, windows("Son")];
+      rows = [
+        props.volume ? { label: "Volume", sub: "· réglable dans le centre rapide", value: props.volume.muted ? "Coupé" : String(props.volume.level) } : unavailable,
+        ...(sys.audioOutput ? [{ label: "Sortie audio", value: sys.audioOutput, run: () => system.nextAudioOutput() }] : []),
+        windows("Autres réglages du son"),
+      ];
       break;
     case "ecran":
       rows = [
