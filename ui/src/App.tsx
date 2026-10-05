@@ -21,7 +21,7 @@ import { Relay } from "./screens/Relay.tsx";
 import { Settings } from "./screens/Settings.tsx";
 import { SITES, type BrowserWindow, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
 import { Stores } from "./screens/Stores.tsx";
-import { focusLauncherWindow, resumeGame } from "./shell.ts";
+import { focusLauncherWindow, resumeGame, startRelay, stopMouseMode } from "./shell.ts";
 import { connectSystem, system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
@@ -60,6 +60,9 @@ function spaceOf(screen: Screen): SpaceId | null {
   if (screen.name === "page") return screen.page === "search" ? "search" : screen.page === "trophees" ? "trophees" : null;
   return null;
 }
+
+/** Le temps de lire où l'on va et comment revenir, avant d'ouvrir la cible du relais. */
+const RELAY_DELAY_MS = 2500;
 
 const POWER_LABELS: Record<PowerAction, string> = {
   sleep: "Le PC se met en veille",
@@ -146,6 +149,28 @@ export function App() {
   const client: EngineClient | null = engine.status === "ready" ? engine.client : null;
   // Le PC (réseau, luminosité, musique…) est lu par le même moteur.
   useEffect(() => connectSystem(client), [client]);
+
+  // Relais : après l'explication, Playscreen ouvre la cible et la manette devient une souris.
+  // Quand Playscreen revient au premier plan (Select + Start), le relais se referme.
+  const relayTarget = dialog?.kind === "relay" ? dialog.target : null;
+  useEffect(() => {
+    if (!relayTarget || DEMO) return;
+    let away = false;
+    const timer = setTimeout(() => void startRelay(relayTarget), RELAY_DELAY_MS);
+    const onBlur = () => (away = true);
+    const onFocus = () => {
+      if (!away) return;
+      setDialog(null);
+      void stopMouseMode();
+    };
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [relayTarget]);
   // Pendant une coupure, les écrans restent affichés (sous l'écran « moteur indisponible »).
   const lastClient = useRef<EngineClient | null>(null);
   if (client) lastClient.current = client;

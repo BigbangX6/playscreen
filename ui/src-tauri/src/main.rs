@@ -6,6 +6,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod game_window;
+mod relay;
 mod touch_keyboard;
 
 /// Met au premier plan une fenêtre de launcher signalée par le moteur (launcher.prompt).
@@ -52,9 +53,21 @@ fn hide_keyboard() -> bool {
     touch_keyboard::hide()
 }
 
+/// Relais (Paramètres Windows, activation d'une clé) : ouvre la cible, manette en mode souris.
+#[tauri::command]
+fn start_relay(target: String) -> bool {
+    relay::start(&target)
+}
+
+/// Retour sur Playscreen : la manette redevient une manette.
+#[tauri::command]
+fn stop_mouse_mode() -> bool {
+    relay::set_mouse_mode(false)
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard, start_relay, stop_mouse_mode])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

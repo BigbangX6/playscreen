@@ -67,3 +67,19 @@ export function startTextFieldKeyboard(): () => void {
     document.removeEventListener("focusout", onFocusOut);
   };
 }
+
+/**
+ * Relais : ouvre les Paramètres Windows (ou l'activation d'une clé Steam) et passe la manette
+ * en souris (sentinelle). Faux hors de Tauri ou sans sentinelle.
+ */
+export async function startRelay(target: "windows-settings" | "activate-key"): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("start_relay", { target });
+}
+
+export async function stopMouseMode(): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("stop_mouse_mode");
+}

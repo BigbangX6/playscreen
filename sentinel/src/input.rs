@@ -33,6 +33,27 @@ mod xinput {
         }
     }
 
+    impl XInputSource {
+        /// État complet (sticks compris) de la première manette branchée : mode souris.
+        pub fn first_pad() -> Option<crate::mouse::PadState> {
+            (0..XUSER_MAX_COUNT).find_map(|slot| {
+                // SAFETY : voir pressed_buttons.
+                let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
+                if unsafe { XInputGetState(slot, &mut state) } != 0 {
+                    return None;
+                }
+                let pad = state.Gamepad;
+                Some(crate::mouse::PadState {
+                    buttons: pad.wButtons,
+                    left_x: pad.sThumbLX,
+                    left_y: pad.sThumbLY,
+                    right_x: pad.sThumbRX,
+                    right_y: pad.sThumbRY,
+                })
+            })
+        }
+    }
+
     impl GamepadSource for XInputSource {
         fn pressed_buttons(&mut self) -> u16 {
             let mut pressed = 0u16;

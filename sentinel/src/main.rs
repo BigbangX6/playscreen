@@ -8,6 +8,8 @@
 mod actions;
 mod chord;
 mod input;
+mod mouse;
+mod touch_keyboard;
 #[cfg(windows)]
 mod tray;
 
@@ -23,6 +25,14 @@ fn main() {
     if std::env::args().any(|arg| arg == "--focus") {
         actions::launch_or_focus(&config);
         return;
+    }
+    // `--mouse` / `--mouse-off` : demande à la sentinelle qui tourne d'entrer dans le mode
+    // souris ou d'en sortir (Playscreen le fait lui-même pour les relais).
+    if std::env::args().any(|arg| arg == "--mouse") {
+        std::process::exit(if tray::send_mouse_mode(true) { 0 } else { 1 });
+    }
+    if std::env::args().any(|arg| arg == "--mouse-off") {
+        std::process::exit(if tray::send_mouse_mode(false) { 0 } else { 1 });
     }
     tray::run(config);
 }
