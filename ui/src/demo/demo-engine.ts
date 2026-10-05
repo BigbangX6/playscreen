@@ -166,6 +166,12 @@ class DemoEngine implements EngineClient {
     const total = game.installSizeBytes ?? 4 * 1024 ** 3;
     const steps = Math.max(1, Math.round((this.settings.installSeconds * 1000) / PROGRESS_STEP_MS));
     const wait = this.settings.installWaitSeconds * 1000;
+    if (wait > 0 && game.store !== "other") {
+      // Le launcher ouvre sa fenêtre de confirmation (pas de vraie fenêtre dans la démo).
+      this.later(500, () =>
+        this.emit("launcher.prompt", { gameId: id, storeId: game.store as StoreId, title: `Installer ${game.name}`, handle: 0 }),
+      );
+    }
     for (let step = 0; step <= steps; step++) {
       this.later(wait + step * PROGRESS_STEP_MS, () =>
         this.emit("install.progress", { gameId: id, bytesDone: Math.round((total * step) / steps), bytesTotal: total }),

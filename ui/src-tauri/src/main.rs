@@ -7,6 +7,12 @@
 
 mod game_window;
 
+/// Met au premier plan une fenêtre de launcher signalée par le moteur (launcher.prompt).
+#[tauri::command]
+fn focus_window(handle: i64) -> bool {
+    game_window::bring_to_front(handle)
+}
+
 use std::path::PathBuf;
 
 /// Remet au premier plan la fenêtre du jeu installé dans `install_directory`.
@@ -29,7 +35,7 @@ fn engine_info() -> Result<serde_json::Value, String> {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

@@ -21,7 +21,7 @@ import {
   UninstallConfirm,
 } from "./screens/Overlays.tsx";
 import { Stores } from "./screens/Stores.tsx";
-import { resumeGame } from "./shell.ts";
+import { focusLauncherWindow, resumeGame } from "./shell.ts";
 import "./components/components.css";
 import "./screens/screens.css";
 
@@ -206,6 +206,15 @@ export function App() {
         else notify("error", `${name} : synchronisation impossible`, error);
         void loadGames();
         void loadStores();
+        break;
+      }
+      case "launcher.prompt": {
+        // Fenêtre du launcher ouverte derrière Playscreen (F27) : on la met devant.
+        void focusLauncherWindow(event.data.handle);
+        const { gameId } = event.data;
+        if (gameId && gameId in installsRef.current && installsRef.current[gameId] === null) {
+          setDialog({ kind: "install", gameId });
+        }
         break;
       }
       case "store.updated": {

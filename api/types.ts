@@ -69,6 +69,12 @@ export interface EventMap {
   "sync.finished": { storeId: StoreId; ok: boolean; error?: string };
   "store.updated": Store;
   "volume.changed": Volume;
+  /**
+   * Une fenêtre du launcher vient de s'ouvrir après une demande (confirmation
+   * d'installation, de désinstallation…) : l'interface la met au premier plan
+   * (`handle`, fenêtre Windows) et affiche une consigne. F4, F27.
+   */
+  "launcher.prompt": { gameId: string | null; storeId: StoreId; title: string; handle: number };
 }
 
 export type EventType = keyof EventMap;

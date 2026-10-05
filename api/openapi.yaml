@@ -264,3 +264,6 @@ components:
         - sync.started : { storeId } ; sync.finished : { storeId, ok, error? }
         - store.updated : Store
         - volume.changed : Volume
+        - launcher.prompt : { gameId, storeId, title, handle } — une fenêtre du launcher
+          s'est ouverte après une demande (installation, désinstallation) ; `handle` est la
+          fenêtre Windows, que l'interface met au premier plan

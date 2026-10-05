@@ -71,3 +71,27 @@ pub fn focus(install_directory: &str) -> bool {
 pub fn focus(_install_directory: &str) -> bool {
     false
 }
+
+/// Met au premier plan une fenêtre donnée par son handle (fenêtre d'un launcher signalée
+/// par le moteur : launcher.prompt).
+#[cfg(windows)]
+pub fn bring_to_front(handle: i64) -> bool {
+    use windows_sys::Win32::Foundation::HWND;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{IsIconic, IsWindow, SetForegroundWindow, ShowWindow, SW_RESTORE};
+    let hwnd = handle as isize as HWND;
+    // SAFETY : IsWindow vérifie que le handle désigne toujours une fenêtre.
+    unsafe {
+        if IsWindow(hwnd) == 0 {
+            return false;
+        }
+        if IsIconic(hwnd) != 0 {
+            ShowWindow(hwnd, SW_RESTORE);
+        }
+        SetForegroundWindow(hwnd) != 0
+    }
+}
+
+#[cfg(not(windows))]
+pub fn bring_to_front(_handle: i64) -> bool {
+    false
+}

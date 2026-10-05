@@ -53,6 +53,11 @@ En vrai, sur le PC Windows : `dist\Playscreen\start-engine.cmd` à la place de
   Playscreen lui cède la place ; quand on revient sur Playscreen pendant une partie, il
   s'ouvre sur le menu rapide (D10).
 
+- Fenêtres des launchers (F27) : événement `launcher.prompt` (`gameId`, `storeId`, `title`,
+  `handle`) quand une fenêtre du launcher s'ouvre après une installation ou une
+  désinstallation ; `App.tsx` la met au premier plan (`focusLauncherWindow` dans
+  `src/shell.ts`) et, pour une installation, affiche la consigne.
+
 ## Pas encore possible (manque côté moteur)
 
 - Écran d'attente : savoir que le launcher **se met à jour** (aujourd'hui le message

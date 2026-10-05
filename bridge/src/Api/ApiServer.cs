@@ -40,6 +40,7 @@ namespace Playscreen.Bridge.Api
         private readonly StoreLogin login;
         private readonly InstallProgress progress;
         private readonly SessionState session;
+        private readonly LauncherWindows launcherWindows;
         private readonly string token = NewToken();
         private readonly List<Route> routes;
         private HttpListener listener;
@@ -54,6 +55,7 @@ namespace Playscreen.Bridge.Api
             this.session = session;
             login = new StoreLogin(api, events, sync);
             progress = new InstallProgress(api, events);
+            launcherWindows = new LauncherWindows(events);
             routes = new List<Route>
             {
                 new Route("GET", @"^/status$", _ => Json(200, GetStatus())),
@@ -82,12 +84,21 @@ namespace Playscreen.Bridge.Api
                         Process.Start($"com.epicgames.launcher://apps/{Uri.EscapeDataString(game.GameId)}?action=install");
                     }
                     progress.Track(game);
+                    launcherWindows.Watch(Stores.FromPluginId(game.PluginId), game.Id);
                     return reply;
                 })),
                 // Epic : l'extension ouvre seulement la bibliothèque, et il n'existe pas de lien
                 // de désinstallation directe (?action=uninstall ignoré, testé le 5 octobre 2026).
                 new Route("POST", @"^/games/([^/]+)/uninstall$", ctx => WithGame(ctx, game =>
-                    !game.IsInstalled ? Json(409, new { error = "not installed" }) : RunOnUi(() => api.UninstallGame(game.Id)))),
+                {
+                    if (!game.IsInstalled)
+                    {
+                        return Json(409, new { error = "not installed" });
+                    }
+                    var reply = RunOnUi(() => api.UninstallGame(game.Id));
+                    launcherWindows.Watch(Stores.FromPluginId(game.PluginId), game.Id);
+                    return reply;
+                })),
                 new Route("GET", @"^/games/([^/]+)/media/(cover|background|icon)$", ctx => WithGame(ctx, game => Media(game, ctx.Params[1]))),
                 new Route("POST", @"^/games/([^/]+)/stop$", ctx => WithGame(ctx, game => Stop(game, ctx.Request.QueryString["force"] == "true"))),
                 new Route("GET", @"^/session$", _ => Json(200, session.Current)),
