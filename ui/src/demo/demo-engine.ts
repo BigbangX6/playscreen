@@ -3,7 +3,7 @@
 // réglables depuis le panneau de démo (F2) pour voir chaque situation.
 
 import { ApiError, type EngineClient } from "../../../api/client.ts";
-import type { EngineEvent, EventMap, EventType, Game, Status, Store, StoreId } from "../../../api/types.ts";
+import type { EngineEvent, EventMap, EventType, Game, Session, Status, Store, StoreId, Volume } from "../../../api/types.ts";
 import { demoGames, demoImage, demoStores } from "./library.ts";
 
 export interface DemoSettings {
@@ -34,7 +34,12 @@ type Listener = (event: EngineEvent) => void;
 class DemoEngine implements EngineClient {
   settings: DemoSettings = { ...DEFAULTS };
   offline = false;
-  runningId: string | null = null;
+  private current: Session | null = null;
+  private sound: Volume = { level: 60, muted: false };
+
+  get runningId(): string | null {
+    return this.current?.gameId ?? null;
+  }
 
   private gameMap = new Map<string, Game>();
   private storeMap = new Map<StoreId, Store>();
@@ -86,10 +91,10 @@ class DemoEngine implements EngineClient {
     const id = this.runningId;
     if (!id) return;
     const game = this.gameMap.get(id)!;
-    const sessionSeconds = 37 * 60 + 12;
+    const sessionSeconds = Math.max(1, Math.round((Date.now() - Date.parse(this.current!.startedAt)) / 1000));
     game.playtimeSeconds += sessionSeconds;
     game.lastPlayed = new Date().toISOString();
-    this.runningId = null;
+    this.current = null;
     this.busy.delete(id);
     this.emit("game.stopped", { gameId: id, sessionSeconds });
     this.changed();
@@ -99,7 +104,7 @@ class DemoEngine implements EngineClient {
     for (const timer of this.timers) clearTimeout(timer);
     this.timers.clear();
     this.busy.clear();
-    this.runningId = null;
+    this.current = null;
     this.offline = false;
     this.settings = { ...DEFAULTS };
     this.storeMap = new Map(demoStores().map((s) => [s.id, s]));
@@ -143,9 +148,11 @@ class DemoEngine implements EngineClient {
     const game = this.free(id);
     if (!game.installed) throw new ApiError(409, "not installed");
     this.busy.add(id);
-    this.runningId = id;
+    this.current = { gameId: id, phase: "starting", startedAt: new Date().toISOString() };
     this.emit("game.starting", { gameId: id });
     this.later(2000, () => {
+      if (this.current?.gameId !== id) return;
+      this.current.phase = "running";
       this.emit("game.started", { gameId: id });
       if (this.settings.sessionSeconds > 0) this.later(this.settings.sessionSeconds * 1000, () => this.stopGame());
     });
@@ -211,6 +218,32 @@ class DemoEngine implements EngineClient {
       store.connected = this.settings.loginSucceeds;
       this.emit("store.updated", this.storeView(store));
     });
+  }
+
+  async session(): Promise<Session | null> {
+    this.ensureOnline();
+    return this.current ? { ...this.current } : null;
+  }
+
+  async stop(id: string, options: { force?: boolean } = {}): Promise<void> {
+    this.ensureOnline();
+    if (!this.gameMap.has(id)) throw new ApiError(404, "unknown game");
+    if (this.current?.gameId !== id) throw new ApiError(409, "not running");
+    // Un jeu met un moment à se fermer ; forcé, c'est presque immédiat.
+    this.later(options.force ? 300 : 1500, () => this.stopGame());
+  }
+
+  async volume(): Promise<Volume> {
+    this.ensureOnline();
+    return { ...this.sound };
+  }
+
+  async setVolume(change: { level?: number; muted?: boolean }): Promise<Volume> {
+    this.ensureOnline();
+    if (change.level !== undefined) this.sound.level = Math.max(0, Math.min(100, Math.round(change.level)));
+    if (change.muted !== undefined) this.sound.muted = change.muted;
+    this.emit("volume.changed", { ...this.sound });
+    return { ...this.sound };
   }
 
   mediaUrl(id: string, kind: "cover" | "background" | "icon"): string {

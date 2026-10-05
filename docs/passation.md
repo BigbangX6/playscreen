@@ -443,6 +443,18 @@ puis il rattrape les jeux sans jaquette avec `Playnite.Metadata.MetadataDownload
 L'ancien import reste en repli. Vérifié : 23 jeux Steam rattrapés, visibles dans
 l'interface.
 
+**Menu rapide en jeu (D10), 5 octobre 2026** : `POST /games/{id}/stop[?force=true]`
+(processus du jeu = exécutables sous son dossier d'installation, `GameProcesses.cs` ;
+fermeture polie par `CloseMainWindow`, forcée par `Kill`), `GET /session`
+(`SessionState`, tenu par les événements de Playnite), `GET/POST /system/volume`
+(Core Audio, `SystemVolume.cs`), commande Tauri `focus_game` (« Reprendre »). Vérifié avec
+Among Us dans la fenêtre Playscreen : au lancement, Playscreen cède la place au jeu
+(Windows empêche le jeu de la prendre) ; `playscreen-sentinel.exe --focus` (même action
+que Select + Start) ramène Playscreen devant le jeu, sur le menu rapide ; « Reprendre »
+remet le jeu devant ; « Quitter le jeu » le ferme (`game.stopped`). Fermeture forcée et
+volume vérifiés par l'API. Les touches simulées n'ont pas de position (`event.code`
+vide) : l'interface reconnaît aussi les touches par leur nom.
+
 **À faire, par ordre proposé** :
 1. **Xbox, phase 5** : installation (Microsoft Store ou appli Xbox), progression,
    désinstallation, avec un jeu gratuit.

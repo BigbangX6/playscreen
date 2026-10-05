@@ -64,6 +64,59 @@ namespace Playscreen.Bridge.Api
         [SerializationPropertyName("gameCount")] public int GameCount { get; set; }
     }
 
+    public class VolumeDto
+    {
+        [SerializationPropertyName("level")] public int Level { get; set; }
+        [SerializationPropertyName("muted")] public bool Muted { get; set; }
+    }
+
+    public class SessionDto
+    {
+        [SerializationPropertyName("gameId")] public Guid GameId { get; set; }
+        [SerializationPropertyName("phase")] public string Phase { get; set; }
+        [SerializationPropertyName("startedAt")] public DateTime StartedAt { get; set; }
+    }
+
+    /// <summary>Partie en cours, tenue à jour par les événements de jeu de Playnite.</summary>
+    public class SessionState
+    {
+        private readonly object sync = new object();
+        private SessionDto current;
+
+        public SessionDto Current
+        {
+            get { lock (sync) { return current; } }
+        }
+
+        public void Starting(Guid gameId)
+        {
+            lock (sync) { current = new SessionDto { GameId = gameId, Phase = "starting", StartedAt = DateTime.Now }; }
+        }
+
+        public void Started(Guid gameId)
+        {
+            lock (sync)
+            {
+                if (current?.GameId != gameId)
+                {
+                    current = new SessionDto { GameId = gameId, StartedAt = DateTime.Now };
+                }
+                current.Phase = "running";
+            }
+        }
+
+        public void Stopped(Guid gameId)
+        {
+            lock (sync)
+            {
+                if (current?.GameId == gameId)
+                {
+                    current = null;
+                }
+            }
+        }
+    }
+
     public class MediaDto
     {
         [SerializationPropertyName("cover")] public bool Cover { get; set; }

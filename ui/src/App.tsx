@@ -21,6 +21,7 @@ import {
   UninstallConfirm,
 } from "./screens/Overlays.tsx";
 import { Stores } from "./screens/Stores.tsx";
+import { resumeGame } from "./shell.ts";
 import "./components/components.css";
 import "./screens/screens.css";
 
@@ -39,6 +40,8 @@ interface Session {
   since: number;
   /** Écran d'attente masqué par le joueur (B). */
   hidden: boolean;
+  /** « Quitter le jeu » demandé, en attente de la fin de partie. */
+  stopping?: boolean;
 }
 
 /** Sans progression après ce délai, on explique ce que le launcher attend (F4). */
@@ -110,12 +113,33 @@ export function App() {
     }
   }, [client]);
 
-  // À chaque (re)connexion : le jeton a changé, on relit tout.
+  // À chaque (re)connexion : le jeton a changé, on relit tout, y compris la partie en cours
+  // (l'interface a pu redémarrer pendant qu'un jeu tournait).
   useEffect(() => {
     if (!client) return;
     void loadGames();
     void loadStores();
+    client.session().then(
+      (current) =>
+        setSession((s) =>
+          current
+            ? { gameId: current.gameId, phase: current.phase, since: Date.parse(current.startedAt), hidden: s?.hidden ?? false }
+            : null,
+        ),
+      () => undefined,
+    );
   }, [client, loadGames, loadStores]);
+
+  // Retour sur Playscreen pendant une partie (Select + Start, D10) : menu rapide d'abord.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  useEffect(() => {
+    const onFocus = () => {
+      if (sessionRef.current?.phase === "running") setDialog((d) => d ?? { kind: "quick" });
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   // Manette branchée / débranchée.
   useEffect(() => {
@@ -154,11 +178,16 @@ export function App() {
       case "game.starting":
         setSession((s) => (s?.gameId === event.data.gameId ? s : { gameId: event.data.gameId, phase: "starting", since: Date.now(), hidden: false }));
         break;
-      case "game.started":
+      case "game.started": {
         setSession((s) => ({ gameId: event.data.gameId, phase: "running", since: s?.since ?? Date.now(), hidden: false }));
         // Ce que le joueur verra en revenant sur Playscreen pendant la partie.
         setDialog({ kind: "quick" });
+        // Windows empêche le jeu (lancé en arrière-plan par son launcher) de passer devant
+        // Playscreen : c'est Playscreen, au premier plan, qui lui cède la place.
+        const game = gamesRef.current?.find((g) => g.id === event.data.gameId);
+        if (game) void resumeGame(game);
         break;
+      }
       case "game.stopped":
         setSession(null);
         setDialog((d) => (d?.kind === "quick" ? null : d));
@@ -245,6 +274,26 @@ export function App() {
     client.sync(store.id).catch((error) => {
       setSyncing((list) => list.filter((id) => id !== store.id));
       notify("error", `${store.name} : synchronisation impossible`, describeError(error));
+    });
+  };
+
+  /** Reprendre : on ferme le menu et on remet le jeu au premier plan (dans Tauri). */
+  const resume = (game: Game) => {
+    setDialog(null);
+    void resumeGame(game);
+  };
+
+  /** Quitter le jeu (ou forcer sa fermeture) ; la fin arrive par game.stopped. */
+  const quit = (game: Game, force: boolean) => {
+    if (!client) return;
+    setSession((s) => (s ? { ...s, stopping: true } : s));
+    client.stop(game.id, { force }).catch((error) => {
+      setSession((s) => (s ? { ...s, stopping: false } : s));
+      notify(
+        "error",
+        `Impossible de fermer ${game.name}`,
+        error instanceof ApiError && error.status === 409 ? "Le jeu ne répond pas : essaie « Forcer la fermeture »." : describeError(error),
+      );
     });
   };
 
@@ -363,7 +412,15 @@ export function App() {
         />
       )}
       {client && dialog?.kind === "quick" && sessionGame && session && (
-        <QuickMenu client={client} game={sessionGame} since={session.since} onResume={() => setDialog(null)} onLibrary={goLibrary} />
+        <QuickMenu
+          client={client}
+          game={sessionGame}
+          since={session.since}
+          stopping={Boolean(session.stopping)}
+          onResume={() => resume(sessionGame)}
+          onLibrary={goLibrary}
+          onQuit={(force) => quit(sessionGame, force)}
+        />
       )}
       {client && dialog?.kind === "login" && loginStore && (
         <LoginGuide

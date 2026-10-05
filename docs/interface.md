@@ -37,6 +37,10 @@ dans `api/types.ts`.
 | Stores | `client.stores()` | `Store[]` : `pluginInstalled`, `launcherInstalled`, `connected` (`null` = inconnu), `gameCount` |
 | Synchroniser un store | `client.sync("steam")` | `sync.started`, `library.updated`, `store.updated`, `sync.finished` (`ok`, `error` : `"not connected"`…) |
 | Connecter un store | `client.login("epic")` ; `client.login("epic", { alternative: true })` | Fenêtre du store ouverte en grand ; `store.updated` à la fin |
+| Partie en cours | `client.session()` | `{ gameId, phase, startedAt }` ou `null` |
+| Quitter le jeu | `client.stop(id)` ; forcer : `client.stop(id, { force: true })` | `game.stopped` ; 409 si le jeu ne tourne pas ou ne répond pas |
+| Volume de Windows | `client.volume()` ; `client.setVolume({ level, muted })` | `{ level: 0-100, muted }` ; événement `volume.changed` |
+| Reprendre le jeu | `resumeGame(game)` (`ui/src/shell.ts`) | Remet la fenêtre du jeu devant (fenêtre Windows seulement) |
 
 Les événements arrivent dans `App.tsx` (`useEngine(onEvent)`). Le moteur redémarre
 parfois (Playnite) : `engine.ts` se reconnecte seul ; l'écran doit supporter l'état

@@ -15,6 +15,7 @@ namespace Playscreen.Bridge
         private static readonly ILogger logger = LogManager.GetLogger();
 
         private readonly EventHub events = new EventHub();
+        private readonly SessionState session = new SessionState();
         private ApiServer server;
 
         public override Guid Id { get; } = Guid.Parse("5c2a9f3e-7b1d-4e6a-9c48-2f1e0d7b3a61");
@@ -29,7 +30,7 @@ namespace Playscreen.Bridge
             try
             {
                 var sync = new StoreSync(PlayniteApi, events);
-                server = new ApiServer(PlayniteApi, events, sync);
+                server = new ApiServer(PlayniteApi, events, sync, session);
                 server.Start();
                 logger.Info($"Playscreen API listening on port {server.Port}");
                 sync.RefreshConnections();
@@ -46,14 +47,23 @@ namespace Playscreen.Bridge
             events.Dispose();
         }
 
-        public override void OnGameStarting(OnGameStartingEventArgs args) =>
+        public override void OnGameStarting(OnGameStartingEventArgs args)
+        {
+            session.Starting(args.Game.Id);
             events.Publish("game.starting", new { gameId = args.Game.Id });
+        }
 
-        public override void OnGameStarted(OnGameStartedEventArgs args) =>
+        public override void OnGameStarted(OnGameStartedEventArgs args)
+        {
+            session.Started(args.Game.Id);
             events.Publish("game.started", new { gameId = args.Game.Id });
+        }
 
-        public override void OnGameStopped(OnGameStoppedEventArgs args) =>
+        public override void OnGameStopped(OnGameStoppedEventArgs args)
+        {
+            session.Stopped(args.Game.Id);
             events.Publish("game.stopped", new { gameId = args.Game.Id, sessionSeconds = args.ElapsedSeconds });
+        }
 
         public override void OnGameInstalled(OnGameInstalledEventArgs args) =>
             events.Publish("game.installed", new { gameId = args.Game.Id });

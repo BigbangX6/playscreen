@@ -1,9 +1,10 @@
 // Fenêtres par-dessus les écrans : menu principal, écran d'attente du lancement, menu
 // rapide en jeu, accompagnement (connexion, installation), confirmation, moteur indisponible.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { EngineClient } from "../../../api/client.ts";
-import type { Game, Store } from "../../../api/types.ts";
+import type { Game, Store, Volume } from "../../../api/types.ts";
+import { useNavAction } from "../input/navigation.ts";
 import { Cover } from "../components/Cover.tsx";
 import { Hints } from "../components/Hints.tsx";
 import { Overlay } from "../components/Overlay.tsx";
@@ -109,13 +110,52 @@ interface QuickProps {
   client: EngineClient;
   game: Game;
   since: number;
+  /** Une fermeture a été demandée : on attend la fin de partie. */
+  stopping: boolean;
   onResume(): void;
   onLibrary(): void;
+  onQuit(force: boolean): void;
 }
 
-export function QuickMenu({ client, game, since, onResume, onLibrary }: QuickProps) {
+const VOLUME_STEP = 5;
+
+/** Volume de Windows : gauche / droite pour régler, A pour couper ou remettre le son. */
+function VolumeItem({ client }: { client: EngineClient }) {
+  const [volume, setVolume] = useState<Volume | null>(null);
+  const ref = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    client.volume().then(setVolume, () => setVolume(null));
+  }, [client]);
+
+  const change = (patch: { level?: number; muted?: boolean }) => {
+    client.setVolume(patch).then(setVolume, () => undefined);
+  };
+
+  useNavAction((action) => {
+    if (!volume || document.activeElement !== ref.current) return false;
+    if (action === "left") change({ level: volume.level - VOLUME_STEP });
+    else if (action === "right") change({ level: volume.level + VOLUME_STEP });
+    else return false;
+    return true;
+  });
+
+  if (!volume) return null;
+  return (
+    <button ref={ref} className="menu-item" data-focusable onClick={() => change({ muted: !volume.muted })}>
+      <span className="menu-icon">♪</span>
+      Volume
+      <span className="spacer" />
+      <span className="muted">◀ {volume.muted ? "coupé" : `${volume.level} %`} ▶</span>
+    </button>
+  );
+}
+
+export function QuickMenu({ client, game, since, stopping, onResume, onLibrary, onQuit }: QuickProps) {
   const elapsed = useElapsed(since);
   const battery = useBattery();
+  // Forcer la fermeture : demandé une seconde fois pour éviter une perte de partie.
+  const [confirmForce, setConfirmForce] = useState(false);
   return (
     <Overlay variant="panel" onBack={onResume} onAction={(a) => (a === "menu" ? (onResume(), true) : false)}>
       <div className="quick-head">
@@ -134,13 +174,25 @@ export function QuickMenu({ client, game, since, onResume, onLibrary }: QuickPro
         </div>
       )}
       <div className="menu-list">
-        {/* Plus tard : ramener la fenêtre du jeu au premier plan, quitter, forcer la fermeture, volume
-            (actions à ajouter au moteur). */}
         <button className="menu-item" data-focusable onClick={onResume}>
           <span className="menu-icon">▶</span>Reprendre
         </button>
         <button className="menu-item" data-focusable onClick={onLibrary}>
           <span className="menu-icon">▦</span>Bibliothèque
+        </button>
+        <VolumeItem client={client} />
+        <button className="menu-item" data-focusable disabled={stopping} onClick={() => onQuit(false)}>
+          <span className="menu-icon">⏏</span>
+          {stopping ? "Fermeture du jeu…" : "Quitter le jeu"}
+        </button>
+        <button
+          className="menu-item"
+          data-focusable
+          onClick={() => (confirmForce ? onQuit(true) : setConfirmForce(true))}
+          onBlur={() => setConfirmForce(false)}
+        >
+          <span className="menu-icon">✕</span>
+          {confirmForce ? "Confirmer : la progression non sauvegardée sera perdue" : "Forcer la fermeture"}
         </button>
       </div>
       <Hints

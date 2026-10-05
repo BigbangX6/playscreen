@@ -1,6 +1,6 @@
 // Client de l'API Playscreen, partagé par `psc`, les tests et (plus tard) l'interface.
 
-import type { EngineEvent, EventType, Game, Status, Store, StoreId } from "./types.ts";
+import type { EngineEvent, EventType, Game, Session, Status, Store, StoreId, Volume } from "./types.ts";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -24,6 +24,12 @@ export interface EngineClient {
   uninstall(id: string): Promise<void>;
   sync(storeId: StoreId): Promise<void>;
   login(storeId: StoreId, options?: { alternative?: boolean }): Promise<void>;
+  /** Partie en cours, ou null (pour la retrouver après un redémarrage de l'interface). */
+  session(): Promise<Session | null>;
+  /** Quitte le jeu en cours ; `force` le ferme de force (jeu bloqué). Suite : game.stopped. */
+  stop(id: string, options?: { force?: boolean }): Promise<void>;
+  volume(): Promise<Volume>;
+  setVolume(change: { level?: number; muted?: boolean }): Promise<Volume>;
   mediaUrl(id: string, kind: "cover" | "background" | "icon"): string;
   events(signal?: AbortSignal): AsyncGenerator<EngineEvent>;
 }
@@ -77,6 +83,26 @@ export class PlayscreenClient implements EngineClient {
   /** alternative : connexion de secours de l'extension (Epic : navigateur du système). */
   login(storeId: StoreId, options: { alternative?: boolean } = {}) {
     return this.post(`/stores/${storeId}/login${options.alternative ? "?method=alternative" : ""}`);
+  }
+
+  session() {
+    return this.get<Session | null>("/session");
+  }
+
+  stop(id: string, options: { force?: boolean } = {}) {
+    return this.post(`/games/${encodeURIComponent(id)}/stop${options.force ? "?force=true" : ""}`);
+  }
+
+  volume() {
+    return this.get<Volume>("/system/volume");
+  }
+
+  async setVolume(change: { level?: number; muted?: boolean }) {
+    const query = new URLSearchParams();
+    if (change.level !== undefined) query.set("level", String(Math.round(change.level)));
+    if (change.muted !== undefined) query.set("muted", String(change.muted));
+    const response = await this.request("POST", `/system/volume?${query}`);
+    return (await response.json()) as Volume;
   }
 
   /**

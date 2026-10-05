@@ -5,7 +5,16 @@
 // Pas de console en version finale sous Windows.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod game_window;
+
 use std::path::PathBuf;
+
+/// Remet au premier plan la fenêtre du jeu installé dans `install_directory`.
+/// Faux si aucune fenêtre du jeu n'est trouvée (le jeu a été fermé entre-temps, par ex.).
+#[tauri::command]
+fn focus_game(install_directory: String) -> bool {
+    game_window::focus(&install_directory)
+}
 
 /// Port et jeton du moteur, écrits par la passerelle (ou le faux moteur) dans
 /// %LOCALAPPDATA%\Playscreen\engine.json. Relu à chaque appel : le jeton change à
@@ -20,7 +29,7 @@ fn engine_info() -> Result<serde_json::Value, String> {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![engine_info])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

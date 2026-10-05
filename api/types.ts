@@ -42,6 +42,21 @@ export interface Game {
   media?: { cover?: boolean; background?: boolean; icon?: boolean };
 }
 
+/** Partie en cours (une seule à la fois), ou null. */
+export interface Session {
+  gameId: string;
+  /** « starting » : lancé, le jeu n'a pas encore démarré ; « running » : il tourne. */
+  phase: "starting" | "running";
+  startedAt: string;
+}
+
+/** Volume principal de Windows. */
+export interface Volume {
+  /** 0 à 100. */
+  level: number;
+  muted: boolean;
+}
+
 export interface EventMap {
   "game.starting": { gameId: string };
   "game.started": { gameId: string };
@@ -53,6 +68,7 @@ export interface EventMap {
   "sync.started": { storeId: StoreId };
   "sync.finished": { storeId: StoreId; ok: boolean; error?: string };
   "store.updated": Store;
+  "volume.changed": Volume;
 }
 
 export type EventType = keyof EventMap;

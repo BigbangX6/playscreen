@@ -44,9 +44,17 @@ En vrai, sur le PC Windows : `dist\Playscreen\start-engine.cmd` à la place de
 `npm run mock`, puis `npm --prefix ui run dev` (navigateur) ou `npm --prefix ui run tauri dev`
 (fenêtre plein écran de Playscreen), manette en main devant la télé.
 
+## Fait côté moteur (5 octobre 2026)
+
+- Menu rapide : `client.stop(id)` / `client.stop(id, { force: true })`, `client.volume()` /
+  `client.setVolume(…)` (événement `volume.changed`), `client.session()` (partie en cours
+  après un redémarrage de l'interface), `resumeGame(game)` dans `src/shell.ts` (remet le jeu
+  au premier plan ; ne fait rien hors de la fenêtre Windows). Au lancement d'un jeu,
+  Playscreen lui cède la place ; quand on revient sur Playscreen pendant une partie, il
+  s'ouvre sur le menu rapide (D10).
+
 ## Pas encore possible (manque côté moteur)
 
-- Menu rapide : quitter le jeu, forcer la fermeture, volume, ramener le jeu au premier plan.
 - Écran d'attente : savoir que le launcher **se met à jour** (aujourd'hui le message
   évolue avec le temps d'attente, F25 / F26).
 - Accompagnement : savoir qu'une fenêtre de launcher attend une action (aujourd'hui :

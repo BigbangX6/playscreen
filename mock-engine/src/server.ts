@@ -2,7 +2,18 @@
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { ALLOWED_ORIGINS, API_VERSION, type EngineEvent, type EventMap, type EventType, type Game, type Store, type StoreId } from "../../api/types.ts";
+import {
+  ALLOWED_ORIGINS,
+  API_VERSION,
+  type EngineEvent,
+  type EventMap,
+  type EventType,
+  type Game,
+  type Session,
+  type Store,
+  type StoreId,
+  type Volume,
+} from "../../api/types.ts";
 import { fixtureGames, fixtureStores } from "./fixtures.ts";
 
 export interface MockEngineOptions {
@@ -32,6 +43,8 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
   const timers = new Set<NodeJS.Timeout>();
   const busy = new Set<string>();
   const syncing = new Set<StoreId>();
+  let session: Session | null = null;
+  const volume: Volume = { level: 60, muted: false };
   // Une seule fenêtre de connexion à la fois, comme la passerelle.
   let loggingIn = false;
 
@@ -102,19 +115,36 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
     route("POST", /^\/games\/([^/]+)\/start$/, ([id]) =>
       withGame(id!, (game) => {
         if (!game.installed) return json(409, { error: "not installed" });
+        if (session) return json(409, { error: "another game is running" });
         busy.add(game.id);
+        session = { gameId: game.id, phase: "starting", startedAt: new Date().toISOString() };
         emit("game.starting", { gameId: game.id });
-        later(tickMs, () => emit("game.started", { gameId: game.id }));
-        later(tickMs + sessionMs, () => {
-          const sessionSeconds = Math.round(sessionMs / 1000);
-          game.playtimeSeconds += sessionSeconds;
-          game.lastPlayed = new Date().toISOString();
-          busy.delete(game.id);
-          emit("game.stopped", { gameId: game.id, sessionSeconds });
+        later(tickMs, () => {
+          if (session?.gameId !== game.id) return;
+          session.phase = "running";
+          emit("game.started", { gameId: game.id });
         });
+        later(tickMs + sessionMs, () => stopGame(game));
         return empty(202);
       }),
     ),
+    route("POST", /^\/games\/([^/]+)\/stop$/, ([id]) => {
+      const game = games.get(id!);
+      if (!game) return json(404, { error: "unknown game" });
+      if (session?.gameId !== game.id) return json(409, { error: "not running" });
+      later(tickMs, () => stopGame(game));
+      return empty(202);
+    }),
+    route("GET", /^\/session$/, () => json(200, session)),
+    route("GET", /^\/system\/volume$/, () => json(200, volume)),
+    route("POST", /^\/system\/volume$/, (_, query) => {
+      const level = query.get("level");
+      const muted = query.get("muted");
+      if (level !== null) volume.level = Math.max(0, Math.min(100, Number(level) || 0));
+      if (muted !== null) volume.muted = muted === "true";
+      emit("volume.changed", { ...volume });
+      return json(200, volume);
+    }),
     route("POST", /^\/games\/([^/]+)\/install$/, ([id]) =>
       withGame(id!, (game) => {
         if (game.installed) return json(409, { error: "already installed" });
@@ -160,6 +190,17 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
       return { status: 200, type: "image/svg+xml", body: placeholderSvg(game, kind!) };
     }),
   ];
+
+  /** Fin de partie (arrêt demandé ou fin de la session simulée), une seule fois. */
+  function stopGame(game: Game) {
+    if (session?.gameId !== game.id) return;
+    const sessionSeconds = Math.max(1, Math.round((Date.now() - Date.parse(session.startedAt)) / 1000));
+    session = null;
+    game.playtimeSeconds += sessionSeconds;
+    game.lastPlayed = new Date().toISOString();
+    busy.delete(game.id);
+    emit("game.stopped", { gameId: game.id, sessionSeconds });
+  }
 
   function withGame(id: string, fn: (game: Game) => Reply): Reply {
     const game = games.get(id);

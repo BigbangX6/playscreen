@@ -39,17 +39,19 @@ namespace Playscreen.Bridge.Api
         private readonly StoreSync sync;
         private readonly StoreLogin login;
         private readonly InstallProgress progress;
+        private readonly SessionState session;
         private readonly string token = NewToken();
         private readonly List<Route> routes;
         private HttpListener listener;
 
         public int Port { get; private set; }
 
-        public ApiServer(IPlayniteAPI api, EventHub events, StoreSync sync)
+        public ApiServer(IPlayniteAPI api, EventHub events, StoreSync sync, SessionState session)
         {
             this.api = api;
             this.events = events;
             this.sync = sync;
+            this.session = session;
             login = new StoreLogin(api, events, sync);
             progress = new InstallProgress(api, events);
             routes = new List<Route>
@@ -87,6 +89,10 @@ namespace Playscreen.Bridge.Api
                 new Route("POST", @"^/games/([^/]+)/uninstall$", ctx => WithGame(ctx, game =>
                     !game.IsInstalled ? Json(409, new { error = "not installed" }) : RunOnUi(() => api.UninstallGame(game.Id)))),
                 new Route("GET", @"^/games/([^/]+)/media/(cover|background|icon)$", ctx => WithGame(ctx, game => Media(game, ctx.Params[1]))),
+                new Route("POST", @"^/games/([^/]+)/stop$", ctx => WithGame(ctx, game => Stop(game, ctx.Request.QueryString["force"] == "true"))),
+                new Route("GET", @"^/session$", _ => Json(200, session.Current)),
+                new Route("GET", @"^/system/volume$", _ => Json(200, SystemVolume.Get())),
+                new Route("POST", @"^/system/volume$", ctx => SetVolume(ctx.Request.QueryString)),
             };
         }
 
@@ -193,6 +199,30 @@ namespace Playscreen.Bridge.Api
             EngineVersion = api.ApplicationInfo.ApplicationVersion.ToString(),
             Ready = true,
         };
+
+        /// <summary>
+        /// Quitte le jeu en cours : fermeture demandée à ses fenêtres, ou de force. Playnite
+        /// voit ses processus s'arrêter et envoie game.stopped.
+        /// </summary>
+        private Reply Stop(Playnite.SDK.Models.Game game, bool force)
+        {
+            if (session.Current?.GameId != game.Id)
+            {
+                return Json(409, new { error = "not running" });
+            }
+            var count = GameProcesses.Stop(game, force);
+            logger.Info($"Playscreen: stop {game.Name} (force: {force}) -> {count} process(es)");
+            return count > 0 ? new Reply(202) : Json(409, new { error = "no process found" });
+        }
+
+        private Reply SetVolume(System.Collections.Specialized.NameValueCollection query)
+        {
+            int? level = int.TryParse(query["level"], out var l) ? l : (int?)null;
+            bool? muted = bool.TryParse(query["muted"], out var m) ? m : (bool?)null;
+            var volume = SystemVolume.Set(level, muted);
+            events.Publish("volume.changed", volume);
+            return Json(200, volume);
+        }
 
         private Reply WithStore(RequestContext ctx, Func<Stores.StoreInfo, Playnite.SDK.Plugins.LibraryPlugin, Reply> handler)
         {
