@@ -51,3 +51,6 @@ En vrai, sur le PC Windows : `dist\Playscreen\start-engine.cmd` à la place de
   évolue avec le temps d'attente, F25 / F26).
 - Accompagnement : savoir qu'une fenêtre de launcher attend une action (aujourd'hui :
   consigne par store si l'installation ne démarre pas après 1,5 s).
+- Saisie de texte (recherche, navigateur, connexions) : ouvrir le **clavier manette de
+  Windows** (clavier tactile, disposition « Gamepad ») quand un champ a le focus, et le
+  refermer ensuite. Il garde la disposition et la langue de l'utilisateur.
