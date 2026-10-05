@@ -97,6 +97,16 @@ export interface SystemInfo {
   media: NowPlaying | null;
 }
 
+/** Trophées (succès) lus par l'extension SuccessStory du moteur. */
+export interface TrophySummary {
+  /** Par identifiant de jeu, seulement les jeux qui ont des trophées. */
+  games: Record<string, { unlocked: number; total: number }>;
+  unlocked: number;
+  last: { name: string; gameId: string; gameName: string; unlockedAt: string } | null;
+  /** Récupération en cours (POST /trophies/refresh). */
+  refreshing: boolean;
+}
+
 export type PowerAction = "sleep" | "shutdown" | "restart";
 export type MediaCommand = "toggle" | "previous" | "next";
 
@@ -123,6 +133,8 @@ export interface EventMap {
    * envoi donne l'état de départ). Steam, Epic et Battle.net ; pas Xbox.
    */
   "launcher.state": { storeId: StoreId; state: LauncherState };
+  /** Les trophées ont été récupérés à nouveau (relire GET /trophies). */
+  "trophies.updated": Record<string, never>;
 }
 
 export type EventType = keyof EventMap;

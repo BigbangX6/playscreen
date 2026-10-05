@@ -43,6 +43,7 @@ namespace Playscreen.Bridge.Api
         private readonly LauncherWindows launcherWindows;
         private readonly LauncherMonitor launchers;
         private readonly SystemInfo systemInfo;
+        private readonly Trophies trophies;
         private readonly string token = NewToken();
         private readonly List<Route> routes;
         private HttpListener listener;
@@ -57,6 +58,7 @@ namespace Playscreen.Bridge.Api
             this.session = session;
             this.launchers = launchers;
             systemInfo = new SystemInfo(api);
+            trophies = new Trophies(api, events);
             login = new StoreLogin(api, events, sync);
             progress = new InstallProgress(api, events);
             launcherWindows = new LauncherWindows(events);
@@ -114,6 +116,10 @@ namespace Playscreen.Bridge.Api
                 new Route("GET", @"^/session$", _ => Json(200, session.Current)),
                 new Route("GET", @"^/system/volume$", _ => Json(200, SystemVolume.Get())),
                 new Route("POST", @"^/system/volume$", ctx => SetVolume(ctx.Request.QueryString)),
+                new Route("GET", @"^/trophies$", _ => Json(200, trophies.Get())),
+                new Route("POST", @"^/trophies/refresh$", _ =>
+                    !trophies.Available ? Json(409, new { error = "SuccessStory missing" })
+                    : trophies.TryRefresh() ? new Reply(202) : Json(409, new { error = "busy" })),
                 new Route("GET", @"^/system$", _ => Json(200, systemInfo.Get())),
                 new Route("POST", @"^/system/power$", ctx => Power(ctx.Request.QueryString["action"])),
                 new Route("POST", @"^/system/brightness$", ctx => SetBrightness(ctx.Request.QueryString["level"])),

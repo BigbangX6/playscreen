@@ -1,6 +1,6 @@
 // Client de l'API Playscreen, partagé par `psc`, les tests et (plus tard) l'interface.
 
-import type { EngineEvent, EventType, Game, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, Volume } from "./types.ts";
+import type { EngineEvent, EventType, Game, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume } from "./types.ts";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -40,6 +40,10 @@ export interface EngineClient {
   nextAudioOutput(): Promise<string | null>;
   /** Lecture / pause, précédent, suivant sur ce qui joue (409 si rien ne joue). */
   media(command: MediaCommand): Promise<void>;
+  /** Trophées de la bibliothèque (vide si le moteur n'a pas SuccessStory). */
+  trophies(): Promise<TrophySummary>;
+  /** Récupère les trophées de toute la bibliothèque en arrière-plan (suite : trophies.updated). */
+  refreshTrophies(): Promise<void>;
   mediaUrl(id: string, kind: "cover" | "background" | "icon"): string;
   events(signal?: AbortSignal): AsyncGenerator<EngineEvent>;
 }
@@ -153,6 +157,15 @@ export class PlayscreenClient implements EngineClient {
 
   media(command: MediaCommand) {
     return this.post(`/system/media/${command}`);
+  }
+
+  async trophies(): Promise<TrophySummary> {
+    const summary = await this.get<Partial<TrophySummary>>("/trophies");
+    return { games: summary.games ?? {}, unlocked: summary.unlocked ?? 0, last: summary.last ?? null, refreshing: summary.refreshing ?? false };
+  }
+
+  refreshTrophies() {
+    return this.post("/trophies/refresh");
   }
 
   async *events(signal?: AbortSignal): AsyncGenerator<EngineEvent> {

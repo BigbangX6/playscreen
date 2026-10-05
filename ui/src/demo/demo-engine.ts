@@ -3,7 +3,7 @@
 // réglables depuis le panneau de démo (F2) pour voir chaque situation.
 
 import { ApiError, type EngineClient } from "../../../api/client.ts";
-import type { EngineEvent, EventMap, EventType, Game, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, Volume } from "../../../api/types.ts";
+import type { EngineEvent, EventMap, EventType, Game, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume } from "../../../api/types.ts";
 import { demoGames, demoImage, demoStores } from "./library.ts";
 
 export interface DemoSettings {
@@ -308,6 +308,15 @@ class DemoEngine implements EngineClient {
   }
 
   async media(_command: MediaCommand): Promise<void> {
+    this.ensureOnline();
+  }
+
+  async trophies(): Promise<TrophySummary> {
+    this.ensureOnline();
+    return { games: {}, unlocked: 0, last: null, refreshing: false };
+  }
+
+  async refreshTrophies(): Promise<void> {
     this.ensureOnline();
   }
 

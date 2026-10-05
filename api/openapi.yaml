@@ -153,6 +153,21 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Volume" }
+  /trophies:
+    get:
+      summary: Trophées de la bibliothèque (extension SuccessStory)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrophySummary" }
+  /trophies/refresh:
+    post:
+      summary: Récupère les trophées de toute la bibliothèque, en arrière-plan (suite trophies.updated)
+      responses:
+        "202": { description: Commencé }
+        "409": { description: Déjà en cours, ou SuccessStory absent }
   /system:
     get:
       summary: Le PC en dehors des jeux (réseau, manette, luminosité, sortie audio, disques, musique)
@@ -309,6 +324,24 @@ components:
         totalBytes: { type: integer }
         freeBytes: { type: integer }
         gamesBytes: { type: integer, description: Taille des jeux installés sur ce disque }
+    TrophySummary:
+      type: object
+      properties:
+        games:
+          type: object
+          additionalProperties:
+            type: object
+            properties: { unlocked: { type: integer }, total: { type: integer } }
+        unlocked: { type: integer }
+        last:
+          type: object
+          nullable: true
+          properties:
+            name: { type: string }
+            gameId: { type: string, format: uuid }
+            gameName: { type: string }
+            unlockedAt: { type: string, format: date-time }
+        refreshing: { type: boolean }
     SystemInfo:
       type: object
       properties:
@@ -348,3 +381,4 @@ components:
           ready) pendant quelques minutes après un lancement, une installation ou une
           désinstallation ; envoyé au départ puis à chaque changement (Steam, Epic, Battle.net).
           Une installation demandée avant « ready » est renvoyée au launcher une fois prêt
+        - trophies.updated : {} — trophées récupérés à nouveau (relire GET /trophies)

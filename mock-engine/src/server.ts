@@ -173,6 +173,18 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
       emit("volume.changed", { ...volume });
       return json(200, volume);
     }),
+    route("GET", /^\/trophies$/, () =>
+      json(200, {
+        games: { [[...games.values()][0]!.id]: { unlocked: 12, total: 40 } },
+        unlocked: 12,
+        last: { name: "Premier pas", gameId: [...games.values()][0]!.id, gameName: [...games.values()][0]!.name, unlockedAt: "2026-10-05T20:00:00Z" },
+        refreshing: false,
+      }),
+    ),
+    route("POST", /^\/trophies\/refresh$/, () => {
+      later(tickMs, () => emit("trophies.updated", {}));
+      return empty(202);
+    }),
     route("GET", /^\/system$/, () => json(200, system)),
     route("POST", /^\/system\/power$/, (_, query) =>
       ["sleep", "shutdown", "restart"].includes(query.get("action") ?? "") ? empty(202) : json(400, { error: "unknown action" }),

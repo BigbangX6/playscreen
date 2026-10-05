@@ -156,4 +156,11 @@ describe("faux moteur", () => {
     await client.power("sleep");
     await assert.rejects(() => client.power("explode" as never), (e) => e instanceof ApiError && e.status === 400);
   });
+  it("donne les trophées et les récupère à nouveau", async () => {
+    const summary = await client.trophies();
+    assert.equal(summary.unlocked, 12);
+    assert.equal(Object.values(summary.games)[0]?.total, 40);
+    const events = await collectUntil("trophies.updated", () => client.refreshTrophies());
+    assert.equal(events.at(-1)?.type, "trophies.updated");
+  });
 });

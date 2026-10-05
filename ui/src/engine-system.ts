@@ -3,12 +3,15 @@
 // encore faire reste null : les écrans le cachent.
 
 import type { EngineClient } from "../../api/client.ts";
-import type { SystemInfo } from "../../api/types.ts";
+import type { SystemInfo, TrophySummary } from "../../api/types.ts";
+import { formatRelativeDate } from "./format.ts";
 import { hideToDesktop } from "./shell.ts";
 import type { PowerAction, SystemBridge, SystemSnapshot } from "./system.ts";
 
 /** Assez souvent pour suivre la musique, sans charger le moteur. */
 const POLL_MS = 3000;
+/** Les trophées changent rarement (après une partie). */
+const TROPHIES_POLL_MS = 60_000;
 
 const EMPTY: SystemSnapshot = {
   brightness: null,
@@ -39,8 +42,22 @@ export function toSnapshot(info: SystemInfo, previous: SystemSnapshot = EMPTY): 
   };
 }
 
+/** Total et dernier trophée dans le format des écrans. */
+export function withTrophies(state: SystemSnapshot, summary: TrophySummary): SystemSnapshot {
+  const hasAny = Object.keys(summary.games).length > 0;
+  return {
+    ...state,
+    trophiesUnlocked: hasAny ? summary.unlocked : null,
+    lastTrophy: summary.last
+      ? { name: summary.last.name, game: summary.last.gameName, when: formatRelativeDate(summary.last.unlockedAt).toLowerCase() }
+      : null,
+  };
+}
+
 export function createEngineSystem(client: EngineClient): SystemBridge {
   let state = EMPTY;
+  let trophies: TrophySummary | null = null;
+  let trophiesReadAt = 0;
   const watchers = new Set<() => void>();
   let timer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
@@ -49,7 +66,12 @@ export function createEngineSystem(client: EngineClient): SystemBridge {
 
   const refresh = async () => {
     try {
-      const next = toSnapshot(await client.system(), state);
+      if (Date.now() - trophiesReadAt > TROPHIES_POLL_MS) {
+        trophiesReadAt = Date.now();
+        trophies = await client.trophies().catch(() => trophies);
+      }
+      let next = toSnapshot(await client.system(), state);
+      if (trophies) next = withTrophies(next, trophies);
       if (JSON.stringify(next) !== JSON.stringify(state)) {
         state = next;
         changed();
@@ -99,7 +121,7 @@ export function createEngineSystem(client: EngineClient): SystemBridge {
     musicPrevious: () => act(() => client.media("previous")),
     musicToggle: () => act(() => client.media("toggle")),
     musicNext: () => act(() => client.media("next")),
-    trophies: () => null,
+    trophies: (gameId) => trophies?.games[gameId] ?? null,
     lastSession: () => null,
     power(action: PowerAction) {
       if (action === "desktop") void hideToDesktop();

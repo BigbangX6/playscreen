@@ -50,7 +50,10 @@ $storeExtensions = @(
     "https://playnite.link/download/extensions/bins/BattlenetLibrary_Builtin_2_24.pext",
     # Métadonnées IGDB : images et descriptions quand le store n'en fournit pas
     # (installée aussi par l'assistant de premier démarrage de Playnite).
-    "https://playnite.link/download/extensions/bins/IGDBMetadata_Builtin_2_15.pext"
+    "https://playnite.link/download/extensions/bins/IGDBMetadata_Builtin_2_15.pext",
+    # Trophées (succès) des jeux, lus par la passerelle (licence MIT, Lacro59). Pas la 3.7.1 :
+    # elle ne récupère plus ceux de Steam (bug #695 de SuccessStory, avril 2026).
+    "https://github.com/Lacro59/playnite-successstory-plugin/releases/download/v3.7/playnite-successstory-plugin_3_7.pext"
 )
 
 Write-Host "==> Compilation de la passerelle"
@@ -113,6 +116,9 @@ $storeSettings = @{
     "00000002-dbd1-46c6-b5d0-b1ba559d10e4" = '{ "Version": 1, "ImportInstalledGames": true, "ConnectAccount": true, "ImportUninstalledGames": true }' # Epic
     "7e4fbb5e-2ae3-48d4-8ba0-6b30e7a4e287" = '{ "ImportInstalledGames": true, "ConnectAccount": true, "ImportUninstalledGames": true }'               # Xbox
     "e3c26a3d-d695-4cb7-a769-5ff7612c7edd" = '{ "Version": 1, "ImportInstalledGames": true, "ConnectAccount": true, "ImportUninstalledGames": true }' # Battle.net
+    # SuccessStory (trophées) : toutes les sources sont désactivées par défaut. Steam et Epic
+    # passent par la connexion web des stores (UseAuth), déjà faite pour les bibliothèques.
+    "cebe6d32-8c46-4459-b993-5a5189d60788" = '{ "EnableSteam": true, "EnableEpic": true, "EnableXbox": true, "EnableOverwatchAchievements": true, "EnableSc2Achievements": true, "UseLocalised": true, "SteamApiSettings": { "UseApi": false, "UseAuth": true }, "EpicSettings": { "UseAuth": true } }'
 }
 foreach ($pluginId in $storeSettings.Keys) {
     $dataDir = Join-Path $defaultsDir "ExtensionsData\$pluginId"
