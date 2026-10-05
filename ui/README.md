@@ -81,27 +81,16 @@ En vrai, sur le PC Windows : `dist\Playscreen\start-engine.cmd` à la place de
 ## Pas encore possible (manque côté moteur)
 
 Détail, priorités et où brancher : [`docs/interface-moteur.md`](../docs/interface-moteur.md).
+Fait dans la nuit du 5 au 6 octobre (voir `docs/passation.md` § 0 bis) : alimentation,
+« Bureau Windows », musique, disques, luminosité, sortie audio, réseau, batterie de la
+manette, trophées, dernière partie, clavier manette (page Rechercher), relais avec souris
+virtuelle. Le PC passe par `src/engine-system.ts` (lecture de `GET /system` toutes les 3 s).
 
-- Centre rapide : sortie audio (API audio de Windows) ; **luminosité** (écran
-  intégré des portables ; écran externe par DDC/CI, souvent absent : le moteur dit si c'est
-  réglable) ; batterie de la manette ; réseau ; veille, éteindre, redémarrer, « Bureau
-  Windows » (cacher Playscreen).
-- Musique en cours : titre, artiste, lecture / pause, précédent / suivant (commandes
-  multimédias de Windows, pour une appli comme pour une page web).
 - Discord (dans le navigateur Playscreen) : appel en cours (salon, nombre de personnes),
   couper le micro, quitter l'appel, messages non lus, amis en ligne.
 - Navigateur manette : fenêtres web (Boutique, Social, Musique, Internet) qui restent
   ouvertes, cachées, en arrière-plan (la musique et l'appel continuent pendant une partie) ;
   curseur aimanté, défilement au stick droit, zoom LT / RT.
-- Relais : ouvrir les Paramètres Windows (et l'activation d'une clé dans le bon launcher)
-  avec la souris virtuelle de la sentinelle ; Select + Start pour revenir.
-- Espace disque par lecteur (Stockage ; avant une installation, F23).
-- Trophées par jeu et dernier obtenu (extension Playnite SuccessStory).
-- Durée de la dernière partie (« Joué hier, 1 h 12 ») : aujourd'hui seulement pour les
-  parties jouées depuis l'ouverture de Playscreen (`game.stopped`).
 - Accompagnement : savoir qu'une fenêtre de launcher attend une action (aujourd'hui :
   consigne par store si l'installation ne démarre pas après 1,5 s).
-- Saisie de texte (recherche, navigateur, connexions) : ouvrir le **clavier manette de
-  Windows** (clavier tactile, disposition « Gamepad ») quand un champ a le focus, et le
-  refermer ensuite. Il garde la disposition et la langue de l'utilisateur.
 - État du launcher pour Xbox, et « le launcher vérifie les fichiers du jeu ».

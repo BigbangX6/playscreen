@@ -36,9 +36,32 @@ puis lis le § 3 (état détaillé, phase par phase) et « Prochaines étapes »
   l'interface l'affiche ; installation renvoyée au launcher quand il devient prêt. Vérifié
   avec chaque launcher fermé (voir § 3, « État des launchers »).
 
-**Prochaine tâche annoncée** : Xbox (phase 5), puis démarrage automatique (sentinelle +
-moteur) **avec l'accord de la personne**. Nouvelles frictions à traiter : F28 (pare-feu au
-premier lancement d'un jeu), F29 (page web ouverte par le jeu).
+## 0 bis. Nuit du 5 au 6 octobre 2026 (session autonome, la personne dormait)
+
+Nouvelle interface « console » de la session de design fusionnée (`docs/interface-moteur.md`
+liste ce qu'elle attend du moteur, par priorité). Fait, vérifié à la manette virtuelle :
+
+| Besoin (interface-moteur.md) | Où | État |
+|---|---|---|
+| 1 Alimentation | `SystemInfo.Power`, `POST /system/power` ; « Bureau Windows » = commande Tauri `hide_to_desktop` | Bureau Windows ✅ (Select + Start ramène) ; veille / arrêt / redémarrage **codés, jamais déclenchés** (consigne : ne pas couper le PC) |
+| 2 Musique en cours | `MediaSession.cs` (commandes multimédias WinRT), `/system/media/*` | ✅ titre, pause / reprise testés sur un fichier silencieux |
+| 3 Disques | `SystemInfo.Disks` | ✅ (disques virtuels exclus : Google Drive) |
+| 4 Luminosité | WMI `WmiMonitorBrightness`, `POST /system/brightness` | ✅ 70 → 60 → 70 |
+| 5 Sortie audio | `AudioOutputs.cs` (Core Audio, `IPolicyConfig`) | nom ✅ ; **changement de sortie pas testé** (consigne : ne pas toucher au son) |
+| 6 Manette, réseau | XInput `XInputGetBatteryInformation`, `NetworkInterface` + `netsh` | réseau ✅ ; batterie : manette virtuelle filaire → null, **à voir avec une vraie manette sans fil** |
+| 7 Clavier manette | `touch_keyboard.rs` (Tauri et sentinelle), page Rechercher | ✅ disposition « Boîtier de commande » (= manette) choisie une fois à la souris dans le clavier tactile, Windows la garde |
+| 8 Relais + souris virtuelle | `sentinel/src/mouse.rs`, `--mouse`, commande Tauri `start_relay` | ✅ « Activer une clé » ouvre l'activation Steam, clic, défilement, Select + Start revient |
+| 11 Trophées | `Trophies.cs` + extension SuccessStory **3.7** (la 3.7.1 casse Steam) | ✅ 19 jeux, 48 trophées ; Epic demande une connexion SuccessStory ; profil Steam peut-être privé (Among Us 0/33) |
+| 12 Dernière partie | `SessionHistory.cs`, `lastSessionSeconds` | ✅ |
+
+Outils de test laissés dans le dossier temporaire de la session (à recréer au besoin) :
+manette virtuelle permanente (ViGEmBus déjà installé + Python 3.12 utilisateur + `vgamepad`,
+serveur sur 127.0.0.1:47901), captures DPI-aware, appel d'API avec jeton.
+
+**Prochaine tâche annoncée** : navigateur manette (fenêtres WebView2 cachées : Boutique,
+Social / Discord, Musique / Spotify, Internet), puis étude des options des launchers
+(overlay Big Picture de Steam, etc.) pour les ramener sur Playscreen. Ensuite Xbox (phase
+5), démarrage automatique (sentinelle + moteur) **avec l'accord de la personne**, F28, F29.
 
 **La personne t'a donné carte blanche** sur ce PC (lancer, fermer, forcer, relancer des
 applications). Continue de lui dire ce que tu fais, et demande-lui pour ce qui exige sa
