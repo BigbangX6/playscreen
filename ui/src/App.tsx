@@ -22,7 +22,7 @@ import { Settings } from "./screens/Settings.tsx";
 import { SITES, type BrowserWindow, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
 import { Stores } from "./screens/Stores.tsx";
 import { focusLauncherWindow, resumeGame } from "./shell.ts";
-import { system, type PowerAction } from "./system.ts";
+import { connectSystem, system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
 
@@ -144,6 +144,8 @@ export function App() {
 
   const engine = useEngine((event) => onEvent(event));
   const client: EngineClient | null = engine.status === "ready" ? engine.client : null;
+  // Le PC (réseau, luminosité, musique…) est lu par le même moteur.
+  useEffect(() => connectSystem(client), [client]);
   // Pendant une coupure, les écrans restent affichés (sous l'écran « moteur indisponible »).
   const lastClient = useRef<EngineClient | null>(null);
   if (client) lastClient.current = client;

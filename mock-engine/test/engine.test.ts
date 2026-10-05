@@ -143,4 +143,15 @@ describe("faux moteur", () => {
     });
     assert.equal(missing.status, 404);
   });
+  it("décrit le PC et règle luminosité, sortie audio et musique", async () => {
+    const info = await client.system();
+    assert.equal(info.network?.kind, "wifi");
+    assert.equal(await client.setBrightness(150), 100);
+    const first = info.audioOutput;
+    assert.notEqual(await client.nextAudioOutput(), first);
+    await client.media("toggle");
+    assert.equal((await client.system()).media?.playing, !info.media?.playing);
+    await client.power("sleep");
+    await assert.rejects(() => client.power("explode" as never), (e) => e instanceof ApiError && e.status === 400);
+  });
 });

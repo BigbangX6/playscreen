@@ -4,6 +4,7 @@
 // (src/demo/demo-system.ts) ; ailleurs, tout est « indisponible » et les écrans le cachent.
 
 import { useSyncExternalStore } from "react";
+import type { EngineClient } from "../../api/client.ts";
 import { DEMO } from "./engine.ts";
 
 export interface DiscordState {
@@ -111,6 +112,16 @@ function use(next: SystemBridge) {
 }
 
 if (DEMO) void import("./demo/demo-system.ts").then((m) => use(m.demoSystem));
+
+/** Vrai moteur : le PC est lu par l'API dès que le moteur répond (null : déconnecté). */
+export function connectSystem(client: EngineClient | null) {
+  if (DEMO) return;
+  if (!client) {
+    use(NO_SYSTEM);
+    return;
+  }
+  void import("./engine-system.ts").then((m) => use(m.createEngineSystem(client)));
+}
 
 export const system: SystemBridge = {
   snapshot: () => bridge.snapshot(),

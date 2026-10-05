@@ -153,6 +153,53 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Volume" }
+  /system:
+    get:
+      summary: Le PC en dehors des jeux (réseau, manette, luminosité, sortie audio, disques, musique)
+      description: Les valeurs absentes ou nulles n'existent pas sur ce PC (l'interface les cache).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SystemInfo" }
+  /system/power:
+    post:
+      summary: Veille, arrêt ou redémarrage immédiats du PC
+      parameters:
+        - { name: action, in: query, required: true, schema: { type: string, enum: [sleep, shutdown, restart] } }
+      responses:
+        "202": { description: Demandé (exécuté une demi-seconde après la réponse) }
+        "400": { description: Action inconnue }
+  /system/brightness:
+    post:
+      summary: Règle la luminosité de l'écran intégré
+      parameters:
+        - { name: level, in: query, required: true, schema: { type: integer, minimum: 0, maximum: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { level: { type: integer } } }
+        "409": { description: L'écran ne se règle pas (télé, écran externe) }
+  /system/audio-output/next:
+    post:
+      summary: Passe à la sortie audio suivante (pour tous les usages)
+      responses:
+        "200":
+          description: La nouvelle sortie
+          content:
+            application/json:
+              schema: { type: object, properties: { name: { type: string } } }
+  /system/media/{command}:
+    post:
+      summary: Lecture / pause, précédent, suivant sur ce qui joue (commandes multimédias de Windows)
+      parameters:
+        - { name: command, in: path, required: true, schema: { type: string, enum: [toggle, previous, next] } }
+      responses:
+        "202": { description: Envoyé }
+        "409": { description: Rien ne joue }
   /games/{gameId}/install:
     post:
       summary: Installe le jeu
@@ -252,6 +299,35 @@ components:
       properties:
         level: { type: integer, minimum: 0, maximum: 100 }
         muted: { type: boolean }
+    Disk:
+      type: object
+      required: [letter, label, totalBytes, freeBytes, gamesBytes]
+      properties:
+        letter: { type: string }
+        label: { type: string }
+        totalBytes: { type: integer }
+        freeBytes: { type: integer }
+        gamesBytes: { type: integer, description: Taille des jeux installés sur ce disque }
+    SystemInfo:
+      type: object
+      properties:
+        network:
+          type: object
+          properties:
+            kind: { type: string, enum: [wifi, ethernet, none] }
+            name: { type: string, nullable: true }
+        controllerBattery: { type: integer, nullable: true, description: Manette sans fil, 0 à 100 par paliers }
+        brightness: { type: integer, nullable: true, description: Écran intégré seulement }
+        audioOutput: { type: string, nullable: true }
+        disks: { type: array, items: { $ref: "#/components/schemas/Disk" } }
+        media:
+          type: object
+          nullable: true
+          properties:
+            app: { type: string, nullable: true }
+            title: { type: string }
+            artist: { type: string, nullable: true }
+            playing: { type: boolean }
     Event:
       type: object
       description: |

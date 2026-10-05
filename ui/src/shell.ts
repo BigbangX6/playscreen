@@ -21,3 +21,13 @@ export async function resumeGame(game: Game): Promise<boolean> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<boolean>("focus_game", { installDirectory: game.installDirectory });
 }
+
+/**
+ * « Bureau Windows » : réduit Playscreen (il reste en mémoire). Select + Start le ramène :
+ * la sentinelle restaure une fenêtre réduite. Faux hors de Tauri.
+ */
+export async function hideToDesktop(): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("hide_to_desktop");
+}

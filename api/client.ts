@@ -1,6 +1,6 @@
 // Client de l'API Playscreen, partagé par `psc`, les tests et (plus tard) l'interface.
 
-import type { EngineEvent, EventType, Game, Session, Status, Store, StoreId, Volume } from "./types.ts";
+import type { EngineEvent, EventType, Game, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, Volume } from "./types.ts";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -30,6 +30,16 @@ export interface EngineClient {
   stop(id: string, options?: { force?: boolean }): Promise<void>;
   volume(): Promise<Volume>;
   setVolume(change: { level?: number; muted?: boolean }): Promise<Volume>;
+  /** Réseau, manette, luminosité, sortie audio, disques, musique en cours. */
+  system(): Promise<SystemInfo>;
+  /** Veille, arrêt ou redémarrage immédiats du PC. */
+  power(action: PowerAction): Promise<void>;
+  /** Faux (409) si l'écran ne se règle pas. */
+  setBrightness(level: number): Promise<number>;
+  /** Passe à la sortie audio suivante ; renvoie son nom. */
+  nextAudioOutput(): Promise<string | null>;
+  /** Lecture / pause, précédent, suivant sur ce qui joue (409 si rien ne joue). */
+  media(command: MediaCommand): Promise<void>;
   mediaUrl(id: string, kind: "cover" | "background" | "icon"): string;
   events(signal?: AbortSignal): AsyncGenerator<EngineEvent>;
 }
@@ -114,6 +124,37 @@ export class PlayscreenClient implements EngineClient {
   }
 
   /** Flux d'événements. Interrompre avec `signal`. */
+  async system(): Promise<SystemInfo> {
+    // Le moteur omet les valeurs nulles.
+    const info = await this.get<Partial<SystemInfo>>("/system");
+    return {
+      network: info.network ? { kind: info.network.kind, name: info.network.name ?? null } : null,
+      controllerBattery: info.controllerBattery ?? null,
+      brightness: info.brightness ?? null,
+      audioOutput: info.audioOutput ?? null,
+      disks: info.disks ?? null,
+      media: info.media ? { ...info.media, app: info.media.app ?? null, artist: info.media.artist ?? null } : null,
+    };
+  }
+
+  power(action: PowerAction) {
+    return this.post(`/system/power?action=${action}`);
+  }
+
+  async setBrightness(level: number) {
+    const response = await this.request("POST", `/system/brightness?level=${Math.round(level)}`);
+    return ((await response.json()) as { level: number }).level;
+  }
+
+  async nextAudioOutput() {
+    const response = await this.request("POST", "/system/audio-output/next");
+    return ((await response.json()) as { name?: string | null }).name ?? null;
+  }
+
+  media(command: MediaCommand) {
+    return this.post(`/system/media/${command}`);
+  }
+
   async *events(signal?: AbortSignal): AsyncGenerator<EngineEvent> {
     const response = await this.request("GET", "/events", signal);
     if (!response.body) return;

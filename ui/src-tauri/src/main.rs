@@ -33,9 +33,16 @@ fn engine_info() -> Result<serde_json::Value, String> {
     serde_json::from_str(&text).map_err(|e| e.to_string())
 }
 
+/// « Bureau Windows » : réduit la fenêtre (Playscreen reste en mémoire). La sentinelle la
+/// restaure avec Select + Start.
+#[tauri::command]
+fn hide_to_desktop(window: tauri::WebviewWindow) -> bool {
+    window.minimize().is_ok()
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

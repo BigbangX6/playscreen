@@ -3,7 +3,7 @@
 // réglables depuis le panneau de démo (F2) pour voir chaque situation.
 
 import { ApiError, type EngineClient } from "../../../api/client.ts";
-import type { EngineEvent, EventMap, EventType, Game, Session, Status, Store, StoreId, Volume } from "../../../api/types.ts";
+import type { EngineEvent, EventMap, EventType, Game, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, Volume } from "../../../api/types.ts";
 import { demoGames, demoImage, demoStores } from "./library.ts";
 
 export interface DemoSettings {
@@ -284,6 +284,31 @@ class DemoEngine implements EngineClient {
     if (change.muted !== undefined) this.sound.muted = change.muted;
     this.emit("volume.changed", { ...this.sound });
     return { ...this.sound };
+  }
+
+  // Le PC de la démo est simulé par demo-system.ts (les écrans le lisent directement) :
+  // ces méthodes ne servent qu'à respecter le contrat EngineClient.
+  async system(): Promise<SystemInfo> {
+    this.ensureOnline();
+    return { network: { kind: "wifi", name: "Maison" }, controllerBattery: 60, brightness: 70, audioOutput: "Télé (HDMI)", disks: null, media: null };
+  }
+
+  async power(_action: PowerAction): Promise<void> {
+    this.ensureOnline();
+  }
+
+  async setBrightness(level: number): Promise<number> {
+    this.ensureOnline();
+    return Math.max(0, Math.min(100, Math.round(level)));
+  }
+
+  async nextAudioOutput(): Promise<string | null> {
+    this.ensureOnline();
+    return "Télé (HDMI)";
+  }
+
+  async media(_command: MediaCommand): Promise<void> {
+    this.ensureOnline();
   }
 
   mediaUrl(id: string, kind: "cover" | "background" | "icon"): string {

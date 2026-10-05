@@ -42,6 +42,7 @@ namespace Playscreen.Bridge.Api
         private readonly SessionState session;
         private readonly LauncherWindows launcherWindows;
         private readonly LauncherMonitor launchers;
+        private readonly SystemInfo systemInfo;
         private readonly string token = NewToken();
         private readonly List<Route> routes;
         private HttpListener listener;
@@ -55,6 +56,7 @@ namespace Playscreen.Bridge.Api
             this.sync = sync;
             this.session = session;
             this.launchers = launchers;
+            systemInfo = new SystemInfo(api);
             login = new StoreLogin(api, events, sync);
             progress = new InstallProgress(api, events);
             launcherWindows = new LauncherWindows(events);
@@ -112,6 +114,16 @@ namespace Playscreen.Bridge.Api
                 new Route("GET", @"^/session$", _ => Json(200, session.Current)),
                 new Route("GET", @"^/system/volume$", _ => Json(200, SystemVolume.Get())),
                 new Route("POST", @"^/system/volume$", ctx => SetVolume(ctx.Request.QueryString)),
+                new Route("GET", @"^/system$", _ => Json(200, systemInfo.Get())),
+                new Route("POST", @"^/system/power$", ctx => Power(ctx.Request.QueryString["action"])),
+                new Route("POST", @"^/system/brightness$", ctx => SetBrightness(ctx.Request.QueryString["level"])),
+                new Route("POST", @"^/system/audio-output/next$", _ =>
+                {
+                    var output = AudioOutputs.Next();
+                    return Json(200, new { name = output?.Name });
+                }),
+                new Route("POST", @"^/system/media/(toggle|previous|next)$", ctx =>
+                    MediaSession.Command(ctx.Params[0]) ? new Reply(202) : Json(409, new { error = "nothing playing" })),
             };
         }
 
@@ -265,6 +277,28 @@ namespace Playscreen.Bridge.Api
                 // Même commande que l'extension Battle.net de Playnite.
                 Process.Start(exe, $"--game={progress.BattleNetUid(game)}");
             }
+        }
+
+        /// <summary>Répond d'abord : un arrêt immédiat couperait la réponse.</summary>
+        private Reply Power(string action)
+        {
+            if (action != "sleep" && action != "shutdown" && action != "restart")
+            {
+                return Json(400, new { error = "unknown action" });
+            }
+            Task.Delay(500).ContinueWith(_ => SystemInfo.Power(action));
+            return new Reply(202);
+        }
+
+        private Reply SetBrightness(string value)
+        {
+            if (!int.TryParse(value, out var level))
+            {
+                return Json(400, new { error = "level required" });
+            }
+            return SystemInfo.SetBrightness(level)
+                ? Json(200, new { level = Math.Max(0, Math.Min(100, level)) })
+                : Json(409, new { error = "not adjustable" });
         }
 
         private Reply SetVolume(System.Collections.Specialized.NameValueCollection query)

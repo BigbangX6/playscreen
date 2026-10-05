@@ -12,6 +12,7 @@ import {
   type Session,
   type Store,
   type StoreId,
+  type SystemInfo,
   type Volume,
 } from "../../api/types.ts";
 import { fixtureGames, fixtureStores } from "./fixtures.ts";
@@ -45,6 +46,16 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
   const syncing = new Set<StoreId>();
   let session: Session | null = null;
   const volume: Volume = { level: 60, muted: false };
+  // Le PC simulé : rien n'est vraiment éteint ni mis en veille.
+  const audioOutputs = ["Haut-parleurs", "Télé (HDMI)"];
+  const system: SystemInfo = {
+    network: { kind: "wifi", name: "Maison" },
+    controllerBattery: 60,
+    brightness: 70,
+    audioOutput: audioOutputs[0]!,
+    disks: [{ letter: "C", label: "Windows", totalBytes: 512e9, freeBytes: 140e9, gamesBytes: 210e9 }],
+    media: { app: "Spotify", title: "Midnight City", artist: "M83", playing: true },
+  };
   // Une seule fenêtre de connexion à la fois, comme la passerelle.
   let loggingIn = false;
   // Launchers déjà ouverts : la première demande les fait démarrer.
@@ -161,6 +172,25 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
       if (muted !== null) volume.muted = muted === "true";
       emit("volume.changed", { ...volume });
       return json(200, volume);
+    }),
+    route("GET", /^\/system$/, () => json(200, system)),
+    route("POST", /^\/system\/power$/, (_, query) =>
+      ["sleep", "shutdown", "restart"].includes(query.get("action") ?? "") ? empty(202) : json(400, { error: "unknown action" }),
+    ),
+    route("POST", /^\/system\/brightness$/, (_, query) => {
+      const level = Number(query.get("level"));
+      if (!Number.isFinite(level)) return json(400, { error: "level required" });
+      system.brightness = Math.max(0, Math.min(100, Math.round(level)));
+      return json(200, { level: system.brightness });
+    }),
+    route("POST", /^\/system\/audio-output\/next$/, () => {
+      system.audioOutput = audioOutputs[(audioOutputs.indexOf(system.audioOutput ?? "") + 1) % audioOutputs.length]!;
+      return json(200, { name: system.audioOutput });
+    }),
+    route("POST", /^\/system\/media\/(toggle|previous|next)$/, ([command]) => {
+      if (!system.media) return json(409, { error: "nothing playing" });
+      if (command === "toggle") system.media.playing = !system.media.playing;
+      return empty(202);
     }),
     route("POST", /^\/games\/([^/]+)\/install$/, ([id]) =>
       withGame(id!, (game) => {

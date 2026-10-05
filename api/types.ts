@@ -64,6 +64,40 @@ export interface Volume {
   muted: boolean;
 }
 
+/** Disque interne, avec la place prise par les jeux installés dessus. */
+export interface Disk {
+  letter: string;
+  label: string;
+  totalBytes: number;
+  freeBytes: number;
+  gamesBytes: number;
+}
+
+/** Musique (ou vidéo) en cours d'après les commandes multimédias de Windows. */
+export interface NowPlaying {
+  /** Application qui joue : « Spotify », « Chrome »… */
+  app: string | null;
+  title: string;
+  artist: string | null;
+  playing: boolean;
+}
+
+/** Le PC en dehors des jeux. Chaque valeur vaut null si elle n'existe pas sur ce PC. */
+export interface SystemInfo {
+  network: { kind: "wifi" | "ethernet" | "none"; name: string | null } | null;
+  /** Batterie de la manette sans fil, 0 à 100 (par paliers). */
+  controllerBattery: number | null;
+  /** Luminosité de l'écran intégré, 0 à 100 ; null pour une télé ou un écran externe. */
+  brightness: number | null;
+  /** Nom de la sortie audio par défaut. */
+  audioOutput: string | null;
+  disks: Disk[] | null;
+  media: NowPlaying | null;
+}
+
+export type PowerAction = "sleep" | "shutdown" | "restart";
+export type MediaCommand = "toggle" | "previous" | "next";
+
 export interface EventMap {
   "game.starting": { gameId: string };
   "game.started": { gameId: string };
