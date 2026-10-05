@@ -40,9 +40,9 @@ namespace Playscreen.Bridge.Api
         public void Track(Game game)
         {
             var store = Stores.FromPluginId(game.PluginId);
-            if (store != "steam" && store != "epic")
+            if (store == "xbox")
             {
-                return; // Battle.net, Xbox : à étudier.
+                return; // Xbox : à étudier.
             }
             lock (tracked)
             {
@@ -55,10 +55,163 @@ namespace Playscreen.Bridge.Api
             {
                 Task.Run(() => TrackSteam(game.Id, game.GameId));
             }
-            else
+            else if (store == "epic")
             {
                 Task.Run(() => TrackEpic(game.Id, game.GameId));
             }
+            else
+            {
+                var uid = BattleNetUid(game);
+                Task.Run(() => TrackBattleNet(game.Id, uid));
+            }
+        }
+
+        /// <summary>
+        /// Battle.net : l'agent (Agent.exe) note dans son journal ses réponses au client, dont
+        /// l'état des installations (GET /install/&lt;uid&gt;), environ chaque seconde pendant un
+        /// téléchargement : "progress" (0 à 1), "download_total", "installed". Ce sont les
+        /// chiffres affichés par Battle.net (comparé le 5 octobre 2026 sur Warcraft Rumble :
+        /// 13 %, 920,43 Mo / 6,75 Go des deux côtés). Son API locale (port 1120) demande une
+        /// autorisation : on lit seulement le journal.
+        /// </summary>
+        private async Task TrackBattleNet(Guid gameId, string uid)
+        {
+            var started = DateTime.Now;
+            var seenProgress = false;
+            long lastDone = -1;
+            try
+            {
+                while (DateTime.Now - started < MaxDuration)
+                {
+                    var status = ReadBattleNetStatus(uid);
+                    if (status != null && status.Total > 0)
+                    {
+                        seenProgress = true;
+                        var done = status.Installed ? status.Total : (long)(status.Total * Math.Min(0.99, status.Progress));
+                        if (done != lastDone)
+                        {
+                            lastDone = done;
+                            events.Publish("install.progress", new { gameId, bytesDone = done, bytesTotal = status.Total });
+                        }
+                        if (status.Installed)
+                        {
+                            return; // game.installed arrivera par Playnite.
+                        }
+                    }
+                    else if (!seenProgress && DateTime.Now - started > NoManifestTimeout)
+                    {
+                        logger.Info($"Playscreen: no Battle.net install started for {uid}, giving up");
+                        return;
+                    }
+
+                    if (api.Database.Games.Get(gameId)?.IsInstalled == true)
+                    {
+                        return;
+                    }
+                    await Task.Delay(PollInterval).ConfigureAwait(false);
+                }
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, $"Playscreen: Battle.net progress for {uid} failed");
+            }
+            finally
+            {
+                lock (tracked)
+                {
+                    tracked.Remove(gameId);
+                }
+            }
+        }
+
+        private class BattleNetStatus
+        {
+            public double Progress;
+            public long Total;
+            public bool Installed;
+        }
+
+        private static readonly Regex BnetProgress = new Regex("\"progress\":\\s*([0-9.eE+-]+)", RegexOptions.Compiled);
+        private static readonly Regex BnetTotal = new Regex("\"download_total\":\\s*\\[\\s*(\\d+)", RegexOptions.Compiled);
+        private static readonly Regex BnetInstalled = new Regex("\"installed\":\\s*(true|false)", RegexOptions.Compiled);
+
+        /// <summary>Dernier état connu de l'installation dans le journal le plus récent de l'agent.</summary>
+        private static BattleNetStatus ReadBattleNetStatus(string uid)
+        {
+            var agentDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Battle.net", "Agent");
+            if (!Directory.Exists(agentDir))
+            {
+                return null;
+            }
+            var log = new DirectoryInfo(agentDir).GetFiles("Agent-*.log", SearchOption.AllDirectories)
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .FirstOrDefault();
+            if (log == null)
+            {
+                return null;
+            }
+
+            // La fin du journal suffit : le client interroge l'agent chaque seconde.
+            const int tailBytes = 512 * 1024;
+            string tail;
+            using (var stream = new FileStream(log.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            {
+                stream.Seek(Math.Max(0, stream.Length - tailBytes), SeekOrigin.Begin);
+                using (var reader = new StreamReader(stream))
+                {
+                    tail = reader.ReadToEnd();
+                }
+            }
+
+            var request = tail.LastIndexOf($"Request GET /install/{uid} ", StringComparison.Ordinal);
+            if (request < 0)
+            {
+                return null;
+            }
+            // La réponse va jusqu'à la ligne de journal suivante (« [I 2026-… »).
+            var next = tail.IndexOf("\n[", request + 1, StringComparison.Ordinal);
+            var response = next < 0 ? tail.Substring(request) : tail.Substring(request, next - request);
+            var progress = BnetProgress.Match(response);
+            var total = BnetTotal.Match(response);
+            if (!progress.Success || !total.Success)
+            {
+                return null; // Réponse encore incomplète : on réessaiera.
+            }
+            return new BattleNetStatus
+            {
+                Progress = double.Parse(progress.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture),
+                Total = long.Parse(total.Groups[1].Value),
+                Installed = BnetInstalled.Match(response).Groups[1].Value == "true",
+            };
+        }
+
+        /// <summary>
+        /// Nom de code du jeu pour l'agent (« gryphon » pour Warcraft Rumble, dont l'identifiant
+        /// Playnite est « GRY ») : table BattleNetGames.Games de l'extension, lue par réflexion.
+        /// </summary>
+        private string BattleNetUid(Game game)
+        {
+            try
+            {
+                var plugin = api.Addons.Plugins.FirstOrDefault(p => p.Id == game.PluginId);
+                var games = plugin?.GetType().Assembly.GetType("BattleNetLibrary.BattleNetGames")
+                    ?.GetField("Games")?.GetValue(null) as System.Collections.IEnumerable;
+                foreach (var app in games ?? new object[0])
+                {
+                    // BNetApp a des champs publics, pas des propriétés.
+                    var type = app.GetType();
+                    if ((type.GetField("ProductId")?.GetValue(app) as string) == game.GameId)
+                    {
+                        return type.GetField("InternalId")?.GetValue(app) as string ?? game.GameId;
+                    }
+                }
+                logger.Warn($"Playscreen: Battle.net uid not found for {game.GameId}");
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, $"Playscreen: no Battle.net uid for {game.GameId}");
+            }
+            return game.GameId.ToLowerInvariant();
         }
 
         /// <summary>

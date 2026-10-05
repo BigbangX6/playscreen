@@ -299,6 +299,21 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
   bibliothèque ; **pas de lien direct** (`?action=uninstall` ignoré par le launcher) :
   le joueur clique sur « ⋯ » puis « Désinstaller » (mode assisté à prévoir). Testé :
   Fall Guys désinstallé, événement reçu.
+- **Battle.net** : `api.InstallGame` ouvre la page du jeu dans le client (`--game=`),
+  le joueur clique sur « Installer » ; désinstallation via le « Blizzard Uninstaller »
+  (testé sur Warcraft Rumble, sans UAC, `game.uninstalled` reçu). Suivi :
+  l'agent (`Agent.exe`, API locale 127.0.0.1:1120 qui exige une autorisation)
+  **note dans son journal** `%PROGRAMDATA%\Battle.net\Agent\Agent.*\Logs\Agent-*.log`
+  ses réponses à `GET /install/<uid>`, environ chaque seconde : `progress` (0 à 1),
+  `download_total`, `installed`. Ce sont les chiffres de Battle.net (13 %,
+  920,43 Mo / 6,75 Go des deux côtés sur Warcraft Rumble). `<uid>` = `InternalId` de
+  la table `BattleNetLibrary.BattleNetGames.Games` de l'extension (champs publics, pas
+  des propriétés), lue par réflexion : `GRY` → `gryphon`, `Pro` → `prometheus`.
+  Lecture du journal et correspondance vérifiées séparément ; **le parcours complet
+  `psc install` avec progression n'a pas encore été vu** (la première tentative avait
+  la correspondance cassée, corrigée ensuite).
+- Hearthstone n'est pas proposé sur ce PC (« non disponible sur cet appareil ») ;
+  Warcraft Rumble ne s'ajoute pas à la bibliothèque sans l'installer.
 - **Décision D9 testée** : `icacls "C:\Program Files\Epic Games" /grant
   "<utilisateur>:(OI)(CI)M"` (une UAC), puis réinstallation de Fall Guys dans ce
   dossier par défaut sans nouvelle UAC.
