@@ -58,7 +58,22 @@ Outils de test laissés dans le dossier temporaire de la session (à recréer au
 manette virtuelle permanente (ViGEmBus déjà installé + Python 3.12 utilisateur + `vgamepad`,
 serveur sur 127.0.0.1:47901), captures DPI-aware, appel d'API avec jeton.
 
-**Prochaine tâche annoncée** : navigateur manette (fenêtres WebView2 cachées : Boutique,
+Suite de la nuit (même session) :
+- **Navigateur manette** ✅ : vrais sites dans des fenêtres sans bordure rattachées à
+  Playscreen (`ui/src-tauri/src/browser.rs`, `browser-pad.js` injecté : curseur aimanté,
+  croix, A, stick droit, LT/RT zoom, LB/RB onglets, B retour, Start centre rapide, clavier
+  manette sur les champs). Vérifié : Instant Gaming, Steam, Epic, Discord (QR code), Spotify,
+  Deezer. Discord / Spotify **connexion à faire par la personne**.
+- **Options des launchers** : `docs/launchers.md` + `GET/POST /launchers/settings` (overlay Big
+  Picture Steam, notifications, Battle.net réduit au lancement d'un jeu = réglé sur ce PC).
+- **F30** installation annulée : `install.cancelled` (en partie, voir frictions).
+- **Xbox phase 5 en cours** : désinstallation par Playnite = page générale des applis Windows
+  (mauvais). Piste : `Windows.Management.Deployment.PackageManager.RemovePackageAsync` (nom
+  de paquet = `storeGameId`) ; installation sans clic par `winget -s msstore` : la recherche
+  par nom ne trouve rien sur ce PC, à creuser. Microsoft Solitaire **toujours installé**
+  (la désinstallation a seulement ouvert les Paramètres, refermés).
+
+**Prochaine tâche annoncée** : finir Xbox, puis navigateur manette (fenêtres WebView2 cachées : Boutique,
 Social / Discord, Musique / Spotify, Internet), puis étude des options des launchers
 (overlay Big Picture de Steam, etc.) pour les ramener sur Playscreen. Ensuite Xbox (phase
 5), démarrage automatique (sentinelle + moteur) **avec l'accord de la personne**, F28, F29.
