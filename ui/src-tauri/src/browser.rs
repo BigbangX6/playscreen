@@ -80,6 +80,22 @@ fn open(app: &AppHandle, window: &str, url: &str, top: f64) -> Result<(), String
         .parent(&main)
         .map_err(|e| e.to_string())?
         .initialization_script(PAD_SCRIPT)
+        // Nouvelle fenêtre (lien « _blank », window.open) : ouverte dans la même page, qui a
+        // la manette. À revoir si une connexion par fenêtre surgissante l'exige.
+        .on_new_window({
+            let app = app.clone();
+            let label = label.clone();
+            move |target, _features| {
+                let app = app.clone();
+                let label = label.clone();
+                std::thread::spawn(move || {
+                    if let Some(view) = app.get_webview_window(&label) {
+                        let _ = view.navigate(target);
+                    }
+                });
+                tauri::webview::NewWindowResponse::Deny
+            }
+        })
         .on_navigation(move |target| {
             if target.scheme() != "playscreen" {
                 return true;
