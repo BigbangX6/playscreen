@@ -8,6 +8,11 @@ use crate::mouse::PadState;
 pub trait GamepadSource {
     /// Boutons de toutes les manettes réunis (format XInput), sticks et gâchettes.
     fn pad(&mut self) -> PadState;
+
+    /// Une manette XInput (Xbox) est-elle branchée ? Le clavier manette de Windows ne lit
+    /// que celles-là.
+    #[cfg_attr(not(windows), allow(dead_code))]
+    fn xinput_present(&self) -> bool;
 }
 
 #[cfg(windows)]
@@ -108,6 +113,10 @@ mod windows_source {
                 Source::XInput => x,
             }
         }
+
+        fn xinput_present(&self) -> bool {
+            xinput_count() > 0
+        }
     }
 }
 
@@ -122,6 +131,10 @@ mod null {
     impl GamepadSource for NullSource {
         fn pad(&mut self) -> PadState {
             PadState::default()
+        }
+
+        fn xinput_present(&self) -> bool {
+            false
         }
     }
 }

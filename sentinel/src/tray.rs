@@ -159,7 +159,9 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                     // Clavier : vérifié environ 4 fois par seconde.
                     if state.ticks.is_multiple_of(15) {
                         let was_open = state.keyboard_open;
-                        state.keyboard_open = touch_keyboard::is_visible();
+                        // Le clavier ne lit lui-même que les manettes XInput ; avec une manette
+                        // Switch ou PS4, on garde la souris pour cliquer sur ses touches.
+                        state.keyboard_open = touch_keyboard::is_visible() && state.source.xinput_present();
                         if was_open && !state.keyboard_open {
                             // Clavier refermé : un bouton encore enfoncé ne compte pas.
                             if let Some((mapper, _)) = state.mouse.as_mut() {
