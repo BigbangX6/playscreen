@@ -73,6 +73,47 @@ Suite de la nuit (même session) :
   par nom ne trouve rien sur ce PC, à creuser. Microsoft Solitaire **toujours installé**
   (la désinstallation a seulement ouvert les Paramètres, refermés).
 
+## 0 ter. 6 octobre 2026 (journée, avec la personne)
+
+Retours de la personne après son test, et ce qui en est sorti :
+
+- **Manette** : sa GameSir Nova 2 Lite (dongle USB) **change de mode quand on maintient
+  Select + Start ~1,5 s** (Switch → PS4 → Xbox 360) : d'où les noms différents dans Steam,
+  et un conflit avec l'ancien méta-raccourci. **Nouveau raccourci : Select + Y, dès l'appui**
+  (D6 révisée ; `shortcut=select+start` possible).
+- **Une seule lecture de la manette : la sentinelle** (SDL2 + XInput réunis ; `SDL2.dll` à
+  côté de l'exe, `sentinel/get-sdl2.ps1`). Le moteur web de l'interface ne lisait pas la
+  GameSir en mode PS4, la sentinelle ne lisait pas le mode Xbox en arrière-plan. Quand
+  Playscreen est devant, la sentinelle lui envoie des touches (flèches, Entrée, Échap, X, Y,
+  M, Page préc. / suiv.) et l'interface ne lit plus la manette (`sentinel_running`).
+- **Souris unique partout** (relais, sites, magasins) : A clic, X clic droit, B Échap,
+  stick droit molette, Y clavier manette, LT / RT zoom, croix = flèches, Start = Entrée.
+  Le clavier manette de Windows ne lit que les manettes XInput : avec une manette Switch ou
+  PS4, la souris reste active pour cliquer sur ses touches.
+- **Sites en plein écran**, plus aucun script de manette dans les pages (seulement un gros
+  curseur). **YouTube = youtube.com/tv** avec une identité de télé (comme l'extension
+  « Youtube TV On PC » de la personne), piloté en **mode télécommande** (croix, A, B, sans
+  souris) ; connexion par QR code avec le téléphone.
+- **Boutique** : Steam, Epic, Xbox, Battle.net ouvrent le **magasin du launcher** (déjà
+  connecté), en grand, en mode souris ; Instant Gaming reste un site.
+- **Ménage** : retour d'un relais → Paramètres Windows fermés, launcher réduit ; après une
+  partie → fenêtres du launcher réduites.
+- **Barre des tâches** masquée tant que Playscreen est ouvert (sentinelle), rétablie à sa
+  fermeture, même forcée.
+- **« Bureau Windows »** : arrête Playnite (`POST /system/quit`) et ferme Playscreen ;
+  Select + Y relance le moteur puis Playscreen. Réglages de la sentinelle :
+  `%LOCALAPPDATA%\Playscreen\sentinel.cfg` (`exe=`, `engine=`, `shortcut=`). La version
+  autonome de l'interface : `npm --prefix ui run tauri build -- --no-bundle`, copiée dans
+  `dist\Playscreen\Playscreen.exe` (pas encore dans `build-bundle.ps1`).
+- **Volume** suivi par le moteur (change ailleurs → `volume.changed`) : **pas testé**
+  (consigne : ne pas toucher au son).
+- Xbox : désinstallation directe (`PackageManager`), Solitaire désinstallé.
+
+Encore à faire : `build-bundle.ps1` (Playscreen.exe, sentinelle, SDL2.dll, sentinel.cfg),
+démarrage automatique de la sentinelle avec Windows (accord de la personne), installation
+Xbox sans clic (winget msstore ne trouve pas le jeu par son nom), trophées Epic (connexion
+SuccessStory), bande noire de quelques pixels en haut à gauche des fenêtres web.
+
 **Prochaine tâche annoncée** : finir Xbox, puis navigateur manette (fenêtres WebView2 cachées : Boutique,
 Social / Discord, Musique / Spotify, Internet), puis étude des options des launchers
 (overlay Big Picture de Steam, etc.) pour les ramener sur Playscreen. Ensuite Xbox (phase
