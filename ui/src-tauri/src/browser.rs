@@ -68,6 +68,7 @@ fn open(app: &AppHandle, window: &str, url: &str, user_agent: Option<String>) ->
         view.set_position(position).map_err(|e| e.to_string())?;
         view.set_size(size).map_err(|e| e.to_string())?;
         view.show().map_err(|e| e.to_string())?;
+        let _ = view.set_fullscreen(true);
         view.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
     }
@@ -101,6 +102,8 @@ fn open(app: &AppHandle, window: &str, url: &str, user_agent: Option<String>) ->
     let view = builder.build().map_err(|e| e.to_string())?;
     view.set_position(position).map_err(|e| e.to_string())?;
     view.set_size(size).map_err(|e| e.to_string())?;
+    // Plein écran (sans bord ni ombre : une bande noire restait en haut à gauche).
+    let _ = view.set_fullscreen(true);
     let _ = view.set_focus();
     views.insert(label, url.to_string());
     Ok(())
