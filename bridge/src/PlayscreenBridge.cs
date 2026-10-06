@@ -68,6 +68,7 @@ namespace Playscreen.Bridge
         {
             session.Stopped(args.Game.Id);
             SessionHistory.Record(args.Game.Id, args.ElapsedSeconds);
+            LauncherWindows.MinimizeAfterGame(Stores.FromPluginId(args.Game.PluginId));
             events.Publish("game.stopped", new { gameId = args.Game.Id, sessionSeconds = args.ElapsedSeconds });
         }
 

@@ -116,6 +116,36 @@ namespace Playscreen.Bridge.Api
             });
         }
 
+        /// <summary>
+        /// Après une partie, le launcher revient souvent au premier plan (Battle.net, Steam…) :
+        /// ses fenêtres sont réduites, pour que Playscreen reste devant. Rien n'est fermé.
+        /// </summary>
+        public static void MinimizeAfterGame(string storeId)
+        {
+            if (!Processes.TryGetValue(storeId, out var names))
+            {
+                return;
+            }
+            Task.Run(async () =>
+            {
+                // Le launcher réapparaît une à quelques secondes après la fin du jeu.
+                for (var i = 0; i < 4; i++)
+                {
+                    await Task.Delay(1500).ConfigureAwait(false);
+                    foreach (var window in Find(names))
+                    {
+                        ShowWindow(window.Handle, SwMinimize);
+                    }
+                }
+                logger.Info($"Playscreen: {storeId} windows minimized after the game");
+            });
+        }
+
+        private const int SwMinimize = 6;
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int command);
+
         private class Window
         {
             public IntPtr Handle;
