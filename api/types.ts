@@ -130,6 +130,8 @@ export interface EventMap {
   "game.installed": { gameId: string };
   "game.uninstalled": { gameId: string };
   "install.progress": { gameId: string; bytesDone: number; bytesTotal: number };
+  /** Installation annulée dans le launcher (fenêtre fermée sans téléchargement). F30. */
+  "install.cancelled": { gameId: string };
   "library.updated": { added: string[]; updated: string[]; removed: string[] };
   "sync.started": { storeId: StoreId };
   "sync.finished": { storeId: StoreId; ok: boolean; error?: string };

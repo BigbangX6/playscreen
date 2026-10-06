@@ -247,6 +247,11 @@ export function App() {
         setDialog((d) => (d?.kind === "install" && d.gameId === gameId ? null : d));
         break;
       }
+      case "install.cancelled":
+        setInstalls(({ [event.data.gameId]: _, ...rest }) => rest);
+        setDialog((d) => (d?.kind === "install" && d.gameId === event.data.gameId ? null : d));
+        notify("info", `Installation annulée : ${nameOf(event.data.gameId)}`);
+        break;
       case "game.installed":
         delete installStarts.current[event.data.gameId];
         setInstalls(({ [event.data.gameId]: _, ...rest }) => rest);

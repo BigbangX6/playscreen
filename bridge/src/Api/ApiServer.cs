@@ -83,6 +83,8 @@ namespace Playscreen.Bridge.Api
                     }
                     var storeId = Stores.FromPluginId(game.PluginId);
                     var wasReady = launchers.Current(storeId) == LauncherMonitor.Ready;
+                    var windowsBefore = launcherWindows.Snapshot(storeId);
+                    logger.Info($"Playscreen: install {game.Name} ({storeId}, launcher ready: {wasReady}, {windowsBefore.Count} window(s) before)");
                     var reply = RunOnUi(() => api.InstallGame(game.Id));
                     if (storeId == "epic")
                     {
@@ -92,7 +94,9 @@ namespace Playscreen.Bridge.Api
                         OpenEpicInstall(game);
                     }
                     progress.Track(game);
-                    launcherWindows.Watch(storeId, game.Id);
+                    var gameId = game.Id;
+                    launcherWindows.Watch(storeId, gameId, () => progress.HasProgress(gameId),
+                        storeId == "steam" ? (Action)(() => progress.Cancel(gameId)) : null, windowsBefore);
                     // Demande faite pendant que le launcher démarre ou se met à jour : il
                     // l'ignore parfois (F25). On la renvoie une fois qu'il est prêt.
                     launchers.Watch(storeId, wasReady ? null : (Action)(() => ResendInstall(game.Id)));

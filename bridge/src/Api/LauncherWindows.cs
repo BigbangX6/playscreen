@@ -36,23 +36,67 @@ namespace Playscreen.Bridge.Api
             this.events = events;
         }
 
-        public void Watch(string storeId, Guid? gameId)
+        /// <summary>Titres des fenêtres principales des launchers (elles ne se ferment pas).</summary>
+        private static readonly HashSet<string> MainTitles = new HashSet<string>
+        {
+            "Steam", "Lanceur Epic Games", "Epic Games Launcher", "Battle.net",
+        };
+
+        /// <summary>Après la fermeture de la fenêtre, délai laissé au téléchargement pour commencer.</summary>
+        private static readonly TimeSpan CancelGrace = TimeSpan.FromSeconds(15);
+
+        /// <summary>
+        /// `cancelled` (installation Steam seulement, F30) : appelé si les fenêtres signalées se
+        /// ferment et que `started` reste faux pendant CancelGrace (« Annuler » dans Steam).
+        /// </summary>
+        /// <summary>
+        /// Fenêtres déjà ouvertes, à prendre **avant** la demande : la confirmation de Steam
+        /// s'ouvre parfois avant que la surveillance commence.
+        /// </summary>
+        public HashSet<IntPtr> Snapshot(string storeId) =>
+            Processes.TryGetValue(storeId, out var names)
+                ? new HashSet<IntPtr>(Find(names).Select(w => w.Handle))
+                : new HashSet<IntPtr>();
+
+        public void Watch(string storeId, Guid? gameId, Func<bool> started = null, Action cancelled = null, HashSet<IntPtr> before = null)
         {
             if (!Processes.TryGetValue(storeId, out var names))
             {
                 return;
             }
-            var before = new HashSet<IntPtr>(Find(names).Select(w => w.Handle));
+            before = before ?? Snapshot(storeId);
             Task.Run(async () =>
             {
-                var started = DateTime.Now;
+                logger.Info($"Playscreen: watching {storeId} windows ({before.Count} already open)");
+                var watchStart = DateTime.Now;
                 var seen = new HashSet<IntPtr>(before);
+                var prompts = new HashSet<IntPtr>();
+                DateTime? closedAt = null;
                 try
                 {
-                    while (DateTime.Now - started < WatchDuration)
+                    while (DateTime.Now - watchStart < WatchDuration)
                     {
-                        foreach (var window in Find(names).Where(w => seen.Add(w.Handle)))
+                        var current = Find(names);
+                        if (cancelled != null && prompts.Count > 0)
                         {
+                            var open = current.Any(w => prompts.Contains(w.Handle));
+                            if (open || started()) closedAt = null;
+                            else if (closedAt == null) closedAt = DateTime.Now;
+                            else if (DateTime.Now - closedAt > CancelGrace)
+                            {
+                                cancelled();
+                                return;
+                            }
+                            if (started()) return;
+                        }
+                        foreach (var window in current.Where(w => seen.Add(w.Handle)))
+                        {
+                            // La fenêtre principale du launcher reste ouverte : seule une vraie
+                            // fenêtre de confirmation compte pour savoir si on a annulé.
+                            if (!MainTitles.Contains(window.Title))
+                            {
+                                prompts.Add(window.Handle);
+                            }
                             logger.Info($"Playscreen: {storeId} window \"{window.Title}\"");
                             events.Publish("launcher.prompt", new
                             {

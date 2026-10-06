@@ -399,6 +399,8 @@ components:
         - game.stopped : { gameId, sessionSeconds }
         - game.installed / game.uninstalled : { gameId }
         - install.progress : { gameId, bytesDone, bytesTotal }
+        - install.cancelled : { gameId } — installation annulée dans le launcher (fenêtre de
+          confirmation fermée sans téléchargement ; Steam pour l'instant)
         - library.updated : { added: [gameId], updated: [gameId], removed: [gameId] }
         - sync.started : { storeId } ; sync.finished : { storeId, ok, error? }
         - store.updated : Store

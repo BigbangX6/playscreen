@@ -29,11 +29,62 @@ namespace Playscreen.Bridge.Api
         private readonly IPlayniteAPI api;
         private readonly EventHub events;
         private readonly HashSet<Guid> tracked = new HashSet<Guid>();
+        /// <summary>Jeux dont le téléchargement a commencé (au moins un install.progress).</summary>
+        private readonly HashSet<Guid> progressed = new HashSet<Guid>();
+        /// <summary>Installations annulées dans le launcher : le suivi s'arrête.</summary>
+        private readonly HashSet<Guid> cancelled = new HashSet<Guid>();
 
         public InstallProgress(IPlayniteAPI api, EventHub events)
         {
             this.api = api;
             this.events = events;
+        }
+
+        private void Report(Guid gameId, long done, long total)
+        {
+            lock (tracked)
+            {
+                progressed.Add(gameId);
+            }
+            events.Publish("install.progress", new { gameId, bytesDone = done, bytesTotal = total });
+        }
+
+        public bool HasProgress(Guid gameId)
+        {
+            lock (tracked)
+            {
+                return progressed.Contains(gameId);
+            }
+        }
+
+        /// <summary>Annulée dans le launcher (F30) : on arrête le suivi et on prévient l'interface.</summary>
+        public void Cancel(Guid gameId)
+        {
+            lock (tracked)
+            {
+                cancelled.Add(gameId);
+            }
+            logger.Info($"Playscreen: install of {gameId} cancelled in the launcher");
+            // Playnite le croirait sinon toujours « en cours d'installation » et ignorerait
+            // toute nouvelle demande (vu le 6 octobre 2026).
+            api.MainView.UIDispatcher.Invoke(() =>
+            {
+                var game = api.Database.Games.Get(gameId);
+                if (game != null && game.IsInstalling && !game.IsInstalled)
+                {
+                    game.IsInstalling = false;
+                    api.Database.Games.Update(game);
+                }
+            });
+            events.Publish("install.cancelled", new { gameId });
+        }
+
+        private bool Running(DateTime started, Guid gameId)
+        {
+            lock (tracked)
+            {
+                return DateTime.Now - started < MaxDuration && !cancelled.Contains(gameId);
+            }
         }
 
         /// <summary>Suit l'installation en arrière-plan, si le store le permet.</summary>
@@ -50,6 +101,8 @@ namespace Playscreen.Bridge.Api
                 {
                     return;
                 }
+                progressed.Remove(game.Id);
+                cancelled.Remove(game.Id);
             }
             if (store == "steam")
             {
@@ -84,7 +137,7 @@ namespace Playscreen.Bridge.Api
             var mark = BattleNetLogEnd();
             try
             {
-                while (DateTime.Now - started < MaxDuration)
+                while (Running(started, gameId))
                 {
                     var status = ReadBattleNetStatus(uid, mark);
                     if (status != null && status.Total > 0)
@@ -94,7 +147,7 @@ namespace Playscreen.Bridge.Api
                         if (done != lastDone)
                         {
                             lastDone = done;
-                            events.Publish("install.progress", new { gameId, bytesDone = done, bytesTotal = status.Total });
+                            Report(gameId, done, status.Total);
                         }
                         if (status.Installed)
                         {
@@ -248,7 +301,7 @@ namespace Playscreen.Bridge.Api
             long lastDone = -1;
             try
             {
-                while (DateTime.Now - started < MaxDuration)
+                while (Running(started, gameId))
                 {
                     var pending = FindEpicItem(Path.Combine(manifests, "Pending"), appName);
                     if (pending != null)
@@ -261,7 +314,7 @@ namespace Playscreen.Bridge.Api
                             if (done != lastDone)
                             {
                                 lastDone = done;
-                                events.Publish("install.progress", new { gameId, bytesDone = done, bytesTotal = total });
+                                Report(gameId, done, total);
                             }
                         }
                     }
@@ -273,7 +326,7 @@ namespace Playscreen.Bridge.Api
                             total = installed.Value > 0 ? installed.Value : total;
                             if (total > 0)
                             {
-                                events.Publish("install.progress", new { gameId, bytesDone = total, bytesTotal = total });
+                                Report(gameId, total, total);
                             }
                             return; // game.installed arrivera par Playnite.
                         }
@@ -349,7 +402,7 @@ namespace Playscreen.Bridge.Api
             var steamWrites = new ProcessWrites("steam");
             try
             {
-                while (DateTime.Now - started < MaxDuration)
+                while (Running(started, gameId))
                 {
                     var manifest = FindSteamManifest(appId);
                     if (manifest == null)
@@ -388,7 +441,7 @@ namespace Playscreen.Bridge.Api
                         if (total > 0 && done != lastDone)
                         {
                             lastDone = done;
-                            events.Publish("install.progress", new { gameId, bytesDone = done, bytesTotal = total });
+                            Report(gameId, done, total);
                         }
                         if (fullyInstalled)
                         {
