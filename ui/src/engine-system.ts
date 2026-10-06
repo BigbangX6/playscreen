@@ -3,10 +3,10 @@
 // encore faire reste null : les écrans le cachent.
 
 import type { EngineClient } from "../../api/client.ts";
-import type { SystemInfo, TrophySummary } from "../../api/types.ts";
+import type { Game, SystemInfo, TrophySummary } from "../../api/types.ts";
 import { formatRelativeDate } from "./format.ts";
 import { quitApp } from "./shell.ts";
-import type { PowerAction, SystemBridge, SystemSnapshot } from "./system.ts";
+import type { GameOptions, PowerAction, SystemBridge, SystemSnapshot } from "./system.ts";
 
 /** Assez souvent pour suivre la musique, sans charger le moteur. */
 const POLL_MS = 3000;
@@ -58,6 +58,9 @@ export function createEngineSystem(client: EngineClient): SystemBridge {
   let state = EMPTY;
   let trophies: TrophySummary | null = null;
   let trophiesReadAt = 0;
+  /** Favori, caché, launcher et installation de chaque jeu ouvert (lus à la demande). */
+  const games = new Map<string, Pick<Game, "store" | "installed"> & GameOptions>();
+  const reading = new Set<string>();
   const watchers = new Set<() => void>();
   let timer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
@@ -123,12 +126,47 @@ export function createEngineSystem(client: EngineClient): SystemBridge {
     musicNext: () => act(() => client.media("next")),
     trophies: (gameId) => trophies?.games[gameId] ?? null,
     lastSession: () => null,
-    // Pas encore dans l'API (docs/interface-moteur.md, « Deuxième vague ») : les écrans
-    // cachent ces éléments.
-    trophyDetails: async () => null,
-    gameOptions: () => null,
-    setGameOption: () => undefined,
-    verifyGame: () => false,
+    trophyDetails: (gameId) => client.trophyDetails(gameId).catch(() => null),
+    gameOptions(gameId) {
+      const known = games.get(gameId);
+      if (known) return { favorite: known.favorite, hidden: known.hidden };
+      // Première demande : on lit le jeu, l'écran se met à jour à la réponse.
+      if (!reading.has(gameId)) {
+        reading.add(gameId);
+        client.game(gameId).then(
+          (game) => {
+            games.set(gameId, { store: game.store, installed: game.installed, favorite: game.favorite ?? false, hidden: game.hidden ?? false });
+            changed();
+          },
+          () => reading.delete(gameId),
+        );
+      }
+      return null;
+    },
+    setGameOption(gameId, option, value) {
+      const known = games.get(gameId);
+      if (known) {
+        games.set(gameId, { ...known, [option]: value });
+        changed();
+      }
+      client.setGameOptions(gameId, { [option]: value }).then(
+        (game) => {
+          games.set(gameId, { store: game.store, installed: game.installed, favorite: game.favorite ?? false, hidden: game.hidden ?? false });
+          changed();
+        },
+        () => {
+          if (known) games.set(gameId, known);
+          changed();
+        },
+      );
+    },
+    verifyGame(gameId) {
+      // Steam et Epic savent vérifier les fichiers depuis un lien ; pas Xbox ni Battle.net.
+      const known = games.get(gameId);
+      if (!known?.installed || (known.store !== "steam" && known.store !== "epic")) return false;
+      void client.verifyGame(gameId).catch(() => undefined);
+      return true;
+    },
     // Le moteur relit l'état des launchers tout seul (store.updated).
     relayEnded: () => undefined,
     windowChanged(window, open) {

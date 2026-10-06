@@ -271,6 +271,7 @@ export function App() {
         void loadGames();
         break;
       case "library.updated":
+      case "game.updated":
         void loadGames();
         break;
       case "game.starting":

@@ -3,7 +3,7 @@
 // réglables depuis le panneau de démo (F2) pour voir chaque situation.
 
 import { ApiError, type EngineClient } from "../../../api/client.ts";
-import type { EngineEvent, EventMap, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume } from "../../../api/types.ts";
+import type { EngineEvent, EventMap, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophyItem, TrophySummary, Volume } from "../../../api/types.ts";
 import { demoGames, demoImage, demoStores } from "./library.ts";
 
 export interface DemoSettings {
@@ -355,6 +355,22 @@ class DemoEngine implements EngineClient {
   async trophies(): Promise<TrophySummary> {
     this.ensureOnline();
     return { games: {}, unlocked: 0, last: null, refreshing: false };
+  }
+
+  // La démo simule ces trois-là dans demo-system.ts (écrans du jeu).
+  async trophyDetails(_gameId: string): Promise<TrophyItem[] | null> {
+    this.ensureOnline();
+    return null;
+  }
+
+  async setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean }): Promise<Game> {
+    const game = { ...(await this.game(gameId)), ...options };
+    this.emit("game.updated", game);
+    return game;
+  }
+
+  async verifyGame(_gameId: string): Promise<void> {
+    this.ensureOnline();
   }
 
   async refreshTrophies(): Promise<void> {

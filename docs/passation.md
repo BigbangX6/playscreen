@@ -114,6 +114,13 @@ démarrage automatique de la sentinelle avec Windows (accord de la personne), in
 Xbox sans clic (winget msstore ne trouve pas le jeu par son nom), trophées Epic (connexion
 SuccessStory), bande noire de quelques pixels en haut à gauche des fenêtres web.
 
+**Fin d'après-midi du 6 octobre** : design fusionné (`claude/gracious-clarke-cflgky` : pages
+du jeu, Comptes et launchers, Musique, premier démarrage) et points 13 à 20 de
+[`interface-moteur.md` § 5](interface-moteur.md) ajoutés au moteur (détail dans le tableau).
+Testés sur le PC : trophées détaillés (Worms, Among Us), favori, propriétés / Workshop /
+paramètres Steam, paramètres Epic, vérification Steam et Epic. Pas testés : installation
+d'un launcher par winget (UAC sur le bureau sécurisé, voir F31), fermeture d'une fenêtre web.
+
 **Prochaine tâche annoncée** : finir Xbox, puis navigateur manette (fenêtres WebView2 cachées : Boutique,
 Social / Discord, Musique / Spotify, Internet), puis étude des options des launchers
 (overlay Big Picture de Steam, etc.) pour les ramener sur Playscreen. Ensuite Xbox (phase

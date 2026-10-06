@@ -1,6 +1,6 @@
 // Client de l'API Playscreen, partagé par `psc`, les tests et (plus tard) l'interface.
 
-import type { EngineEvent, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume } from "./types.ts";
+import type { EngineEvent, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume, TrophyItem } from "./types.ts";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -44,6 +44,12 @@ export interface EngineClient {
   media(command: MediaCommand): Promise<void>;
   /** Trophées de la bibliothèque (vide si le moteur n'a pas SuccessStory). */
   trophies(): Promise<TrophySummary>;
+  /** Trophées d'un jeu (nom, description, date, rareté) ; null s'il n'en a pas. */
+  trophyDetails(gameId: string): Promise<TrophyItem[] | null>;
+  /** Favori, caché ; renvoie le jeu à jour (suite : game.updated). */
+  setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean }): Promise<Game>;
+  /** Vérifier les fichiers dans le launcher (Steam, Epic ; 409 ailleurs). */
+  verifyGame(gameId: string): Promise<void>;
   /** Récupère les trophées de toute la bibliothèque en arrière-plan (suite : trophies.updated). */
   refreshTrophies(): Promise<void>;
   /** Réglages des launchers recommandés pour Playscreen. */
@@ -172,6 +178,38 @@ export class PlayscreenClient implements EngineClient {
   async trophies(): Promise<TrophySummary> {
     const summary = await this.get<Partial<TrophySummary>>("/trophies");
     return { games: summary.games ?? {}, unlocked: summary.unlocked ?? 0, last: summary.last ?? null, refreshing: summary.refreshing ?? false };
+  }
+
+  /** Trophées d'un jeu ; null s'il n'en a pas (ou SuccessStory absent). */
+  async trophyDetails(gameId: string): Promise<TrophyItem[] | null> {
+    try {
+      const list = await this.get<Partial<TrophyItem>[]>(`/trophies/${encodeURIComponent(gameId)}`);
+      return list.map((t, i) => ({
+        id: t.id ?? String(i),
+        name: t.name ?? "",
+        description: t.description ?? "",
+        unlockedAt: t.unlockedAt ?? null,
+        rarity: t.rarity ?? null,
+        secret: t.secret ?? false,
+      }));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Favori, caché : Playnite les garde. Renvoie le jeu à jour. */
+  async setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean }): Promise<Game> {
+    const query = new URLSearchParams();
+    if (options.favorite !== undefined) query.set("favorite", String(options.favorite));
+    if (options.hidden !== undefined) query.set("hidden", String(options.hidden));
+    const response = await this.request("POST", `/games/${encodeURIComponent(gameId)}/options?${query}`);
+    return (await response.json()) as Game;
+  }
+
+  /** Vérifier les fichiers dans le launcher (Steam, Epic). */
+  verifyGame(gameId: string) {
+    return this.post(`/games/${encodeURIComponent(gameId)}/verify`);
   }
 
   refreshTrophies() {

@@ -41,6 +41,9 @@ export interface Game {
   added?: string | null;
   /** Durée de la dernière partie, notée par le moteur à chaque fin de partie. */
   lastSessionSeconds?: number | null;
+  favorite?: boolean;
+  /** Caché de l'accueil et de la bibliothèque. */
+  hidden?: boolean;
   media?: { cover?: boolean; background?: boolean; icon?: boolean };
 }
 
@@ -107,6 +110,19 @@ export interface TrophySummary {
   refreshing: boolean;
 }
 
+/** Un trophée d'un jeu (GET /trophies/{gameId}). */
+export interface TrophyItem {
+  /** Identifiant donné par le launcher. */
+  id: string;
+  name: string;
+  description: string;
+  /** Date d'obtention, null s'il reste à obtenir. */
+  unlockedAt: string | null;
+  /** Part des joueurs qui l'ont (0 à 100), si le launcher la donne. */
+  rarity: number | null;
+  secret: boolean;
+}
+
 /** Réglage d'un launcher qui lui fait rendre la main à Playscreen (docs/launchers.md). */
 export interface LauncherSetting {
   id: string;
@@ -129,6 +145,8 @@ export interface EventMap {
   "game.stopped": { gameId: string; sessionSeconds: number };
   "game.installed": { gameId: string };
   "game.uninstalled": { gameId: string };
+  /** Favori ou caché changé (POST /games/{id}/options). */
+  "game.updated": Game;
   "install.progress": { gameId: string; bytesDone: number; bytesTotal: number };
   /** Installation annulée dans le launcher (fenêtre fermée sans téléchargement). F30. */
   "install.cancelled": { gameId: string };

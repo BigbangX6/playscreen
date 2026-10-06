@@ -120,6 +120,8 @@ namespace Playscreen.Bridge.Api
                     launchers.Watch(Stores.FromPluginId(game.PluginId));
                     return reply;
                 })),
+                new Route("POST", @"^/games/([^/]+)/options$", ctx => WithGame(ctx, game => SetGameOptions(game, ctx.Request.QueryString))),
+                new Route("POST", @"^/games/([^/]+)/verify$", ctx => WithGame(ctx, Verify)),
                 new Route("GET", @"^/games/([^/]+)/media/(cover|background|icon)$", ctx => WithGame(ctx, game => Media(game, ctx.Params[1]))),
                 new Route("POST", @"^/games/([^/]+)/stop$", ctx => WithGame(ctx, game => Stop(game, ctx.Request.QueryString["force"] == "true"))),
                 new Route("GET", @"^/session$", _ => Json(200, session.Current)),
@@ -132,6 +134,11 @@ namespace Playscreen.Bridge.Api
                     return error == null ? new Reply(204) : Json(error == "unknown" ? 404 : 409, new { error });
                 }),
                 new Route("GET", @"^/trophies$", _ => Json(200, trophies.Get())),
+                new Route("GET", @"^/trophies/([^/]+)$", ctx => WithGame(ctx, game =>
+                {
+                    var list = trophies.Details(game.Id);
+                    return list == null ? Json(404, new { error = "no trophies" }) : Json(200, list);
+                })),
                 new Route("POST", @"^/trophies/refresh$", _ =>
                     !trophies.Available ? Json(409, new { error = "SuccessStory missing" })
                     : trophies.TryRefresh() ? new Reply(202) : Json(409, new { error = "busy" })),
@@ -301,6 +308,49 @@ namespace Playscreen.Bridge.Api
                     logger.Error(e, $"Playscreen: Xbox uninstall of {familyName} failed");
                 }
             });
+        }
+
+        /// <summary>Favori, caché (?favorite=true&amp;hidden=false) : Playnite les garde.</summary>
+        private Reply SetGameOptions(Playnite.SDK.Models.Game game, System.Collections.Specialized.NameValueCollection query)
+        {
+            bool? favorite = bool.TryParse(query["favorite"], out var f) ? f : (bool?)null;
+            bool? hidden = bool.TryParse(query["hidden"], out var h) ? h : (bool?)null;
+            if (favorite == null && hidden == null)
+            {
+                return Json(400, new { error = "favorite or hidden required" });
+            }
+            api.MainView.UIDispatcher.Invoke(() =>
+            {
+                game.Favorite = favorite ?? game.Favorite;
+                game.Hidden = hidden ?? game.Hidden;
+                api.Database.Games.Update(game);
+            });
+            var dto = GameDto.From(game, api);
+            events.Publish("game.updated", dto);
+            return Json(200, dto);
+        }
+
+        /// <summary>
+        /// Vérifier les fichiers du jeu dans son launcher : Steam (steam://validate) et Epic
+        /// (?action=verify). Le launcher s'ouvre et affiche la vérification.
+        /// </summary>
+        private Reply Verify(Playnite.SDK.Models.Game game)
+        {
+            if (!game.IsInstalled)
+            {
+                return Json(409, new { error = "not installed" });
+            }
+            switch (Stores.FromPluginId(game.PluginId))
+            {
+                case "steam":
+                    Process.Start($"steam://validate/{game.GameId}");
+                    return new Reply(202);
+                case "epic":
+                    Process.Start($"com.epicgames.launcher://apps/{Uri.EscapeDataString(game.GameId)}?action=verify&silent=true");
+                    return new Reply(202);
+                default:
+                    return Json(409, new { error = "not supported" });
+            }
         }
 
         private static void OpenEpicInstall(Playnite.SDK.Models.Game game) =>

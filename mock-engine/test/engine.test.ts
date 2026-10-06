@@ -163,6 +163,23 @@ describe("faux moteur", () => {
     const events = await collectUntil("trophies.updated", () => client.refreshTrophies());
     assert.equal(events.at(-1)?.type, "trophies.updated");
   });
+  it("détaille les trophées d'un jeu, null sans trophées", async () => {
+    const [first, second] = await client.games();
+    const list = await client.trophyDetails(first!.id);
+    assert.equal(list?.length, 2);
+    assert.equal(list?.[1]?.unlockedAt, null);
+    assert.equal(list?.[1]?.secret, true);
+    assert.equal(await client.trophyDetails(second!.id), null);
+  });
+  it("met un jeu en favori et le cache", async () => {
+    const [game] = await client.games();
+    const events = await collectUntil("game.updated", async () => {
+      const updated = await client.setGameOptions(game!.id, { favorite: true, hidden: true });
+      assert.equal(updated.favorite, true);
+      assert.equal(updated.hidden, true);
+    });
+    assert.equal(events.at(-1)?.type, "game.updated");
+  });
   it("règle un launcher seulement s'il est fermé", async () => {
     await assert.rejects(() => client.applyLauncherSetting("steam.bigPictureOverlay"), (e) => e instanceof ApiError && e.status === 409);
     await client.applyLauncherSetting("battlenet.gameLaunch");

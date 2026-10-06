@@ -196,6 +196,31 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
         refreshing: false,
       }),
     ),
+    route("GET", /^\/trophies\/([^/]+)$/, ([id]) =>
+      id === [...games.values()][0]!.id
+        ? json(200, [
+            { id: "tuto", name: "Premier pas", description: "Termine le tutoriel.", unlockedAt: "2026-10-05T20:00:00Z", rarity: 82.5, secret: false },
+            { id: "fin", name: "Fin", description: "Termine l'histoire.", unlockedAt: null, rarity: 12.1, secret: true },
+          ])
+        : json(404, { error: "no trophies" }),
+    ),
+    route("POST", /^\/games\/([^/]+)\/options$/, ([id], query) =>
+      withGame(id!, (game) => {
+        const favorite = query.get("favorite");
+        const hidden = query.get("hidden");
+        if (favorite === null && hidden === null) return json(400, { error: "favorite or hidden required" });
+        if (favorite !== null) game.favorite = favorite === "true";
+        if (hidden !== null) game.hidden = hidden === "true";
+        emit("game.updated", { ...game });
+        return json(200, game);
+      }),
+    ),
+    route("POST", /^\/games\/([^/]+)\/verify$/, ([id]) =>
+      withGame(id!, (game) => {
+        if (!game.installed) return json(409, { error: "not installed" });
+        return game.store === "steam" || game.store === "epic" ? empty(202) : json(409, { error: "not supported" });
+      }),
+    ),
     route("POST", /^\/trophies\/refresh$/, () => {
       later(tickMs, () => emit("trophies.updated", {}));
       return empty(202);

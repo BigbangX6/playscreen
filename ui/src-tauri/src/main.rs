@@ -76,7 +76,7 @@ fn sentinel_running() -> bool {
 fn main() {
     tauri::Builder::default()
         .manage(browser::BrowserState::default())
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, browser::browser_open, browser::browser_hide, sentinel_running])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

@@ -24,6 +24,16 @@ namespace Playscreen.Bridge.Api
         [SerializationPropertyName("unlockedAt")] public DateTime UnlockedAt { get; set; }
     }
 
+    public class TrophyDetailDto
+    {
+        [SerializationPropertyName("id")] public string Id { get; set; }
+        [SerializationPropertyName("name")] public string Name { get; set; }
+        [SerializationPropertyName("description")] public string Description { get; set; }
+        [SerializationPropertyName("unlockedAt")] public DateTime? UnlockedAt { get; set; }
+        [SerializationPropertyName("rarity")] public double? Rarity { get; set; }
+        [SerializationPropertyName("secret")] public bool Secret { get; set; }
+    }
+
     public class TrophiesDto
     {
         /// <summary>Par jeu (identifiant Playnite), seulement les jeux qui ont des trophées.</summary>
@@ -108,6 +118,38 @@ namespace Playscreen.Bridge.Api
                 }
             }
             return result;
+        }
+
+        /// <summary>
+        /// Trophées d'un jeu (ce que SuccessStory a déjà en cache), ou null si le jeu n'en a pas.
+        /// </summary>
+        public List<TrophyDetailDto> Details(Guid gameId)
+        {
+            var database = Database();
+            var get = database?.GetType().GetMethod("Get", new[] { typeof(Guid), typeof(bool), typeof(bool) });
+            var data = get?.Invoke(database, new object[] { gameId, true, false });
+            if (data == null || !Read<bool>(data, "HasAchievements"))
+            {
+                return null;
+            }
+            return ((Read<object>(data, "Items") as IEnumerable)?.Cast<object>() ?? Enumerable.Empty<object>())
+                .Select(item =>
+                {
+                    var date = Read<DateTime?>(item, "DateUnlocked");
+                    var percent = Read<float?>(item, "Percent") ?? (float?)Read<double?>(item, "Percent");
+                    return new TrophyDetailDto
+                    {
+                        Id = Read<string>(item, "ApiName") ?? Read<string>(item, "Name"),
+                        Name = Read<string>(item, "Name"),
+                        Description = Read<string>(item, "Description") ?? "",
+                        // Date par défaut (année 1) = pas obtenu.
+                        UnlockedAt = date.HasValue && date.Value.Year > 1 ? date : null,
+                        // SuccessStory met 100 quand le launcher ne donne pas la rareté.
+                        Rarity = percent.HasValue && percent.Value < 100 ? Math.Round(percent.Value, 1) : (double?)null,
+                        Secret = Read<bool>(item, "IsHidden"),
+                    };
+                })
+                .ToList();
         }
 
         /// <summary>

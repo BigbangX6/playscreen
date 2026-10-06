@@ -180,6 +180,18 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TrophySummary" }
+  /trophies/{gameId}:
+    get:
+      summary: Trophées d'un jeu (nom, description, date, rareté, secret)
+      parameters:
+        - { name: gameId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/TrophyItem" } }
+        "404": { description: Jeu inconnu ou sans trophées }
   /trophies/refresh:
     post:
       summary: Récupère les trophées de toute la bibliothèque, en arrière-plan (suite trophies.updated)
@@ -254,6 +266,29 @@ paths:
         "202": { description: Désinstallation demandée (événement game.uninstalled) }
         "404": { description: Jeu inconnu }
         "409": { description: Non installé }
+  /games/{gameId}/options:
+    post:
+      summary: Favori, caché (Playnite les garde) ; renvoie le jeu (événement game.updated)
+      parameters:
+        - { $ref: "#/components/parameters/GameId" }
+        - { name: favorite, in: query, schema: { type: boolean } }
+        - { name: hidden, in: query, schema: { type: boolean } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Game" }
+        "400": { description: Ni favorite ni hidden }
+        "404": { description: Jeu inconnu }
+  /games/{gameId}/verify:
+    post:
+      summary: Vérifier les fichiers du jeu dans son launcher (Steam steam://validate, Epic ?action=verify)
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "202": { description: Le launcher s'ouvre sur la vérification }
+        "404": { description: Jeu inconnu }
+        "409": { description: Non installé, ou launcher sans vérification (Xbox, Battle.net) }
   /games/{gameId}/media/{kind}:
     get:
       summary: Image d'un jeu
@@ -318,6 +353,8 @@ components:
         lastPlayed: { type: string, format: date-time, nullable: true }
         added: { type: string, format: date-time, nullable: true }
         lastSessionSeconds: { type: integer, nullable: true, description: Durée de la dernière partie (notée par le moteur) }
+        favorite: { type: boolean }
+        hidden: { type: boolean, description: Caché de l'accueil et de la bibliothèque }
         media:
           type: object
           properties:
@@ -358,6 +395,15 @@ components:
         recommended: { type: string }
         applied: { type: boolean }
         launcherRunning: { type: boolean }
+    TrophyItem:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        unlockedAt: { type: string, format: date-time, nullable: true }
+        rarity: { type: number, nullable: true, description: Part des joueurs qui l'ont (0 à 100) }
+        secret: { type: boolean }
     TrophySummary:
       type: object
       properties:
@@ -403,6 +449,7 @@ components:
         - game.starting / game.started : { gameId }
         - game.stopped : { gameId, sessionSeconds }
         - game.installed / game.uninstalled : { gameId }
+        - game.updated : Game (favori ou caché changé)
         - install.progress : { gameId, bytesDone, bytesTotal }
         - install.cancelled : { gameId } — installation annulée dans le launcher (fenêtre de
           confirmation fermée sans téléchargement ; Steam pour l'instant)

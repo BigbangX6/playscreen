@@ -3,35 +3,122 @@
 //! souris (sentinelle). On revient avec le méta-raccourci (Select + Y) ; la fenêtre ouverte
 //! est alors fermée (Paramètres) ou réduite (launchers) : pas de fenêtres qui traînent.
 
+const STEAM: &[&str] = &["steamwebhelper"];
+const EPIC: &[&str] = &["EpicGamesLauncher"];
+const XBOX: &[&str] = &["XboxPcApp"];
+const BATTLENET: &[&str] = &["Battle.net"];
+
 /// Ce qu'ouvre chaque relais : adresse, et processus de la fenêtre à mettre en grand.
-fn target(target: &str) -> Option<(&'static str, &'static [&'static str])> {
+/// Cibles avec paramètre : `steam-workshop:<appid>`, `game-properties:<store>:<id>`,
+/// `launcher-settings-<store>`, `install-<launcher>` (voir `install`).
+fn target(target: &str) -> Option<(String, &'static [&'static str])> {
+    let fixed = |uri: &str, processes: &'static [&'static str]| Some((uri.to_string(), processes));
     match target {
-        "windows-settings" => Some(("ms-settings:", &["SystemSettings"])),
-        "activate-key" => Some(("steam://open/activateproduct", &[])),
-        "store-steam" => Some(("steam://store", &["steamwebhelper"])),
-        "store-epic" => Some(("com.epicgames.launcher://store", &["EpicGamesLauncher"])),
-        "store-xbox" => Some(("msxbox://", &["XboxPcApp"])),
+        "windows-settings" => return fixed("ms-settings:", &["SystemSettings"]),
+        "activate-key" => return fixed("steam://open/activateproduct", &[]),
+        "store-steam" => return fixed("steam://store", STEAM),
+        "store-epic" => return fixed("com.epicgames.launcher://store", EPIC),
+        "store-xbox" => return fixed("msxbox://", XBOX),
         // battlenet://shop ouvre l'accueil de Battle.net (6 octobre 2026) : la consigne dit
         // de choisir « Boutique ».
-        "store-battlenet" => Some(("battlenet://shop", &["Battle.net"])),
+        "store-battlenet" => return fixed("battlenet://shop", BATTLENET),
+        "launcher-settings-steam" => return fixed("steam://open/settings", STEAM),
+        "launcher-settings-epic" => return fixed("com.epicgames.launcher://settings", EPIC),
+        // Pas de lien vers leurs paramètres : la fenêtre principale (roue / menu en haut).
+        "launcher-settings-xbox" => return fixed("msxbox://", XBOX),
+        "launcher-settings-battlenet" => return fixed("battlenet://", BATTLENET),
+        _ => {}
+    }
+    if let Some(app_id) = target.strip_prefix("steam-workshop:").filter(|id| is_id(id)) {
+        return Some((format!("steam://url/SteamWorkshopPage/{app_id}"), STEAM));
+    }
+    let (store, id) = target.strip_prefix("game-properties:")?.split_once(':')?;
+    if !is_id(id) {
+        return None;
+    }
+    match store {
+        "steam" => Some((format!("steam://gameproperties/{id}"), STEAM)),
+        // Epic, Xbox, Battle.net : pas de lien vers les propriétés d'un jeu ; sa page dans la
+        // bibliothèque (Epic) ou la fenêtre principale.
+        "epic" => Some(("com.epicgames.launcher://library".to_string(), EPIC)),
+        "xbox" => Some(("msxbox://".to_string(), XBOX)),
+        "battlenet" => Some(("battlenet://".to_string(), BATTLENET)),
         _ => None,
     }
+}
+
+/// Identifiant de jeu sûr à mettre dans une adresse (pas d'espace ni de caractère spécial).
+fn is_id(id: &str) -> bool {
+    !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.')
+}
+
+/// Launchers installables : identifiant winget et page officielle (même liste que
+/// `LAUNCHERS` dans ui/src/screens/spaces.ts).
+fn launcher(id: &str) -> Option<(&'static str, &'static str)> {
+    Some(match id {
+        "steam" => ("Valve.Steam", "https://store.steampowered.com/about/"),
+        "epic" => ("EpicGames.EpicGamesLauncher", "https://store.epicgames.com/fr/download"),
+        "xbox" => ("9MV0B5HZVK9Z", "https://www.xbox.com/fr-FR/apps/xbox-app-for-pc"),
+        "battlenet" => ("Blizzard.BattleNet", "https://download.battle.net/fr-fr/desktop"),
+        "gog" => ("GOG.Galaxy", "https://www.gog.com/fr/galaxy"),
+        "ea" => ("ElectronicArts.EADesktop", "https://www.ea.com/fr-fr/ea-app"),
+        "ubisoft" => ("Ubisoft.Connect", "https://www.ubisoft.com/fr-fr/ubisoft-connect/download"),
+        "amazon" => ("Amazon.Games", "https://gaming.amazon.com/home"),
+        _ => return None,
+    })
+}
+
+/// Installe un launcher avec winget, sans fenêtre (Windows demande son autorisation) ; en cas
+/// d'échec (winget absent, autorisation refusée), ouvre sa page officielle.
+fn install(id: &str) -> bool {
+    let Some((package, page)) = launcher(id) else {
+        return false;
+    };
+    let source = if package.starts_with("9") { "msstore" } else { "winget" };
+    std::thread::spawn(move || {
+        let mut command = std::process::Command::new("winget");
+        command.args(["install", "--id", package, "--exact", "--source", source, "--silent"])
+            .args(["--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"]);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+        let ok = command.status().map(|status| status.success()).unwrap_or(false);
+        eprintln!("[relais] winget {package} : {}", if ok { "installé" } else { "échec, page officielle" });
+        if !ok {
+            let _ = std::process::Command::new("explorer.exe").arg(page).spawn();
+        }
+    });
+    true
 }
 
 /// Ouvre la cible, la met en grand au premier plan dès qu'elle apparaît, et passe la
 /// sentinelle en mode souris. Faux si la cible est inconnue ou si la sentinelle ne tourne pas.
 pub fn start(name: &str) -> bool {
+    if let Some(id) = name.strip_prefix("install-") {
+        return install(id) && set_mouse_mode(true);
+    }
     let Some((uri, processes)) = target(name) else {
         return false;
     };
     // explorer ouvre les adresses ms-settings:, steam:// … comme un double clic.
-    if std::process::Command::new("explorer.exe").arg(uri).spawn().is_err() {
+    if std::process::Command::new("explorer.exe").arg(&uri).spawn().is_err() {
         return false;
     }
-    if !processes.is_empty() {
+    // Les paramètres de Steam et les propriétés d'un jeu sont des fenêtres à part, déjà
+    // devant : mettre la fenêtre principale en grand les cacherait.
+    if !processes.is_empty() && !steam_dialog(name) {
         std::thread::spawn(move || windows::bring_up(processes));
     }
     set_mouse_mode(true)
+}
+
+/// Paramètres de Steam, propriétés d'un jeu Steam : fenêtres « Paramètres Steam » et « <jeu> »
+/// à côté de la fenêtre principale « Steam ».
+fn steam_dialog(name: &str) -> bool {
+    name == "launcher-settings-steam" || name.starts_with("game-properties:steam:")
 }
 
 /// Retour sur Playscreen : manette normale, Paramètres fermés, launcher réduit.
@@ -39,6 +126,9 @@ pub fn end(name: &str) -> bool {
     if let Some((_, processes)) = target(name) {
         if name == "windows-settings" {
             windows::close(processes);
+        } else if steam_dialog(name) {
+            windows::close_except(processes, "Steam");
+            windows::minimize(processes);
         } else {
             windows::minimize(processes);
         }
@@ -95,7 +185,7 @@ mod windows {
     use windows_sys::Win32::Foundation::{CloseHandle, BOOL, HWND, LPARAM, RECT};
     use windows_sys::Win32::System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetWindow, GetWindowRect, GetWindowTextLengthW, GetWindowThreadProcessId, IsWindowVisible,
+        EnumWindows, GetWindow, GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible,
         PostMessageW, SetForegroundWindow, ShowWindow, GW_OWNER, SW_MAXIMIZE, SW_MINIMIZE, WM_CLOSE,
     };
 
@@ -123,6 +213,13 @@ mod windows {
     struct Search {
         processes: &'static [&'static str],
         found: Vec<(HWND, i64)>,
+    }
+
+    fn title(hwnd: HWND) -> String {
+        let mut buffer = [0u16; 256];
+        // SAFETY : tampon de taille connue.
+        let len = unsafe { GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32) };
+        String::from_utf16_lossy(&buffer[..len.max(0) as usize])
     }
 
     /// Fenêtres principales visibles (avec titre, sans propriétaire) de ces processus, avec leur aire.
@@ -175,6 +272,16 @@ mod windows {
         }
     }
 
+    /// Ferme les fenêtres de ces processus sauf celle qui porte ce titre (fenêtre principale).
+    pub fn close_except(processes: &'static [&'static str], main_title: &str) {
+        for (hwnd, _) in windows_of(processes) {
+            if title(hwnd) != main_title {
+                // SAFETY : message de fermeture polie, comme la croix.
+                unsafe { PostMessageW(hwnd, WM_CLOSE, 0, 0) };
+            }
+        }
+    }
+
     pub fn close(processes: &'static [&'static str]) {
         for (hwnd, _) in windows_of(processes) {
             // SAFETY : message de fermeture polie, comme la croix.
@@ -188,4 +295,5 @@ mod windows {
     pub fn bring_up(_processes: &'static [&'static str]) {}
     pub fn minimize(_processes: &'static [&'static str]) {}
     pub fn close(_processes: &'static [&'static str]) {}
+    pub fn close_except(_processes: &'static [&'static str], _main_title: &str) {}
 }

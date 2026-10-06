@@ -128,3 +128,23 @@ pub fn browser_hide(app: AppHandle) {
         let _ = main.set_focus();
     }
 }
+
+/// Ferme une fenêtre du navigateur (Discord, musique…) pour libérer la mémoire : la page est
+/// détruite, la prochaine ouverture la recharge. Si elle était affichée, on revient à
+/// Playscreen et la manette redevient une manette.
+#[tauri::command]
+pub fn browser_close(app: AppHandle, window: String) {
+    let label = label(&window);
+    let state = app.state::<BrowserState>();
+    state.views.lock().unwrap().remove(&label);
+    if let Some(view) = app.get_webview_window(&label) {
+        let visible = view.is_visible().unwrap_or(false);
+        let _ = view.destroy();
+        if visible {
+            crate::relay::set_mouse_mode(false);
+            if let Some(main) = app.get_webview_window("main") {
+                let _ = main.set_focus();
+            }
+        }
+    }
+}

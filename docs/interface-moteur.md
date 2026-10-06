@@ -79,15 +79,35 @@ La liste à jour est aussi dans `ui/README.md`, section « Pas encore possible �
 
 | # | Besoin | Écran | Piste | Où brancher |
 |---|---|---|---|---|
-| 13 | **Fermer une fenêtre web** (Discord, musique) pour libérer la mémoire | Centre rapide › En fond › « ✕ Fermer » | Commande Tauri `browser_close { window }` (détruire la WebView) ; aujourd'hui repli sur `browser_hide` | `browserClose()` dans `ui/src/shell.ts` |
-| 14 | **Service de musique choisi** (liste de 11 services + lien personnalisé) | Musique › Changer de service | Rien côté moteur : la fenêtre « musique » ouvre `getSite("music").url` (préférence gardée dans le stockage de la fenêtre) | `ui/src/prefs.ts`, `MUSIC_SERVICES` |
-| 15 | **Détail des trophées** d'un jeu : nom, description, date, rareté, secret | Trophées › un jeu ; page d'un jeu (« Derniers trophées ») | `GET /trophies/{gameId}` depuis SuccessStory (`Items` : Name, Description, DateUnlocked, Percent, IsHidden) | `trophyDetails()` dans `engine-system.ts` (renvoie `null` aujourd'hui) |
-| 16 | **Workshop** (jeux Steam) | Page du jeu, Paramètres du jeu | Relais `steam-workshop:<appid>` → `steam://url/SteamWorkshopPage/<appid>` | `ui/src-tauri/src/relay.rs`, fonction `target()` |
-| 17 | **Propriétés du jeu dans son launcher** | Page du jeu, Paramètres du jeu | Relais `game-properties:<store>:<id>` → Steam : `steam://gameproperties/<appid>` (à vérifier) ; Epic, Battle.net : page du jeu | `relay.rs` |
-| 18 | **Favori, caché, vérifier les fichiers** | Paramètres du jeu | Playnite : `Game.Favorite`, `Game.Hidden` ; vérifier : `steam://validate/<appid>`, Epic `?action=verify` | `gameOptions`, `setGameOption`, `verifyGame` (`engine-system.ts`) ; les lignes s'affichent dès que `gameOptions` n'est plus `null` |
-| 19 | **Installer un launcher** depuis Playscreen (premier démarrage, Comptes et launchers) | Relais `install-<launcher>` | Idéal : `winget install --id <LAUNCHERS[].winget> --silent` par le moteur (UAC : voir D9) ; sinon ouvrir `LAUNCHERS[].installUrl` en grand avec la souris | `relay.rs` ; catalogue dans `ui/src/screens/spaces.ts` (`LAUNCHERS`) |
-| 20 | **Paramètres complets d'un launcher** | Comptes et launchers › Réglages › « Tous les paramètres » | Relais `launcher-settings-<store>` → `steam://open/settings`, Epic `com.epicgames.launcher://settings`, Battle.net / Xbox : fenêtre principale | `relay.rs` |
+| 13 ✅ | **Fermer une fenêtre web** (Discord, musique) pour libérer la mémoire | Centre rapide › En fond › « ✕ Fermer » | Commande Tauri `browser_close { window }` (détruire la WebView) ; aujourd'hui repli sur `browser_hide` | `browserClose()` dans `ui/src/shell.ts` |
+| 14 ✅ | **Service de musique choisi** (liste de 11 services + lien personnalisé) | Musique › Changer de service | Rien côté moteur : la fenêtre « musique » ouvre `getSite("music").url` (préférence gardée dans le stockage de la fenêtre) | `ui/src/prefs.ts`, `MUSIC_SERVICES` |
+| 15 ✅ | **Détail des trophées** d'un jeu : nom, description, date, rareté, secret | Trophées › un jeu ; page d'un jeu (« Derniers trophées ») | `GET /trophies/{gameId}` depuis SuccessStory (`Items` : Name, Description, DateUnlocked, Percent, IsHidden) | `trophyDetails()` dans `engine-system.ts` (renvoie `null` aujourd'hui) |
+| 16 ✅ | **Workshop** (jeux Steam) | Page du jeu, Paramètres du jeu | Relais `steam-workshop:<appid>` → `steam://url/SteamWorkshopPage/<appid>` | `ui/src-tauri/src/relay.rs`, fonction `target()` |
+| 17 ✅ | **Propriétés du jeu dans son launcher** | Page du jeu, Paramètres du jeu | Relais `game-properties:<store>:<id>` → Steam : `steam://gameproperties/<appid>` (à vérifier) ; Epic, Battle.net : page du jeu | `relay.rs` |
+| 18 ✅ | **Favori, caché, vérifier les fichiers** | Paramètres du jeu | Playnite : `Game.Favorite`, `Game.Hidden` ; vérifier : `steam://validate/<appid>`, Epic `?action=verify` | `gameOptions`, `setGameOption`, `verifyGame` (`engine-system.ts`) ; les lignes s'affichent dès que `gameOptions` n'est plus `null` |
+| 19 ⚠️ | **Installer un launcher** depuis Playscreen (premier démarrage, Comptes et launchers) | Relais `install-<launcher>` | Idéal : `winget install --id <LAUNCHERS[].winget> --silent` par le moteur (UAC : voir D9) ; sinon ouvrir `LAUNCHERS[].installUrl` en grand avec la souris | `relay.rs` ; catalogue dans `ui/src/screens/spaces.ts` (`LAUNCHERS`) |
+| 20 ✅ | **Paramètres complets d'un launcher** | Comptes et launchers › Réglages › « Tous les paramètres » | Relais `launcher-settings-<store>` → `steam://open/settings`, Epic `com.epicgames.launcher://settings`, Battle.net / Xbox : fenêtre principale | `relay.rs` |
 | 21 | Réglages recommandés (déjà faits : `GET/POST /launchers/settings`) | Comptes et launchers › Réglages | ✅ branché sur l'API existante | — |
+
+**Fait le 6 octobre 2026 (session Windows)** :
+- 13 : commande `browser_close` (la WebView est détruite ; si elle était affichée, retour à
+  Playscreen et manette normale).
+- 15 : `GET /trophies/{gameId}` → `[{ id, name, description, unlockedAt, rarity, secret }]`
+  (404 sans trophées). `rarity` est null quand SuccessStory n'a pas la rareté.
+- 16, 17, 20 : relais testés sur le PC. Steam : `steam://url/SteamWorkshopPage/<appid>`,
+  `steam://gameproperties/<appid>` et `steam://open/settings` (les deux derniers sont des
+  fenêtres à part, fermées au retour). Epic : `com.epicgames.launcher://settings` ;
+  propriétés d'un jeu Epic → sa bibliothèque (pas de lien direct). Xbox, Battle.net :
+  fenêtre principale.
+- 18 : `POST /games/{id}/options?favorite=&hidden=` (événement `game.updated`, le jeu porte
+  `favorite` et `hidden`) ; `POST /games/{id}/verify` (Steam `steam://validate`, Epic
+  `?action=verify` : vérification confirmée dans les journaux des deux launchers ; 409 pour
+  Xbox et Battle.net). **À faire côté design** : cacher les jeux `hidden` de l'accueil et de
+  la bibliothèque (le moteur les renvoie toujours, pour pouvoir les « dé-cacher »).
+- 19 : `winget install --silent` en arrière-plan, page officielle si winget échoue. ⚠️ Les
+  installateurs demandent l'UAC, sur le **bureau sécurisé** que la manette ne pilote pas
+  (F31) : pas testé ; la vraie solution est une tâche planifiée « administrateur » créée par
+  l'installateur de Playscreen (D9).
 
 Le premier démarrage (« Prépare ta console ») s'affiche quand la bibliothèque est vide et
 que la personne ne l'a pas encore terminé (préférence `welcomed`). Il ne demande rien de
