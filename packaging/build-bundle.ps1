@@ -15,6 +15,9 @@
   6. Crée start-engine.cmd : il copie les réglages par défaut manquants dans le dossier
      de données (%LOCALAPPDATA%\Playscreen\Playnite), puis démarre Playnite sans
      interface. Reconstruire le paquet n'efface donc jamais les données.
+  7. Sauf -SkipApps : compile l'interface (Playscreen.exe, version autonome Tauri) et la
+     sentinelle (Sentinelle\playscreen-sentinel.exe, avec SDL2.dll). Sans réglage, la
+     sentinelle lance Playscreen.exe et start-engine.cmd du paquet.
 
 .PARAMETER PlayniteZip
   Archive portable de Playnite (.7z ou .zip), sur la page des versions de Playnite sur
@@ -27,7 +30,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$PlayniteZip,
     [string]$Output,
-    [string]$Configuration = "Release"
+    [string]$Configuration = "Release",
+    # Ne pas recompiler l'interface et la sentinelle (plusieurs minutes).
+    [switch]$SkipApps
 )
 
 $ErrorActionPreference = "Stop"
@@ -140,7 +145,30 @@ start "" "%~dp0Playnite\Playnite.DesktopApp.exe" --userdatadir "%DATA%" --startc
 "@
 Set-Content -Path (Join-Path $Output "start-engine.cmd") -Value $startScript -Encoding ASCII
 
+if (-not $SkipApps) {
+    Write-Host "==> Interface -> $Output\Playscreen.exe"
+    Push-Location (Join-Path $root "ui")
+    try {
+        npm run tauri build -- --no-bundle
+        if ($LASTEXITCODE -ne 0) { throw "Échec de la compilation de l'interface" }
+    } finally { Pop-Location }
+    Copy-Item (Join-Path $root "ui\src-tauri\target\release\playscreen-ui.exe") (Join-Path $Output "Playscreen.exe") -Force
+
+    Write-Host "==> Sentinelle -> $Output\Sentinelle"
+    Push-Location (Join-Path $root "sentinel")
+    try {
+        cargo build --release
+        if ($LASTEXITCODE -ne 0) { throw "Échec de la compilation de la sentinelle" }
+        & (Join-Path $root "sentinel\get-sdl2.ps1")
+    } finally { Pop-Location }
+    $sentinelDir = Join-Path $Output "Sentinelle"
+    New-Item -ItemType Directory -Force -Path $sentinelDir | Out-Null
+    # La sentinelle peut tourner : on la remplace à son prochain démarrage sinon.
+    Copy-Item (Join-Path $root "sentinel\target\release\playscreen-sentinel.exe"), (Join-Path $root "sentinel\target\release\SDL2.dll") $sentinelDir -Force -ErrorAction Continue
+}
+
 Write-Host ""
 Write-Host "Paquet prêt : $Output"
 Write-Host "Démarrer le moteur : $Output\start-engine.cmd"
+Write-Host "Sentinelle        : $Output\Sentinelle\playscreen-sentinel.exe (Select + Y)"
 Write-Host "Puis tester       : npm run psc -- status"

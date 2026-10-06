@@ -44,9 +44,16 @@ impl Config {
         let get = |env: &str, key: &str| {
             std::env::var(env).ok().or_else(|| settings.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone()))
         };
+        // Sans réglage : le paquet (dist\Playscreen) met Playscreen.exe et start-engine.cmd
+        // dans le dossier parent de celui de la sentinelle (dist\Playscreen\Sentinelle).
+        let beside = |name: &str| {
+            let dir = std::env::current_exe().ok()?.parent()?.parent()?.to_path_buf();
+            let path = dir.join(name);
+            path.exists().then_some(path)
+        };
         Self {
-            playscreen_exe: get("PLAYSCREEN_EXE", "exe").map(PathBuf::from),
-            engine: get("PLAYSCREEN_ENGINE", "engine").map(PathBuf::from),
+            playscreen_exe: get("PLAYSCREEN_EXE", "exe").map(PathBuf::from).or_else(|| beside("Playscreen.exe")),
+            engine: get("PLAYSCREEN_ENGINE", "engine").map(PathBuf::from).or_else(|| beside("start-engine.cmd")),
             window_title: get("PLAYSCREEN_WINDOW", "window").unwrap_or_else(|| PLAYSCREEN_WINDOW_TITLE.to_string()),
             shortcut: get("PLAYSCREEN_SHORTCUT", "shortcut"),
         }
