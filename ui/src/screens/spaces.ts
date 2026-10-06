@@ -96,10 +96,32 @@ export const SITES: Record<SiteId, Site> = {
   twitch: { name: "Twitch", domain: "twitch.tv", window: "internet", url: "https://www.twitch.tv/", hero: ["#9146ff", "#5c16c5"] },
 };
 
+/**
+ * Relais : Playscreen passe la main à une fenêtre de Windows ou d'un launcher, la manette
+ * devient une souris, Select + Y revient. Les magasins des launchers plutôt que leurs sites :
+ * on y est déjà connecté.
+ */
+export type RelayTarget = "windows-settings" | "activate-key" | "store-steam" | "store-epic" | "store-xbox" | "store-battlenet";
+
+export const RELAY_INFO: Record<RelayTarget, { to: string; text: string }> = {
+  "windows-settings": {
+    to: "Paramètres Windows",
+    text: "Les Paramètres Windows s'ouvrent en grand. Utilise-les comme avec une souris ; reviens quand tu as fini.",
+  },
+  "activate-key": {
+    to: "Steam",
+    text: "La fenêtre « Activer un produit » de Steam s'ouvre. Saisis ta clé, valide, puis reviens quand tu as fini.",
+  },
+  "store-steam": { to: "Magasin Steam", text: "Le magasin de Steam s'ouvre en grand, avec ton compte. Ce que tu achètes arrive dans ta bibliothèque." },
+  "store-epic": { to: "Epic Games Store", text: "Le magasin d'Epic s'ouvre en grand, avec ton compte. Ce que tu achètes arrive dans ta bibliothèque." },
+  "store-xbox": { to: "Xbox", text: "L'application Xbox s'ouvre en grand, avec ton compte : Game Pass et magasin." },
+  "store-battlenet": { to: "Battle.net", text: "Battle.net s'ouvre en grand, avec ton compte. Choisis « Boutique » en haut." },
+};
+
 /** Où mène un choix (aperçu d'un espace, centre rapide…). App sait y aller. */
 export type Route =
   | { kind: "web"; site: SiteId }
-  | { kind: "relay"; target: "windows-settings" | "activate-key" }
+  | { kind: "relay"; target: RelayTarget }
   | { kind: "settings"; section: SettingsSection }
   | { kind: "page"; page: "search" | "trophees" | "notifications" }
   | { kind: "stores" }

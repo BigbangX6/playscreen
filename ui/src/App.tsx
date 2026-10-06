@@ -19,9 +19,9 @@ import { NotificationsPage, SearchPage, TrophiesPage, type NotificationEntry } f
 import { QuickCenter, type Download } from "./screens/QuickCenter.tsx";
 import { Relay } from "./screens/Relay.tsx";
 import { Settings } from "./screens/Settings.tsx";
-import { SITES, type BrowserWindow, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
+import { RELAY_INFO, SITES, type BrowserWindow, type RelayTarget, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
 import { Stores } from "./screens/Stores.tsx";
-import { focusLauncherWindow, resumeGame, startRelay, stopMouseMode } from "./shell.ts";
+import { endRelay, focusLauncherWindow, resumeGame, startRelay } from "./shell.ts";
 import { connectSystem, system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
@@ -42,7 +42,7 @@ type Dialog =
   | { kind: "uninstall"; gameId: string }
   | { kind: "force"; gameId: string }
   | { kind: "power"; action: "shutdown" | "restart" }
-  | { kind: "relay"; target: "windows-settings" | "activate-key" }
+  | { kind: "relay"; target: RelayTarget }
   | { kind: "loading"; site: SiteId; from: Screen };
 
 /** Onglets de chaque fenêtre du navigateur (LB / RB). */
@@ -161,7 +161,8 @@ export function App() {
     const onFocus = () => {
       if (!away) return;
       setDialog(null);
-      void stopMouseMode();
+      // La manette redevient une manette ; la fenêtre ouverte est fermée ou réduite.
+      void endRelay(relayTarget);
     };
     window.addEventListener("blur", onBlur);
     window.addEventListener("focus", onFocus);
@@ -629,7 +630,6 @@ export function App() {
     );
   }
 
-  const relayTo = dialog?.kind === "relay" ? (dialog.target === "windows-settings" ? "Paramètres Windows" : "Steam") : "";
 
   return (
     <>
@@ -703,13 +703,9 @@ export function App() {
       )}
       {client && dialog?.kind === "relay" && (
         <Relay
-          to={relayTo}
+          to={RELAY_INFO[dialog.target].to}
           title="Ta manette devient une souris"
-          text={
-            dialog.target === "windows-settings"
-              ? "Les Paramètres Windows s'ouvrent en grand. Utilise-les comme avec une souris ; reviens quand tu as fini."
-              : "La fenêtre « Activer un produit » de Steam s'ouvre. Saisis ta clé, valide, puis reviens quand tu as fini."
-          }
+          text={RELAY_INFO[dialog.target].text}
           mouse
           onBack={() => setDialog(null)}
         />

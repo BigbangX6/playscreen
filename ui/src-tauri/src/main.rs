@@ -60,10 +60,10 @@ fn start_relay(target: String) -> bool {
     relay::start(&target)
 }
 
-/// Retour sur Playscreen : la manette redevient une manette.
+/// Fin du relais : la manette redevient une manette, la fenêtre ouverte est fermée ou réduite.
 #[tauri::command]
-fn stop_mouse_mode() -> bool {
-    relay::set_mouse_mode(false)
+fn end_relay(target: String) -> bool {
+    relay::end(&target)
 }
 
 /// La sentinelle tourne-t-elle ? Elle lit alors la manette pour l'interface (toutes les
@@ -76,7 +76,7 @@ fn sentinel_running() -> bool {
 fn main() {
     tauri::Builder::default()
         .manage(browser::BrowserState::default())
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard, start_relay, stop_mouse_mode, browser::browser_open, browser::browser_hide, sentinel_running])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard, start_relay, end_relay, browser::browser_open, browser::browser_hide, sentinel_running])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }
