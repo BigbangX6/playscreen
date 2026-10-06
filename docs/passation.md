@@ -10,6 +10,48 @@
 
 ---
 
+## Reprise (dernière mise à jour : nuit du 6 au 7 octobre 2026) — **commence ici**
+
+Les sections 0, 0 bis et 0 ter racontent les sessions précédentes ; la plus récente est
+la fin du § 0 ter (« Fin d'après-midi » et « Soir du 6 octobre »).
+
+**État au moment de l'arrêt du PC**
+- Branche `claude/busy-carson-3amj4g` à jour et poussée (dernier commit : « Installation :
+  souris à chaque passage du launcher… »), contrôle automatique vert.
+- `dist\Playscreen` contient les dernières versions : `Playscreen.exe` (interface
+  autonome), `Sentinelle\playscreen-sentinel.exe` (+ `SDL2.dll`), passerelle déployée
+  dans le moteur. La sentinelle ne démarre **pas** avec Windows (accord de la personne
+  attendu) : la lancer à la main (`dist\Playscreen\Sentinelle\playscreen-sentinel.exe`),
+  puis **Select + Y** lance le moteur et Playscreen. **Select + X** : souris manette.
+- Travail du 6 octobre : design fusionné, points 13 à 20 (`interface-moteur.md` § 5),
+  retours du soir (§ 6), applications hors launcher (`docs/hors-launcher.md`). Tout a été
+  testé avec la manette virtuelle sauf la souris pendant une désinstallation.
+
+**Outils de test (dossier temporaire de la session, à recréer si perdu)** : manette
+virtuelle Xbox par ViGEmBus + Python 3.12 (`%LOCALAPPDATA%\Programs\Python\Python312`)
+et `vgamepad` ; un petit serveur (port 47901) qui reçoit des suites de boutons (`a`,
+`up`, `sely`, `selx`, `lstick:x,y,durée`…) ; captures d'écran « DPI-aware » (écran
+1920 × 1080) ; appels de l'API avec le jeton de `%LOCALAPPDATA%\Playscreen\engine.json`
+(un POST demande un corps, même vide). `cargo` : `%USERPROFILE%\.cargoin` à ajouter au
+`PATH` du terminal. Redéployer la passerelle : `Playnite.DesktopApp.exe --shutdown`, copier
+`bridgein\Release
+et462\*` dans `dist\Playscreen\Playnite\Extensions\Playscreen_Bridge`,
+relancer `start-engine.cmd`. Playnite est un programme **32 bits** (pas de
+`GetWindowLongPtr`).
+
+**Reste à faire / en attente**
+- Retours de test de la personne (vraie manette GameSir en modes Switch, PS4, Xbox).
+- Démarrage automatique de la sentinelle avec Windows : **demander l'accord**.
+- Installer un launcher depuis Playscreen : l'UAC sur le bureau sécurisé bloque la manette
+  (F31) ; piste : tâche planifiée « administrateur » créée par l'installateur (D9).
+- Xbox : installation sans clic ; trophées Epic (connexion SuccessStory) ; Battle.net :
+  page Boutique directe ; F30 (fenêtre d'installation Steam dessinée dans la fenêtre
+  principale : maintenant compensé par « pas de téléchargement 15 s après le retour »).
+- Vu une fois, pas reproduit : une fenêtre d'impression de Windows sur Playscreen en
+  ouvrant Discord à la manette.
+- Côté design (autre session) : cacher les jeux `hidden`, écran « Ajouter une
+  application », vignette sans jaquette, mention de Select + X.
+
 ## 0. Reprise rapide (fin de la session Windows du 5 octobre 2026)
 
 La session Windows du 5 octobre a atteint la limite de sa conversation. **Commence ici**,
