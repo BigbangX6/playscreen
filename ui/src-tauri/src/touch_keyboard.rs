@@ -8,6 +8,22 @@ pub fn show() -> bool {
     set_visible(true)
 }
 
+/// Ouvre ou ferme le clavier (Y dans le navigateur).
+pub fn toggle() {
+    let visible = is_visible();
+    set_visible(!visible);
+}
+
+#[cfg(windows)]
+fn is_visible() -> bool {
+    std::thread::spawn(imp::visible).join().unwrap_or(false)
+}
+
+#[cfg(not(windows))]
+fn is_visible() -> bool {
+    false
+}
+
 /// Ferme le clavier s'il est ouvert.
 pub fn hide() -> bool {
     set_visible(false)
@@ -111,6 +127,16 @@ mod imp {
         let ok = ((*vtbl).toggle)(tip, GetDesktopWindow()) >= 0;
         ((*vtbl).release)(tip);
         ok
+    }
+
+    pub fn visible() -> bool {
+        // SAFETY : COM initialisé et libéré dans ce fil.
+        unsafe {
+            CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32);
+            let visible = is_visible();
+            CoUninitialize();
+            visible
+        }
     }
 
     pub fn set_visible(visible: bool) -> bool {

@@ -5,6 +5,9 @@ import type { Game } from "../../api/types.ts";
 
 const IN_TAURI = "__TAURI_INTERNALS__" in window;
 
+/** Dans la fenêtre Windows de Playscreen (sinon : navigateur de développement ou démo). */
+export const inShell = (): boolean => IN_TAURI;
+
 /**
  * « Reprendre » : remet la fenêtre du jeu au premier plan (D10). Faux si impossible (pas
  * dans Tauri, jeu sans dossier d'installation, fenêtre introuvable).
@@ -82,4 +85,27 @@ export async function stopMouseMode(): Promise<boolean> {
   if (!IN_TAURI) return false;
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<boolean>("stop_mouse_mode");
+}
+
+/**
+ * Navigateur manette : ouvre la vraie page de la fenêtre `window` (Boutique, Social…) sous
+ * `top` pixels (la barre de l'interface). La page garde son état quand on la cache.
+ */
+export async function browserOpen(window: string, url: string, top: number): Promise<void> {
+  if (!IN_TAURI) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("browser_open", { window, url, top });
+}
+
+export async function browserHide(): Promise<void> {
+  if (!IN_TAURI) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("browser_hide");
+}
+
+/** Commandes de la manette dans la page : « back », « menu », « tab/next », « tab/previous ». */
+export async function onBrowserCommand(callback: (command: string) => void): Promise<() => void> {
+  if (!IN_TAURI) return () => undefined;
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<string>("browser", (event) => callback(event.payload));
 }

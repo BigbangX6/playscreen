@@ -5,6 +5,7 @@
 // Pas de console en version finale sous Windows.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod browser;
 mod game_window;
 mod relay;
 mod touch_keyboard;
@@ -67,7 +68,8 @@ fn stop_mouse_mode() -> bool {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard, start_relay, stop_mouse_mode])
+        .manage(browser::BrowserState::default())
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard, start_relay, stop_mouse_mode, browser::browser_open, browser::browser_hide])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

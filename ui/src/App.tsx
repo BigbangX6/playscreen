@@ -597,6 +597,7 @@ export function App() {
       <Browser
         site={windowSites[window]}
         tabs={WINDOW_TABS[window]}
+        covered={Boolean(dialog)}
         onSite={(site) => setWindowSites((all) => ({ ...all, [window]: site }))}
         onBack={() => back(screen.from.name === "home" ? undefined : screen.from)}
       />
