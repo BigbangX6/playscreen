@@ -25,13 +25,36 @@
     if (cursor && cursor.isConnected) return cursor;
     cursor = document.createElement("div");
     cursor.setAttribute("aria-hidden", "true");
+    cursor.setAttribute("data-playscreen-cursor", "");
     cursor.style.cssText =
       "position:fixed;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;" +
       "border:3px solid #fff;background:rgba(80,140,255,.35);box-shadow:0 0 0 2px rgba(0,0,0,.45),0 4px 14px rgba(0,0,0,.4);" +
       "pointer-events:none;z-index:2147483647;transition:width .12s,height .12s,margin .12s;";
     (document.body || document.documentElement).appendChild(cursor);
+    raise();
     return cursor;
   };
+  // Les bandeaux modernes (cookies…) s'affichent dans la « couche du dessus » du navigateur,
+  // au-dessus de tout z-index : le curseur y va aussi, et y repasse en dernier.
+  const raise = () => {
+    if (!cursor || typeof cursor.showPopover !== "function") return;
+    try {
+      if (!cursor.popover) {
+        cursor.popover = "manual";
+        cursor.style.inset = "0 auto auto 0";
+        cursor.style.border = "3px solid #fff";
+        cursor.style.padding = "0";
+        cursor.style.overflow = "visible";
+      }
+      if (cursor.matches(":popover-open")) cursor.hidePopover();
+      cursor.showPopover();
+    } catch {
+      // Navigateur sans popover : z-index seulement.
+    }
+  };
+  setInterval(() => {
+    if (document.querySelector(":modal, :popover-open:not([data-playscreen-cursor])")) raise();
+  }, 1000);
   const draw = (over) => {
     const c = ensureCursor();
     c.style.transform = `translate(${x}px, ${y}px)`;
@@ -145,6 +168,7 @@
   const A = 0, B = 1, X = 2, Y = 3, LB = 4, RB = 5, LT = 6, RT = 7, START = 9;
   const UP = 12, DOWN = 13, LEFT = 14, RIGHT = 15;
   let previous = [];
+  let hadFocus = false;
   let last = performance.now();
   let moving = false;
   let zoomHeld = 0;
@@ -158,7 +182,13 @@
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     const pad = [...navigator.getGamepads()].find(Boolean);
-    if (pad && document.hasFocus()) {
+    const focused = document.hasFocus();
+    if (pad && focused && !hadFocus) {
+      // Focus retrouvé (retour du centre rapide…) : les boutons encore enfoncés ne comptent pas.
+      previous = pad.buttons.map((b) => b.pressed);
+    }
+    hadFocus = focused;
+    if (pad && focused) {
       const pressed = pad.buttons.map((b) => b.pressed);
       const down = (i) => pressed[i] && !previous[i];
 

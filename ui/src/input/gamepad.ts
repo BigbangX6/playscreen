@@ -78,11 +78,15 @@ function emit(action: NavAction) {
 /** Démarre la lecture ; renvoie la fonction d'arrêt. */
 export function startInput(): () => void {
   const held = new Map<NavAction, { since: number; last: number }>();
+  let hadFocus = document.hasFocus();
   let frame = 0;
 
   const poll = (now: number) => {
     const pressed = new Set<NavAction>();
-    for (const pad of navigator.getGamepads()) {
+    // Sans le focus (navigateur manette, jeu, fenêtre d'un launcher par-dessus), la manette
+    // n'est pas pour Playscreen : la page reste visible et continuerait sinon à la lire.
+    const pads = document.hasFocus() ? navigator.getGamepads() : [];
+    for (const pad of pads) {
       if (!pad) continue;
       pad.buttons.forEach((button, index) => {
         const action = BUTTONS[index];
@@ -94,6 +98,12 @@ export function startInput(): () => void {
       if (y < -STICK_THRESHOLD) pressed.add("up");
       if (y > STICK_THRESHOLD) pressed.add("down");
     }
+
+    // Focus retrouvé : un bouton encore enfoncé (B qui vient de fermer le navigateur…) ne
+    // compte pas comme un nouvel appui.
+    const focused = pads.length > 0;
+    if (focused && !hadFocus) for (const action of pressed) held.set(action, { since: now, last: now });
+    hadFocus = focused;
 
     for (const action of pressed) {
       const state = held.get(action);
