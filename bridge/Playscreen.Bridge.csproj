@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net462</TargetFramework>
+    <AssemblyName>Playscreen.Bridge</AssemblyName>
+    <RootNamespace>Playscreen.Bridge</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Version de Playnite embarquée : 10.x (SDK 6.18). Ne pas copier le SDK dans la sortie. -->
+    <PackageReference Include="PlayniteSDK" Version="6.18.0" ExcludeAssets="runtime" />
+    <!-- Permet de compiler pour .NET Framework sous Linux (CI et environnement de Claude). -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <!-- API WinRT de Windows (commandes multimédias : musique en cours) depuis .NET Framework. -->
+    <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.26100.1742" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="extension.yaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
+    Les API WinRT tirent les façades .NET Standard (une centaine de DLL). Windows 10 / 11 ont
+    .NET Framework 4.8, qui les contient déjà : on ne les copie pas dans l'extension, pour ne
+    pas risquer un conflit avec celles de Playnite.
+  -->
+  <Target Name="SkipFacadeCopies" AfterTargets="ImplicitlyExpandNETStandardFacades" BeforeTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

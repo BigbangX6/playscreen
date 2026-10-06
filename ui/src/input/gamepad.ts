@@ -1,0 +1,156 @@
+// Lecture de la manette (API Gamepad du navigateur, D4) et du clavier (développement),
+// traduits en actions de navigation Playscreen.
+
+/** Actions de navigation : les écrans ne voient jamais les boutons bruts. */
+export type NavAction =
+  | "up"
+  | "down"
+  | "left"
+  | "right"
+  | "confirm" // A (Xbox) / Croix (PlayStation)
+  | "back" // B / Rond
+  | "options" // X / Carré : actions secondaires sur l'élément (détails, désinstaller…)
+  | "search" // Y / Triangle
+  | "menu" // Start / Options
+  | "previousTab" // LB / L1
+  | "nextTab"; // RB / R1
+
+/** Disposition « standard » de l'API Gamepad (Xbox, DualSense, Switch Pro via le navigateur). */
+const BUTTONS: Partial<Record<number, NavAction>> = {
+  0: "confirm",
+  1: "back",
+  2: "options",
+  3: "search",
+  4: "previousTab",
+  5: "nextTab",
+  9: "menu",
+  12: "up",
+  13: "down",
+  14: "left",
+  15: "right",
+};
+
+const KEYS: Record<string, NavAction> = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  Enter: "confirm",
+  Escape: "back",
+  Backspace: "back",
+  KeyX: "options",
+  KeyY: "search",
+  KeyM: "menu",
+  PageUp: "previousTab",
+  PageDown: "nextTab",
+};
+
+const KEYS_BY_NAME: Record<string, NavAction> = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  Enter: "confirm",
+  Escape: "back",
+  Backspace: "back",
+  x: "options",
+  y: "search",
+  m: "menu",
+  PageUp: "previousTab",
+  PageDown: "nextTab",
+};
+
+/** Touches qui quittent un champ de texte (les autres lui appartiennent). */
+const TEXT_FIELD_KEYS = new Set(["Enter", "Escape", "ArrowUp", "ArrowDown"]);
+
+const DIRECTIONS = new Set<NavAction>(["up", "down", "left", "right"]);
+const STICK_THRESHOLD = 0.5;
+/** Maintenir une direction : premier pas, puis répétition (défilement d'une liste). */
+const REPEAT_DELAY_MS = 400;
+const REPEAT_INTERVAL_MS = 120;
+
+export const NAV_EVENT = "playscreen:nav";
+
+function emit(action: NavAction) {
+  window.dispatchEvent(new CustomEvent<NavAction>(NAV_EVENT, { detail: action }));
+}
+
+/** Vérifie régulièrement si la sentinelle tourne (elle peut démarrer après l'interface). */
+const SENTINEL_CHECK_MS = 3000;
+
+/** Démarre la lecture ; renvoie la fonction d'arrêt. */
+export function startInput(): () => void {
+  // Dans la fenêtre Windows, la sentinelle lit toutes les manettes (le moteur web ne
+  // reconnaît pas la GameSir en mode PS4, par exemple) et envoie des touches : l'interface ne
+  // lit alors plus la manette elle-même, sinon chaque appui compterait deux fois.
+  let sentinel = false;
+  const checkSentinel = () =>
+    void import("../shell.ts").then((shell) => shell.sentinelRunning()).then(
+      (running) => (sentinel = running),
+      () => (sentinel = false),
+    );
+  checkSentinel();
+  const sentinelTimer = setInterval(checkSentinel, SENTINEL_CHECK_MS);
+  const held = new Map<NavAction, { since: number; last: number }>();
+  let hadFocus = document.hasFocus();
+  let frame = 0;
+
+  const poll = (now: number) => {
+    const pressed = new Set<NavAction>();
+    // Sans le focus (navigateur manette, jeu, fenêtre d'un launcher par-dessus), la manette
+    // n'est pas pour Playscreen : la page reste visible et continuerait sinon à la lire.
+    const pads = document.hasFocus() && !sentinel ? navigator.getGamepads() : [];
+    for (const pad of pads) {
+      if (!pad) continue;
+      pad.buttons.forEach((button, index) => {
+        const action = BUTTONS[index];
+        if (action && button.pressed) pressed.add(action);
+      });
+      const [x = 0, y = 0] = pad.axes;
+      if (x < -STICK_THRESHOLD) pressed.add("left");
+      if (x > STICK_THRESHOLD) pressed.add("right");
+      if (y < -STICK_THRESHOLD) pressed.add("up");
+      if (y > STICK_THRESHOLD) pressed.add("down");
+    }
+
+    // Focus retrouvé : un bouton encore enfoncé (B qui vient de fermer le navigateur…) ne
+    // compte pas comme un nouvel appui.
+    const focused = document.hasFocus() && !sentinel;
+    if (focused && !hadFocus) for (const action of pressed) held.set(action, { since: now, last: now });
+    hadFocus = focused;
+
+    for (const action of pressed) {
+      const state = held.get(action);
+      if (!state) {
+        held.set(action, { since: now, last: now });
+        emit(action);
+      } else if (DIRECTIONS.has(action) && now - state.since > REPEAT_DELAY_MS && now - state.last > REPEAT_INTERVAL_MS) {
+        state.last = now;
+        emit(action);
+      }
+    }
+    for (const action of held.keys()) if (!pressed.has(action)) held.delete(action);
+    frame = requestAnimationFrame(poll);
+  };
+
+  const onKey = (event: KeyboardEvent) => {
+    // Dans un champ de texte, les lettres et l'effacement vont au champ ; seules Entrée,
+    // Échap et haut / bas en sortent (le clavier manette envoie Entrée avec Start).
+    const target = event.target;
+    if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && !TEXT_FIELD_KEYS.has(event.key)) return;
+    // Par position (event.code), sinon par nom (event.key) : les touches simulées par un
+    // autre logiciel (tests, claviers virtuels) n'ont pas toujours de position.
+    const action = KEYS[event.code] ?? KEYS_BY_NAME[event.key.length === 1 ? event.key.toLowerCase() : event.key];
+    if (!action) return;
+    event.preventDefault();
+    emit(action);
+  };
+
+  frame = requestAnimationFrame(poll);
+  window.addEventListener("keydown", onKey);
+  return () => {
+    clearInterval(sentinelTimer);
+    cancelAnimationFrame(frame);
+    window.removeEventListener("keydown", onKey);
+  };
+}

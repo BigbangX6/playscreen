@@ -1,0 +1,514 @@
+openapi: 3.0.3
+info:
+  title: Playscreen API
+  version: 0.1.0
+  description: |
+    API locale entre l'interface Playscreen (ou `psc`) et le moteur
+    (passerelle Playnite ou faux moteur).
+
+    - Écoute uniquement sur 127.0.0.1.
+    - Chaque requête doit porter `Authorization: Bearer <jeton>`. Le port et le jeton
+      sont écrits par le moteur dans `%LOCALAPPDATA%\Playscreen\engine.json`
+      (`{ "port": 47800, "token": "..." }`). Le jeton empêche une page web
+      quelconque d'appeler l'API locale.
+    - Les actions longues répondent `202 Accepted` ; leur suite arrive par
+      `GET /events` (Server-Sent Events).
+    - CORS : seules les origines de l'interface sont autorisées (`http://tauri.localhost`,
+      `tauri://localhost`, et `http://localhost:5173` pour Vite en développement). Les
+      demandes préalables `OPTIONS` répondent 204 sans jeton ; tout le reste l'exige.
+servers:
+  - url: http://127.0.0.1:47800/api/v0
+security:
+  - bearer: []
+paths:
+  /status:
+    get:
+      summary: État du moteur
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+  /stores:
+    get:
+      summary: Stores pris en charge et leur état
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Store" }
+  /stores/{storeId}/sync:
+    post:
+      summary: Synchronise la bibliothèque d'un store
+      description: |
+        Importe les jeux du store (installés et, si le compte est connecté, non installés)
+        et met à jour l'état d'installation des jeux connus. Événements, dans l'ordre :
+        sync.started, library.updated (s'il y a des changements), store.updated (état du
+        store revérifié), sync.finished. Si le compte n'est pas connecté, seuls les jeux
+        installés sont importés et sync.finished vaut { ok: false, error: "not connected" }.
+      parameters: [{ $ref: "#/components/parameters/StoreId" }]
+      responses:
+        "202": { description: Synchronisation lancée (événements sync.*) }
+        "404": { description: Store inconnu }
+        "409": { description: "Synchronisation déjà en cours, ou extension du store absente" }
+  /stores/{storeId}/login:
+    post:
+      summary: Ouvre la fenêtre de connexion du store
+      description: |
+        Ouvre la fenêtre de connexion de l'extension du store, en grand et au premier plan.
+        Le joueur s'y connecte lui-même (identifiants, QR code…). Quand la fenêtre se
+        ferme, l'état du store est revérifié : événement store.updated (connected).
+        Une seule connexion à la fois.
+      parameters:
+        - { $ref: "#/components/parameters/StoreId" }
+        - name: method
+          in: query
+          description: |
+            alternative : connexion de secours de l'extension. Epic : la page Epic s'ouvre
+            dans le navigateur du système (nécessaire pour un compte lié à Google, que
+            Google refuse dans un navigateur intégré), puis le code affiché est à coller
+            dans Playnite.
+          schema: { type: string, enum: [alternative] }
+      responses:
+        "202": { description: Fenêtre ouverte (événement store.updated à la fin) }
+        "404": { description: Store inconnu }
+        "409": { description: "Connexion déjà en cours, ou extension du store absente" }
+  /games:
+    get:
+      summary: Liste des jeux
+      parameters:
+        - { name: installed, in: query, schema: { type: boolean } }
+        - { name: store, in: query, schema: { $ref: "#/components/schemas/StoreId" } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Game" }
+  /games/{gameId}:
+    get:
+      summary: Détail d'un jeu
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Game" }
+        "404": { description: Jeu inconnu }
+    delete:
+      summary: Retire une application hors launcher de la bibliothèque (docs/hors-launcher.md)
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "204": { description: Retirée (événement library.updated) }
+        "404": { description: Jeu inconnu }
+        "409": { description: Jeu d'un store, ou en cours }
+  /apps/candidates:
+    get:
+      summary: Applications proposées à l'ajout (raccourcis du menu Démarrer vers un .exe, sans les outils de Windows)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/AppCandidate" } }
+  /apps:
+    post:
+      summary: Ajoute une application hors launcher (store « other »), installée, avec l'icône de l'exécutable
+      parameters:
+        - { name: path, in: query, required: true, schema: { type: string }, description: Chemin d'un .exe existant }
+        - { name: name, in: query, schema: { type: string } }
+        - { name: arguments, in: query, schema: { type: string } }
+      responses:
+        "201":
+          description: Ajoutée (événement library.updated)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Game" }
+        "400": { description: Pas un .exe existant }
+  /games/{gameId}/start:
+    post:
+      summary: Lance le jeu
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "202": { description: Lancement demandé (événements game.*) }
+        "404": { description: Jeu inconnu }
+        "409": { description: Jeu non installé }
+  /games/{gameId}/stop:
+    post:
+      summary: Quitte le jeu en cours
+      description: |
+        Demande au jeu de se fermer (comme la croix de sa fenêtre) ; avec `force=true`,
+        ferme ses processus de force (jeu bloqué). La fin arrive par `game.stopped`.
+      parameters:
+        - { $ref: "#/components/parameters/GameId" }
+        - { name: force, in: query, schema: { type: boolean } }
+      responses:
+        "202": { description: Fermeture demandée (événement game.stopped) }
+        "404": { description: Jeu inconnu }
+        "409": { description: "Ce jeu n'est pas en cours, ou aucun de ses processus n'a été trouvé" }
+  /session:
+    get:
+      summary: Partie en cours
+      description: Pour retrouver la partie après un redémarrage de l'interface.
+      responses:
+        "200":
+          description: La partie en cours, ou null
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+  /system/volume:
+    get:
+      summary: Volume principal de Windows
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Volume" }
+    post:
+      summary: Change le volume principal (événement volume.changed)
+      parameters:
+        - { name: level, in: query, schema: { type: integer, minimum: 0, maximum: 100 } }
+        - { name: muted, in: query, schema: { type: boolean } }
+      responses:
+        "200":
+          description: Le volume après le changement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Volume" }
+  /launchers/settings:
+    get:
+      summary: Réglages des launchers recommandés pour Playscreen (docs/launchers.md)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/LauncherSetting" } }
+  /launchers/settings/{settingId}/apply:
+    post:
+      summary: Règle sur la valeur recommandée, launcher fermé
+      parameters:
+        - { name: settingId, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Réglé }
+        "404": { description: Réglage inconnu }
+        "409": { description: "error = running (fermer le launcher d'abord) ou not found (fichier ou section absents)" }
+  /trophies:
+    get:
+      summary: Trophées de la bibliothèque (extension SuccessStory)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrophySummary" }
+  /trophies/{gameId}:
+    get:
+      summary: Trophées d'un jeu (nom, description, date, rareté, secret)
+      parameters:
+        - { name: gameId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/TrophyItem" } }
+        "404": { description: Jeu inconnu ou sans trophées }
+  /trophies/refresh:
+    post:
+      summary: Récupère les trophées de toute la bibliothèque, en arrière-plan (suite trophies.updated)
+      responses:
+        "202": { description: Commencé }
+        "409": { description: Déjà en cours, ou SuccessStory absent }
+  /system:
+    get:
+      summary: Le PC en dehors des jeux (réseau, manette, luminosité, sortie audio, disques, musique)
+      description: Les valeurs absentes ou nulles n'existent pas sur ce PC (l'interface les cache).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SystemInfo" }
+  /system/power:
+    post:
+      summary: Veille, arrêt ou redémarrage immédiats du PC
+      parameters:
+        - { name: action, in: query, required: true, schema: { type: string, enum: [sleep, shutdown, restart] } }
+      responses:
+        "202": { description: Demandé (exécuté une demi-seconde après la réponse) }
+        "400": { description: Action inconnue }
+  /system/quit:
+    post:
+      summary: Arrête le moteur (« Bureau Windows ») ; la sentinelle le relance au méta-raccourci
+      responses:
+        "202": { description: Demandé (exécuté une demi-seconde après la réponse) }
+  /system/brightness:
+    post:
+      summary: Règle la luminosité de l'écran intégré
+      parameters:
+        - { name: level, in: query, required: true, schema: { type: integer, minimum: 0, maximum: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { level: { type: integer } } }
+        "409": { description: L'écran ne se règle pas (télé, écran externe) }
+  /system/audio-output/next:
+    post:
+      summary: Passe à la sortie audio suivante (pour tous les usages)
+      responses:
+        "200":
+          description: La nouvelle sortie
+          content:
+            application/json:
+              schema: { type: object, properties: { name: { type: string } } }
+  /system/media/{command}:
+    post:
+      summary: Lecture / pause, précédent, suivant sur ce qui joue (commandes multimédias de Windows)
+      parameters:
+        - { name: command, in: path, required: true, schema: { type: string, enum: [toggle, previous, next] } }
+      responses:
+        "202": { description: Envoyé }
+        "409": { description: Rien ne joue }
+  /games/{gameId}/install:
+    post:
+      summary: Installe le jeu
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "202": { description: Installation demandée (événements install.*, game.installed) }
+        "404": { description: Jeu inconnu }
+        "409": { description: Déjà installé }
+  /games/{gameId}/uninstall:
+    post:
+      summary: Désinstalle le jeu
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "202": { description: Désinstallation demandée (événement game.uninstalled) }
+        "404": { description: Jeu inconnu }
+        "409": { description: Non installé }
+  /games/{gameId}/install/cancel:
+    post:
+      summary: Aucun téléchargement n'a commencé (annulé dans le launcher) ; le jeu n'est plus « en installation »
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "202": { description: Fait (événement install.cancelled) ; si le launcher télécharge finalement, install.progress reprend }
+        "404": { description: Jeu inconnu }
+        "409": { description: Installé, ou téléchargement en cours }
+  /games/{gameId}/options:
+    post:
+      summary: Favori, caché (Playnite les garde) ; renvoie le jeu (événement game.updated)
+      parameters:
+        - { $ref: "#/components/parameters/GameId" }
+        - { name: favorite, in: query, schema: { type: boolean } }
+        - { name: hidden, in: query, schema: { type: boolean } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Game" }
+        "400": { description: Ni favorite ni hidden }
+        "404": { description: Jeu inconnu }
+  /games/{gameId}/verify:
+    post:
+      summary: Vérifier les fichiers du jeu dans son launcher (Steam steam://validate, Epic ?action=verify)
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "202": { description: Le launcher s'ouvre sur la vérification }
+        "404": { description: Jeu inconnu }
+        "409": { description: Non installé, ou launcher sans vérification (Xbox, Battle.net) }
+  /games/{gameId}/media/{kind}:
+    get:
+      summary: Image d'un jeu
+      parameters:
+        - { $ref: "#/components/parameters/GameId" }
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [cover, background, icon] } }
+      responses:
+        "200": { description: Image }
+        "404": { description: Absente }
+  /events:
+    get:
+      summary: Flux d'événements (Server-Sent Events)
+      description: |
+        Chaque message SSE a un champ `event` (type) et un champ `data` (JSON).
+        Types : voir le schéma Event.
+      responses:
+        "200":
+          description: Flux text/event-stream
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+  parameters:
+    StoreId:
+      { name: storeId, in: path, required: true, schema: { $ref: "#/components/schemas/StoreId" } }
+    GameId:
+      { name: gameId, in: path, required: true, schema: { type: string, format: uuid } }
+  schemas:
+    StoreId:
+      type: string
+      enum: [steam, epic, xbox, battlenet]
+    Status:
+      type: object
+      required: [engine, apiVersion, ready]
+      properties:
+        engine: { type: string, enum: [playnite, mock] }
+        apiVersion: { type: string, example: "0.1.0" }
+        engineVersion: { type: string, description: "Version de Playnite (ou du faux moteur)" }
+        ready: { type: boolean }
+    Store:
+      type: object
+      required: [id, name, pluginInstalled, launcherInstalled, connected, gameCount]
+      properties:
+        id: { $ref: "#/components/schemas/StoreId" }
+        name: { type: string }
+        pluginInstalled: { type: boolean, description: "Extension Playnite présente et active" }
+        launcherInstalled: { type: boolean, nullable: true, description: "null = inconnu" }
+        connected: { type: boolean, nullable: true, description: "null = inconnu" }
+        gameCount: { type: integer }
+    Game:
+      type: object
+      required: [id, name, store, installed, playtimeSeconds]
+      properties:
+        id: { type: string, format: uuid, description: "Identifiant Playnite" }
+        name: { type: string }
+        sortingName: { type: string, nullable: true }
+        store: { type: string, description: "StoreId, ou 'other' pour un jeu hors des stores v1" }
+        storeGameId: { type: string, nullable: true }
+        installed: { type: boolean }
+        installDirectory: { type: string, nullable: true }
+        installSizeBytes: { type: integer, nullable: true }
+        playtimeSeconds: { type: integer }
+        lastPlayed: { type: string, format: date-time, nullable: true }
+        added: { type: string, format: date-time, nullable: true }
+        lastSessionSeconds: { type: integer, nullable: true, description: Durée de la dernière partie (notée par le moteur) }
+        favorite: { type: boolean }
+        hidden: { type: boolean, description: Caché de l'accueil et de la bibliothèque }
+        media:
+          type: object
+          properties:
+            cover: { type: boolean }
+            background: { type: boolean }
+            icon: { type: boolean }
+    Session:
+      type: object
+      nullable: true
+      required: [gameId, phase, startedAt]
+      properties:
+        gameId: { type: string, format: uuid }
+        phase: { type: string, enum: [starting, running] }
+        startedAt: { type: string, format: date-time }
+        windowHandle: { type: integer, nullable: true, description: Fenêtre d'une application hors launcher (game.window) }
+    AppCandidate:
+      type: object
+      properties:
+        name: { type: string }
+        path: { type: string }
+        arguments: { type: string }
+        added: { type: boolean, description: Déjà dans la bibliothèque }
+    Volume:
+      type: object
+      required: [level, muted]
+      properties:
+        level: { type: integer, minimum: 0, maximum: 100 }
+        muted: { type: boolean }
+    Disk:
+      type: object
+      required: [letter, label, totalBytes, freeBytes, gamesBytes]
+      properties:
+        letter: { type: string }
+        label: { type: string }
+        totalBytes: { type: integer }
+        freeBytes: { type: integer }
+        gamesBytes: { type: integer, description: Taille des jeux installés sur ce disque }
+    LauncherSetting:
+      type: object
+      required: [id, store, label, recommended, applied, launcherRunning]
+      properties:
+        id: { type: string }
+        store: { type: string }
+        label: { type: string }
+        value: { type: string, nullable: true }
+        recommended: { type: string }
+        applied: { type: boolean }
+        launcherRunning: { type: boolean }
+    TrophyItem:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        unlockedAt: { type: string, format: date-time, nullable: true }
+        rarity: { type: number, nullable: true, description: Part des joueurs qui l'ont (0 à 100) }
+        secret: { type: boolean }
+    TrophySummary:
+      type: object
+      properties:
+        games:
+          type: object
+          additionalProperties:
+            type: object
+            properties: { unlocked: { type: integer }, total: { type: integer } }
+        unlocked: { type: integer }
+        last:
+          type: object
+          nullable: true
+          properties:
+            name: { type: string }
+            gameId: { type: string, format: uuid }
+            gameName: { type: string }
+            unlockedAt: { type: string, format: date-time }
+        refreshing: { type: boolean }
+    SystemInfo:
+      type: object
+      properties:
+        network:
+          type: object
+          properties:
+            kind: { type: string, enum: [wifi, ethernet, none] }
+            name: { type: string, nullable: true }
+        controllerBattery: { type: integer, nullable: true, description: Manette sans fil, 0 à 100 par paliers }
+        brightness: { type: integer, nullable: true, description: Écran intégré seulement }
+        audioOutput: { type: string, nullable: true }
+        disks: { type: array, items: { $ref: "#/components/schemas/Disk" } }
+        media:
+          type: object
+          nullable: true
+          properties:
+            app: { type: string, nullable: true }
+            title: { type: string }
+            artist: { type: string, nullable: true }
+            playing: { type: boolean }
+    Event:
+      type: object
+      description: |
+        Types et contenu de `data` :
+        - game.starting / game.started : { gameId }
+        - game.stopped : { gameId, sessionSeconds }
+        - game.installed / game.uninstalled : { gameId }
+        - game.updated : Game (favori ou caché changé)
+        - game.window : { gameId, handle } (application hors launcher : sa fenêtre, à mettre au premier plan)
+        - install.progress : { gameId, bytesDone, bytesTotal }
+        - install.cancelled : { gameId } — installation annulée dans le launcher (fenêtre de
+          confirmation fermée sans téléchargement ; Steam pour l'instant)
+        - library.updated : { added: [gameId], updated: [gameId], removed: [gameId] }
+        - sync.started : { storeId } ; sync.finished : { storeId, ok, error? }
+        - store.updated : Store
+        - volume.changed : Volume
+        - launcher.prompt : { gameId, storeId, title, handle } — une fenêtre du launcher
+          s'est ouverte après une demande (installation, désinstallation) ; `handle` est la
+          fenêtre Windows, que l'interface met au premier plan
+        - launcher.state : { storeId, state } — état du launcher (closed, starting, updating,
+          ready) pendant quelques minutes après un lancement, une installation ou une
+          désinstallation ; envoyé au départ puis à chaque changement (Steam, Epic, Battle.net).
+          Une installation demandée avant « ready » est renvoyée au launcher une fois prêt
+        - trophies.updated : {} — trophées récupérés à nouveau (relire GET /trophies)

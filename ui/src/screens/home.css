@@ -1,0 +1,581 @@
+/* Accueil : reprend exactement la maquette « La scène, version Playscreen » (16:9, --cq). */
+
+.home {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg-deep);
+  font-size: calc(var(--cq) * 1.1);
+  line-height: 1.3;
+}
+
+/* ——— Fond ——— */
+
+.home-art {
+  position: absolute;
+  inset: 0;
+  animation: home-fade var(--slow) var(--ease);
+}
+
+.home-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-art-dim::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--art-dim);
+}
+
+.home-art-blur img {
+  filter: blur(calc(var(--cq) * 4)) saturate(1.2);
+  transform: scale(1.2);
+}
+
+.home-art-flat {
+  background: var(--art-flat);
+}
+
+@keyframes home-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ——— Barre du haut : capsule des espaces, état, heure ——— */
+
+.home-top {
+  position: absolute;
+  left: calc(var(--cq) * 5);
+  right: calc(var(--cq) * 5);
+  top: calc(var(--cq) * 3.2);
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 1.6);
+  z-index: 2;
+}
+
+.capsule {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 0.4);
+  padding: calc(var(--cq) * 0.4);
+  border-radius: calc(var(--cq) * 99);
+  background: var(--capsule-bg);
+  border: 1px solid var(--glass-line);
+}
+
+.capsule-slot {
+  display: contents;
+}
+
+.capsule-sep {
+  width: 1px;
+  height: calc(var(--cq) * 1.8);
+  margin: 0 calc(var(--cq) * 0.3);
+  background: var(--glass-7);
+}
+
+.capsule-ico {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: calc(var(--cq) * 3);
+  height: calc(var(--cq) * 3);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  transition: background var(--fast) var(--ease);
+}
+
+.capsule-ico .icon {
+  width: calc(var(--cq) * 1.4);
+  height: calc(var(--cq) * 1.4);
+}
+
+.capsule-ico[data-focusable]:focus {
+  outline: none;
+  background: var(--text);
+  box-shadow: 0 0 calc(var(--cq) * 1.8) var(--focus-glow);
+}
+
+.capsule-ico:focus .icon {
+  stroke: var(--bg);
+}
+
+.capsule-dot::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--cq) * 0.2);
+  right: calc(var(--cq) * 0.2);
+  width: calc(var(--cq) * 0.6);
+  height: calc(var(--cq) * 0.6);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.ico-label {
+  position: absolute;
+  top: calc(100% + var(--cq) * 1);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: calc(var(--cq) * 0.3) calc(var(--cq) * 0.8);
+  border-radius: calc(var(--cq) * 0.5);
+  background: var(--label-bg);
+  font-size: calc(var(--cq) * 1);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--text);
+  pointer-events: none;
+}
+
+.home-status {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 1.4);
+}
+
+.home-net {
+  font-size: calc(var(--cq) * 1);
+  color: var(--status-text);
+}
+
+.home-batt {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 0.4);
+  font-size: calc(var(--cq) * 1);
+  color: var(--status-text);
+}
+
+.home-batt i {
+  position: relative;
+  display: inline-block;
+  width: calc(var(--cq) * 1.8);
+  height: calc(var(--cq) * 0.9);
+  border: calc(var(--cq) * 0.12) solid var(--status-text);
+  border-radius: calc(var(--cq) * 0.2);
+}
+
+.home-batt i::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--cq) * 0.12);
+  bottom: calc(var(--cq) * 0.12);
+  left: calc(var(--cq) * 0.12);
+  width: calc((100% - var(--cq) * 0.24) * var(--level-ratio, 1));
+  max-width: calc(var(--level) - var(--cq) * 0.24);
+  border-radius: calc(var(--cq) * 0.08);
+  background: var(--status-text);
+}
+
+.home-clock {
+  font-size: calc(var(--cq) * 1.5);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ——— Scène du jeu ——— */
+
+.scene2 {
+  position: absolute;
+  left: calc(var(--cq) * 5);
+  top: calc(var(--cq) * 14);
+  display: grid;
+  gap: calc(var(--cq) * 1.1);
+  justify-items: start;
+  max-width: calc(var(--cq) * 52);
+  animation: home-fade var(--slow) var(--ease);
+}
+
+.scene-eb {
+  font-size: calc(var(--cq) * 0.95);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--eyebrow-game);
+}
+
+.scene-title {
+  margin: 0;
+  font-size: calc(var(--cq) * 5);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  text-wrap: balance;
+}
+
+.scene-title-m {
+  font-size: calc(var(--cq) * 3.6);
+}
+
+.scene-title-s {
+  font-size: calc(var(--cq) * 2.6);
+  line-height: 1.05;
+}
+
+.scene-loading {
+  color: var(--text-sub);
+}
+
+.scene-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--cq) * 1);
+  font-size: calc(var(--cq) * 1.2);
+  color: var(--text-soft);
+}
+
+.scene-part {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--cq) * 1);
+}
+
+.scene-sep {
+  width: calc(var(--cq) * 0.3);
+  height: calc(var(--cq) * 0.3);
+  border-radius: 50%;
+  background: var(--sep-dot);
+}
+
+.mini {
+  position: relative;
+  display: inline-block;
+  width: calc(var(--cq) * 5);
+  height: calc(var(--cq) * 0.35);
+  border-radius: calc(var(--cq) * 1);
+  background: var(--glass-8);
+  vertical-align: middle;
+}
+
+.mini::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: var(--ratio);
+  border-radius: calc(var(--cq) * 1);
+  background: var(--eyebrow-game);
+}
+
+.scene-btns {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 1);
+  margin-top: calc(var(--cq) * 0.6);
+}
+
+.rb {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--cq) * 0.8);
+  padding: calc(var(--cq) * 1) calc(var(--cq) * 2.4);
+  border: none;
+  border-radius: calc(var(--cq) * 0.9);
+  background: var(--glass-4);
+  font-size: calc(var(--cq) * 1.3);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.rb-primary {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.rb-busy {
+  opacity: 0.85;
+}
+
+.rb[data-focusable]:focus {
+  outline: calc(var(--cq) * 0.3) solid var(--focus-ring);
+  outline-offset: calc(var(--cq) * 0.3);
+  box-shadow: none;
+}
+
+/* ——— Aperçu d'un espace ——— */
+
+.preview {
+  position: absolute;
+  left: calc(var(--cq) * 5);
+  right: calc(var(--cq) * 5);
+  top: calc(var(--cq) * 14);
+  display: grid;
+  gap: calc(var(--cq) * 1.4);
+  justify-items: start;
+  animation: home-fade var(--slow) var(--ease);
+}
+
+.preview-title {
+  margin: 0;
+  font-size: calc(var(--cq) * 4);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.preview-text {
+  max-width: calc(var(--cq) * 50);
+  font-size: calc(var(--cq) * 1.25);
+  color: var(--preview-text);
+}
+
+.dest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--cq) * 1);
+}
+
+.d {
+  display: grid;
+  gap: calc(var(--cq) * 0.3);
+  min-width: calc(var(--cq) * 12);
+  padding: calc(var(--cq) * 1.2) calc(var(--cq) * 1.4);
+  border: none;
+  border-radius: calc(var(--cq) * 1);
+  background: var(--glass-2);
+  font-size: calc(var(--cq) * 1.25);
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.d small {
+  font-size: calc(var(--cq) * 0.9);
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.d-main {
+  background: var(--glass-6);
+}
+
+.d:disabled {
+  opacity: 0.55;
+}
+
+.d[data-focusable]:focus {
+  outline: calc(var(--cq) * 0.3) solid var(--focus-ring);
+  outline-offset: calc(var(--cq) * 0.25);
+  box-shadow: none;
+  background: var(--glass-6);
+}
+
+/* Ce qui se passe en direct (appel, musique) */
+.live {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 1.2);
+  width: fit-content;
+  padding: calc(var(--cq) * 1.1) calc(var(--cq) * 1.4);
+  border: 1px solid var(--live-line);
+  border-radius: calc(var(--cq) * 1);
+  background: var(--live-bg);
+  font-size: calc(var(--cq) * 1.15);
+}
+
+.live-dot {
+  width: calc(var(--cq) * 0.8);
+  height: calc(var(--cq) * 0.8);
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 calc(var(--cq) * 0.35) var(--live-halo);
+}
+
+.live-paused .live-dot {
+  background: var(--text-sub);
+  box-shadow: none;
+}
+
+.live-act {
+  padding: calc(var(--cq) * 0.5) calc(var(--cq) * 1);
+  border: none;
+  border-radius: calc(var(--cq) * 0.6);
+  background: var(--glass-4);
+  font-size: calc(var(--cq) * 1);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.live-act[data-focusable]:focus {
+  outline: calc(var(--cq) * 0.25) solid var(--focus-ring);
+  outline-offset: calc(var(--cq) * 0.15);
+  box-shadow: none;
+}
+
+/* ——— Frise des jeux ——— */
+
+.timeline {
+  position: absolute;
+  left: calc(var(--cq) * 5);
+  right: calc(var(--cq) * 5);
+  bottom: calc(var(--cq) * 6.6);
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--cq) * 2);
+  transition: opacity var(--slow) var(--ease);
+}
+
+.timeline-dim {
+  opacity: 0.35;
+}
+
+.tl-group {
+  display: grid;
+  gap: calc(var(--cq) * 1.8);
+}
+
+.tl-group > small {
+  font-size: calc(var(--cq) * 0.85);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--timeline-label);
+}
+
+.tl-covers {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--cq) * 0.8);
+}
+
+.tl-cover {
+  position: relative;
+  flex: none;
+  width: calc(var(--cq) * 6);
+  aspect-ratio: 2 / 3;
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--cq) * 0.7);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--cover-shadow);
+  transition: transform var(--fast) var(--ease);
+}
+
+.tl-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tl-uninstalled img,
+.tl-uninstalled .tl-fallback {
+  filter: saturate(0.5) brightness(0.75);
+}
+
+.tl-cover[data-focusable]:focus,
+.tl-lib[data-focusable]:focus {
+  transform: translateY(calc(var(--cq) * -1));
+  outline: calc(var(--cq) * 0.3) solid var(--focus-ring);
+  outline-offset: calc(var(--cq) * 0.25);
+  box-shadow: var(--cover-shadow);
+}
+
+.tl-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: calc(var(--cq) * 0.5);
+  font-size: calc(var(--cq) * 0.8);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  overflow: hidden;
+}
+
+.tl-fallback.store-steam {
+  background: linear-gradient(160deg, var(--store-steam), var(--store-steam-bg));
+}
+.tl-fallback.store-epic {
+  background: linear-gradient(160deg, var(--stack-other), var(--store-epic-bg));
+}
+.tl-fallback.store-xbox {
+  background: linear-gradient(160deg, var(--store-xbox), var(--store-xbox-bg));
+}
+.tl-fallback.store-battlenet {
+  background: linear-gradient(160deg, var(--store-battlenet), var(--store-battlenet-bg));
+}
+.tl-fallback.store-other {
+  background: linear-gradient(160deg, var(--store-other), var(--store-other-bg));
+}
+
+.tl-dl {
+  position: absolute;
+  left: calc(var(--cq) * 0.5);
+  right: calc(var(--cq) * 0.5);
+  bottom: calc(var(--cq) * 0.5);
+  height: calc(var(--cq) * 0.4);
+  border-radius: calc(var(--cq) * 1);
+  background: var(--track-shadow);
+  overflow: hidden;
+}
+
+.tl-dl i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: calc(var(--cq) * 1);
+  background: var(--accent);
+  transition: width var(--slow) linear;
+}
+
+.tl-badge {
+  position: absolute;
+  top: calc(var(--cq) * 0.4);
+  left: calc(var(--cq) * 0.4);
+  padding: calc(var(--cq) * 0.15) calc(var(--cq) * 0.45);
+  border-radius: calc(var(--cq) * 0.4);
+  background: var(--success);
+  color: var(--bg-deep);
+  font-size: calc(var(--cq) * 0.7);
+  font-weight: 700;
+}
+
+.tl-lib {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--cq) * 0.5);
+  width: calc(var(--cq) * 6);
+  aspect-ratio: 2 / 3;
+  padding: 0;
+  border: calc(var(--cq) * 0.12) solid var(--tile-line);
+  border-radius: calc(var(--cq) * 0.7);
+  background: transparent;
+  font-size: calc(var(--cq) * 0.8);
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--lib-text);
+  transition: transform var(--fast) var(--ease);
+}
+
+.tl-lib-ico {
+  display: grid;
+  place-items: center;
+  width: calc(var(--cq) * 2.4);
+  height: calc(var(--cq) * 2.4);
+  border-radius: 50%;
+  background: var(--glass-3);
+}
+
+.tl-lib-ico .icon {
+  width: calc(var(--cq) * 1.4);
+  height: calc(var(--cq) * 1.4);
+}
+
+.home-hints {
+  position: absolute;
+  right: calc(var(--cq) * 5);
+  bottom: calc(var(--cq) * 2.4);
+}

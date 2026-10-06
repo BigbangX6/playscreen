@@ -1,0 +1,197 @@
+/* Jetons de design Playscreen. Les écrans et composants n'utilisent que ces variables :
+   un changement de thème se fait ici. */
+:root {
+  /* Couleurs */
+  --bg: #0b0f1a;
+  --bg-deep: #05070d;
+  --surface: #161c2b;
+  --surface-raised: #1f2739;
+  --surface-glass: rgba(18, 24, 38, 0.82);
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f4f6fb;
+  --text-muted: #9aa5ba;
+  --text-faint: #5f6a80;
+  --accent: #3d8bff;
+  --accent-strong: #6aa8ff;
+  --accent-glow: rgba(61, 139, 255, 0.45);
+  --success: #3ecf8e;
+  --warning: #f5b544;
+  --danger: #ff5c6c;
+  --focus-ring: #ffffff;
+  --scrim: rgba(3, 5, 10, 0.72);
+
+  /* Couleurs des stores (badges, tuiles sans image) */
+  --store-steam: #66c0f4;
+  --store-steam-bg: #1b2838;
+  --store-epic: #e8e8e8;
+  --store-epic-bg: #2a2a2a;
+  --store-xbox: #5dc21e;
+  --store-xbox-bg: #0e3a0e;
+  --store-battlenet: #4fb3ff;
+  --store-battlenet-bg: #0a2a4f;
+  --store-other: #c3a6ff;
+  --store-other-bg: #2a1f45;
+
+  /* Glyphes des boutons de la manette (disposition Xbox) */
+  --pad-a: #3fb93f;
+  --pad-b: #e8423f;
+  --pad-x: #3a83f1;
+  --pad-y: #f2c230;
+
+  /* Lisible à 3 m d'une télé : l'unité de base suit la hauteur de l'écran
+     (720p → 8 px, 1080p → ~12 px, 4K → ~24 px). Toutes les tailles en sont des multiples. */
+  --unit: clamp(8px, 1.1vh, 24px);
+  --radius-s: calc(var(--unit) * 0.6);
+  --radius: calc(var(--unit) * 1.2);
+  --radius-l: calc(var(--unit) * 2);
+  --gap: calc(var(--unit) * 2);
+
+  /* Typographie */
+  --font-s: calc(var(--unit) * 1.6);
+  --font-m: calc(var(--unit) * 2);
+  --font-l: calc(var(--unit) * 2.8);
+  --font-xl: calc(var(--unit) * 4.4);
+
+  /* Marges de sécurité : certaines télés rognent ~5 % de l'image. */
+  --safe-x: 5vw;
+  --safe-y: 5vh;
+
+  /* Tuiles de jeu */
+  --tile-width: calc(var(--unit) * 18);
+
+  /* Écrans « console » (accueil, centre rapide, relais, navigateur, paramètres) : dessinés
+     sur un écran 16:9. --cq = 1 % de la largeur de ce 16:9, sans jamais déborder en hauteur
+     (16:10 des consoles portables, écrans larges). */
+  --cq: min(1vw, calc(100vh / 56.25));
+  --glass-0: rgba(255, 255, 255, 0.05);
+  --glass-1: rgba(255, 255, 255, 0.06);
+  --glass-2: rgba(255, 255, 255, 0.07);
+  --glass-3: rgba(255, 255, 255, 0.08);
+  --glass-4: rgba(255, 255, 255, 0.1);
+  --glass-5: rgba(255, 255, 255, 0.12);
+  --glass-6: rgba(255, 255, 255, 0.13);
+  --glass-7: rgba(255, 255, 255, 0.14);
+  --glass-8: rgba(255, 255, 255, 0.18);
+  --icon-stroke: #e9edf6;
+  --status-text: #c8cfdd;
+  --hint-text: #aab3c5;
+  --preview-text: #b9c2d3;
+  --lib-text: #dfe5f2;
+  --timeline-label: rgba(255, 255, 255, 0.5);
+  --sep-dot: rgba(255, 255, 255, 0.4);
+  --tile-line: rgba(255, 255, 255, 0.22);
+  --cover-shadow: 0 calc(var(--cq) * 0.6) calc(var(--cq) * 1.4) rgba(0, 0, 0, 0.45);
+  --focus-glow: rgba(61, 139, 255, 0.55);
+  --track-shadow: rgba(0, 0, 0, 0.5);
+  --glass-line: rgba(255, 255, 255, 0.08);
+  --text-soft: #d3d9e5;
+  --text-dim: #a8b1c3;
+  --text-label: #7f8aa0;
+  --text-sub: #98a2b8;
+  --panel-solid: rgba(13, 18, 30, 0.97);
+  --capsule-bg: rgba(10, 13, 22, 0.55);
+  --label-bg: rgba(10, 13, 22, 0.8);
+  --art-dim:
+    linear-gradient(90deg, rgba(5, 7, 13, 0.92) 0%, rgba(5, 7, 13, 0.55) 55%, rgba(5, 7, 13, 0.2) 100%),
+    linear-gradient(0deg, rgba(5, 7, 13, 0.9) 0%, transparent 45%);
+  --art-flat: linear-gradient(160deg, #141b2c 0%, #0b0f1a 60%);
+  --eyebrow-game: #ffc9a8;
+  --live: #3ecf8e;
+  --live-bg: rgba(62, 207, 142, 0.12);
+  --live-line: rgba(62, 207, 142, 0.35);
+  --live-halo: rgba(62, 207, 142, 0.25);
+  --danger-soft: #ff8a95;
+  --accent-soft: rgba(61, 139, 255, 0.16);
+  --accent-mid: rgba(61, 139, 255, 0.22);
+  --accent-line: rgba(61, 139, 255, 0.5);
+  --accent-text: #dbe8ff;
+  --web-bg: #e9ebef;
+  --web-block: #cfd3db;
+  --web-chrome: #0f1422;
+  --web-hints-bg: rgba(10, 13, 22, 0.88);
+  --web-hints-text: #cfd6e3;
+  --cursor-fill: rgba(61, 139, 255, 0.18);
+  --relay-text: #b6bfd0;
+  --relay-steps: #8f99ad;
+  --legend-text: #d5dbe7;
+  --stack-other: #6a6f86;
+  --stick-face: radial-gradient(circle, #3a4256 40%, #262c3c 42%);
+  --stick-ring: #6b7488;
+  --thumb-glow: rgba(61, 139, 255, 0.8);
+  --adjust-help: #c3cbe0;
+  --trophy-gold: #f2d58f;
+  --trophy-bg: rgba(242, 213, 143, 0.16);
+
+  /* Teinte de chaque espace (fond de l'aperçu sur l'accueil) et couleur de son surtitre */
+  --space-search: radial-gradient(70% 90% at 80% 20%, #2a3550 0%, #141a2c 45%, #0a0d18 80%);
+  --space-search-eb: #a9c4f0;
+  --space-boutique: radial-gradient(70% 90% at 80% 20%, #2a3f6e 0%, #141c33 45%, #0a0d18 80%);
+  --space-boutique-eb: #9cc2ff;
+  --space-social: radial-gradient(70% 90% at 80% 20%, #3b2f6e 0%, #1a1533 45%, #0b0a18 80%);
+  --space-social-eb: #c3b5ff;
+  --space-musique: radial-gradient(70% 90% at 80% 20%, #1f4a3a 0%, #12261f 45%, #0a120f 80%);
+  --space-musique-eb: #9fe3c2;
+  --space-internet: radial-gradient(70% 90% at 80% 20%, #1f3f4f 0%, #122430 45%, #0a1117 80%);
+  --space-internet-eb: #9fd6ea;
+  --space-trophees: radial-gradient(70% 90% at 80% 20%, #4a3b1a 0%, #261e0f 45%, #120e08 80%);
+  --space-trophees-eb: #f2d58f;
+  --space-parametres: radial-gradient(70% 90% at 80% 20%, #2a3040 0%, #161a24 45%, #0b0d12 80%);
+  --space-parametres-eb: #c0c8d8;
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 140ms;
+  --slow: 320ms;
+
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: var(--font-m);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  /* Pas de curseur souris à la manette ; le mode assisté a le sien. */
+  cursor: none;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: none;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+/* Focus toujours visible : anneau blanc épais + halo de couleur. */
+[data-focusable] {
+  outline: none;
+}
+
+[data-focusable]:focus {
+  outline: calc(var(--unit) * 0.4) solid var(--focus-ring);
+  outline-offset: calc(var(--unit) * 0.3);
+  box-shadow: 0 0 calc(var(--unit) * 3) var(--accent-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation-duration: 0s !important;
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+target/
+bin/
+obj/
+dist/
+*.user
+ui/src-tauri/gen/
+dist-demo/
