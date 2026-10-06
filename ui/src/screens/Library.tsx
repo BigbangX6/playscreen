@@ -103,7 +103,30 @@ export function Library(props: Props) {
   };
   const cycleSort = () => props.onSort(SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length]!);
 
+  /**
+   * Haut / bas dans la grille : la jaquette juste au-dessus (ou en dessous), même si elle est
+   * hors de l'écran. Sans cela, la navigation par position préférait les onglets, plus
+   * proches qu'une jaquette défilée vers le haut.
+   */
+  const moveInGrid = (step: -1 | 1): boolean => {
+    const grid = gridRef.current;
+    const active = document.activeElement;
+    if (!grid || !(active instanceof HTMLElement) || !grid.contains(active)) return false;
+    const tiles = [...grid.querySelectorAll<HTMLElement>("[data-game-id]")];
+    const index = tiles.indexOf(active);
+    if (index < 0) return false;
+    const top = tiles[0]!.offsetTop;
+    const columns = Math.max(1, tiles.findIndex((t) => t.offsetTop !== top) === -1 ? tiles.length : tiles.findIndex((t) => t.offsetTop !== top));
+    const target = tiles[index + step * columns] ?? (step === 1 && Math.floor(index / columns) < Math.floor((tiles.length - 1) / columns) ? tiles.at(-1) : undefined);
+    if (!target) return step === 1; // Dernière rangée : on reste ; première : vers les onglets.
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return true;
+  };
+
   useNavAction((action) => {
+    if (action === "up" && moveInGrid(-1)) return true;
+    if (action === "down" && moveInGrid(1)) return true;
     if (action === "back") props.onBack();
     else if (action === "previousTab") cycleFilter(-1);
     else if (action === "nextTab") cycleFilter(1);

@@ -1,4 +1,4 @@
-// Centre rapide (Start, partout ; Select + Start en jeu y mène directement) : le jeu en
+// Centre rapide (Start, partout ; Select + Y en jeu y mène directement) : le jeu en
 // cours, ce qui tourne en fond (Discord, musique), le système et l'alimentation.
 // Volume et luminosité sont des boutons : un appui ouvre le réglage (gauche / droite).
 
@@ -12,7 +12,8 @@ import type { Progress } from "../components/ProgressBar.tsx";
 import { formatDuration, formatPlaytime } from "../format.ts";
 import { useNavAction } from "../input/navigation.ts";
 import { system, useSystem, type PowerAction } from "../system.ts";
-import { MUSIC_SITES, type Route } from "./spaces.ts";
+import { musicService, type Route } from "./spaces.ts";
+import { usePrefs } from "../prefs.ts";
 import "./quick.css";
 
 export interface Download {
@@ -38,6 +39,8 @@ interface Props {
   onQuit(): void;
   onForceQuit(): void;
   onNavigate(route: Route): void;
+  /** Ferme une fenêtre web gardée en arrière-plan (libère la mémoire). */
+  onCloseWindow(window: "social" | "musique"): void;
   onOpenGame(game: Game): void;
   onPower(action: PowerAction): void;
 }
@@ -69,6 +72,7 @@ function Tile(props: { label: string; value: string; className?: string; onClick
 export function QuickCenter(props: Props) {
   const { client, game } = props;
   const sys = useSystem();
+  usePrefs(); // Nom du service de musique choisi.
   const elapsed = useElapsed(props.since);
   const [adjusting, setAdjusting] = useState<Adjustable | null>(null);
   const original = useRef(0);
@@ -112,6 +116,14 @@ export function QuickCenter(props: Props) {
   }, [adjusting]);
 
   const dim = adjusting ? "dimmed" : "";
+
+  /** Ferme la fenêtre ; le focus passe sur « Ouvrir » de la même carte. */
+  const closeWindow = (window: "social" | "musique") => {
+    props.onCloseWindow(window);
+    requestAnimationFrame(() =>
+      ref.current?.querySelector<HTMLElement>(`[data-window="${window}"] .ctl button:last-child`)?.focus({ preventScroll: true }),
+    );
+  };
 
   // ——— Système : tuiles, et le réglage ouvert sous sa ligne ———
   const tiles: { id: string; node: ReactNode }[] = [];
@@ -167,7 +179,8 @@ export function QuickCenter(props: Props) {
 
   const discord = sys.discord;
   const music = sys.music;
-  const musicSite = MUSIC_SITES[music?.service ?? sys.musicServices[0] ?? "Spotify"] ?? "spotify";
+  const discordOpen = sys.openWindows.includes("social");
+  const musicOpen = sys.openWindows.includes("musique");
 
   return (
     <div className="qc" role="dialog" aria-modal="true">
@@ -199,70 +212,82 @@ export function QuickCenter(props: Props) {
           </>
         )}
 
-        {(discord || music) && (
-          <>
-            <span className={`sec ${dim}`}>En fond</span>
-            <div className={`bgcards ${dim}`}>
-              {discord && (
-                <div className="bgc">
-                  <div className="bgc-t">
-                    <span className="bgc-ico">
-                      <Icon name="people" />
-                    </span>
-                    Discord
-                  </div>
-                  <span className="bgc-sub">
-                    {discord.call ? `Appel · ${discord.call.channel} · ${discord.call.people}` : discord.unread ? `${discord.unread} messages non lus` : "Pas d'appel en cours"}
-                  </span>
-                  <div className="ctl">
-                    {discord.call && (
-                      <>
-                        <button data-focusable onClick={() => system.toggleMicrophone()} className={discord.call.muted ? "ctl-on" : ""}>
-                          {discord.call.muted ? "Micro coupé" : "Micro"}
-                        </button>
-                        <button data-focusable className="ctl-warn" onClick={() => system.leaveCall()}>
-                          Quitter
-                        </button>
-                      </>
-                    )}
-                    <button data-focusable onClick={() => props.onNavigate({ kind: "web", site: "discord" })}>
-                      Ouvrir
-                    </button>
-                  </div>
-                </div>
-              )}
-              {(music || discord) && (
-                <div className="bgc">
-                  <div className="bgc-t">
-                    <span className="bgc-ico">
-                      <Icon name="music" />
-                    </span>
-                    Musique
-                  </div>
-                  <span className="bgc-sub">{music ? `${music.service} · ${[music.artist, music.title].filter(Boolean).join(", ")}` : "Rien en lecture"}</span>
-                  <div className="ctl">
-                    {music && (
-                      <>
-                        <button data-focusable onClick={() => system.musicPrevious()}>
-                          |◀
-                        </button>
-                        <button data-focusable onClick={() => system.musicToggle()}>
-                          {music.playing ? "❚❚" : "▶"}
-                        </button>
-                        <button data-focusable onClick={() => system.musicNext()}>
-                          ▶|
-                        </button>
-                      </>
-                    )}
-                    <button data-focusable onClick={() => props.onNavigate({ kind: "web", site: musicSite })}>
-                      Ouvrir
-                    </button>
-                  </div>
-                </div>
+        {/* Discord et la musique tournent dans des fenêtres gardées en arrière-plan : on les
+            ouvre d'ici, et on les ferme pour libérer la mémoire. */}
+        <span className={`sec ${dim}`}>En fond</span>
+        <div className={`bgcards ${dim}`}>
+          <div className="bgc" data-window="social">
+            <div className="bgc-t">
+              <span className="bgc-ico">
+                <Icon name="people" />
+              </span>
+              <span className="bgc-name">Discord</span>
+              {discordOpen && (
+                <button className="bgc-close" data-focusable onClick={() => closeWindow("social")}>
+                  ✕ Fermer
+                </button>
               )}
             </div>
-          </>
-        )}
+            <span className="bgc-sub">
+              {!discordOpen
+                ? "Fermé"
+                : discord?.call
+                  ? `Appel · ${discord.call.channel} · ${discord.call.people}`
+                  : discord?.unread
+                    ? `${discord.unread} messages non lus`
+                    : "Ouvert en arrière-plan"}
+            </span>
+            <div className="ctl">
+              {discordOpen && discord?.call && (
+                <>
+                  <button data-focusable onClick={() => system.toggleMicrophone()} className={discord.call.muted ? "ctl-on" : ""}>
+                    {discord.call.muted ? "Micro coupé" : "Micro"}
+                  </button>
+                  <button data-focusable className="ctl-warn" onClick={() => system.leaveCall()}>
+                    Quitter
+                  </button>
+                </>
+              )}
+              <button data-focusable onClick={() => props.onNavigate({ kind: "web", site: "discord" })}>
+                Ouvrir
+              </button>
+            </div>
+          </div>
+          <div className="bgc" data-window="musique">
+            <div className="bgc-t">
+              <span className="bgc-ico">
+                <Icon name="music" />
+              </span>
+              <span className="bgc-name">{music?.service ?? musicService().name}</span>
+              {musicOpen && (
+                <button className="bgc-close" data-focusable onClick={() => closeWindow("musique")}>
+                  ✕ Fermer
+                </button>
+              )}
+            </div>
+            <span className="bgc-sub">
+              {music ? [music.artist, music.title].filter(Boolean).join(", ") : musicOpen ? "Ouvert, rien en lecture" : "Fermé"}
+            </span>
+            <div className="ctl">
+              {music && (
+                <>
+                  <button data-focusable onClick={() => system.musicPrevious()}>
+                    |◀
+                  </button>
+                  <button data-focusable onClick={() => system.musicToggle()}>
+                    {music.playing ? "❚❚" : "▶"}
+                  </button>
+                  <button data-focusable onClick={() => system.musicNext()}>
+                    ▶|
+                  </button>
+                </>
+              )}
+              <button data-focusable onClick={() => props.onNavigate({ kind: "web", site: "music" })}>
+                Ouvrir
+              </button>
+            </div>
+          </div>
+        </div>
 
         <span className="sec">Système</span>
         <div className="sys">

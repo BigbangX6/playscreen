@@ -109,3 +109,18 @@ export async function sentinelRunning(): Promise<boolean> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<boolean>("sentinel_running");
 }
+
+/**
+ * Ferme une fenêtre web gardée en arrière-plan (Discord, musique) pour libérer la mémoire.
+ * Commande Tauri `browser_close` à ajouter (docs/interface-moteur.md) ; sans elle, la
+ * fenêtre est seulement cachée.
+ */
+export async function browserClose(window: string): Promise<void> {
+  if (!IN_TAURI) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  try {
+    await invoke("browser_close", { window });
+  } catch {
+    await invoke("browser_hide");
+  }
+}

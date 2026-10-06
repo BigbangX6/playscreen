@@ -4,6 +4,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { demoClient, type DemoSettings } from "./demo-engine.ts";
 import { demoSystem, type DemoSystemSettings } from "./demo-system.ts";
+import { setPrefs } from "../prefs.ts";
 
 function useDemo() {
   return useSyncExternalStore(
@@ -126,9 +127,19 @@ export function DemoPanel() {
         <button style={{ ...button, background: "#2a3142" }} disabled={demoClient.offline} onClick={() => demoClient.cutEngine(5)}>
           Couper le moteur 5 s
         </button>
+        <button
+          style={{ ...button, background: "#2a3142" }}
+          onClick={() => {
+            setPrefs({ welcomed: false });
+            demoClient.blankConsole();
+          }}
+        >
+          Premier démarrage (console vierge)
+        </button>
         <button style={{ ...button, background: "#5a2a33" }} onClick={() => {
             demoClient.reset();
             demoSystem.reset();
+            setPrefs({ welcomed: true });
           }}>
           Tout réinitialiser
         </button>

@@ -126,7 +126,7 @@ export function Settings(props: Props) {
         label: store.name,
         sub: `· ${store.gameCount} ${store.gameCount > 1 ? "jeux" : "jeu"}`,
         value: store.connected === null ? "Vérification…" : store.connected ? "Connecté" : "Non connecté",
-        run: () => props.onNavigate({ kind: "stores" }),
+        run: () => props.onNavigate({ kind: "launcher", store: store.id }),
       }));
       break;
     case "alimentation":
@@ -139,7 +139,7 @@ export function Settings(props: Props) {
       break;
     case "playscreen":
       rows = [
-        { label: "Ouvrir Playscreen", sub: "· maintenir 1 seconde", value: "Select + Start" },
+        { label: "Ouvrir Playscreen, revenir d'une page", sub: "· dès l'appui", value: "Select + Y" },
         { label: "Disposition des boutons", value: "Xbox" },
       ];
       break;
@@ -181,7 +181,7 @@ export function Settings(props: Props) {
                 setFocusedRow(null);
                 if (id !== section) props.onSection(id);
               }}
-              onClick={() => (id === "comptes" ? props.onNavigate({ kind: "stores" }) : enterContent())}
+              onClick={() => (id === "comptes" ? props.onNavigate({ kind: "launchers" }) : enterContent())}
             >
               {label}
             </button>

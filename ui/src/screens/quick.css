@@ -168,6 +168,34 @@
   height: calc(var(--cq) * 1.1);
 }
 
+.bgc-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bgc-close {
+  margin-left: auto;
+  padding: calc(var(--cq) * 0.25) calc(var(--cq) * 0.6);
+  border: none;
+  border-radius: calc(var(--cq) * 0.5);
+  background: var(--glass-3);
+  font-size: calc(var(--cq) * 0.8);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--danger-soft);
+  white-space: nowrap;
+}
+
+.bgc-close[data-focusable]:focus {
+  outline: calc(var(--cq) * 0.2) solid var(--focus-ring);
+  outline-offset: calc(var(--cq) * 0.1);
+  box-shadow: none;
+  background: var(--accent);
+  color: var(--text);
+}
+
 .bgc-sub {
   font-size: calc(var(--cq) * 0.85);
   color: var(--text-sub);

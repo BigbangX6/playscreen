@@ -12,7 +12,8 @@ import { useBattery } from "../components/TopBar.tsx";
 import { formatBytes, formatPlaytime, STORE_LABELS } from "../format.ts";
 import { useNavAction } from "../input/navigation.ts";
 import { system, useSystem, type SystemSnapshot } from "../system.ts";
-import { MUSIC_SITES, SPACE_HOME, SPACES, type Route, type SpaceId } from "./spaces.ts";
+import { MUSIC_SERVICES, musicService, SPACE_HOME, SPACES, type Route, type SpaceId } from "./spaces.ts";
+import { usePrefs } from "../prefs.ts";
 import "./home.css";
 
 const DAY = 86_400_000;
@@ -196,7 +197,8 @@ function previewFor(space: SpaceId, sys: SystemSnapshot): Preview {
         open: "Ouvrir Instant Gaming",
       };
     case "social": {
-      const discord = sys.discord;
+      // Discord fermé (pour libérer la mémoire) : on ne montre plus son état.
+      const discord = sys.openWindows.includes("social") ? sys.discord : null;
       const call = discord?.call;
       return {
         eyebrow: "Social",
@@ -227,8 +229,7 @@ function previewFor(space: SpaceId, sys: SystemSnapshot): Preview {
     }
     case "musique": {
       const music = sys.music;
-      const service = music?.service ?? sys.musicServices[0] ?? "Spotify";
-      const others = sys.musicServices.filter((s) => s !== service);
+      const service = musicService().name;
       return {
         eyebrow: "Musique",
         title: service,
@@ -247,11 +248,11 @@ function previewFor(space: SpaceId, sys: SystemSnapshot): Preview {
         dests: [
           {
             label: `Ouvrir ${service}`,
-            sub: music ? (music.playing ? "Lecture en cours" : "Reprendre l'écoute") : "Ton service de musique",
-            route: { kind: "web", site: MUSIC_SITES[service] ?? "spotify" },
+            sub: music ? (music.playing ? "Lecture en cours" : "Reprendre l'écoute") : musicService().hint,
+            route: { kind: "web", site: "music" },
             main: true,
           },
-          ...others.map((s) => ({ label: s, sub: "Changer de service", route: { kind: "web", site: MUSIC_SITES[s] ?? "spotify" } }) satisfies Dest),
+          { label: "Changer de service", sub: `${MUSIC_SERVICES.length} services ou un lien`, route: { kind: "page", page: "music" } },
         ],
         open: `Ouvrir ${service}`,
       };
@@ -310,6 +311,7 @@ function previewFor(space: SpaceId, sys: SystemSnapshot): Preview {
 export function Home(props: Props) {
   const { client, games, installs, runningId } = props;
   const sys = useSystem();
+  usePrefs(); // Le service de musique choisi s'affiche dans l'aperçu.
   const [gameId, setGameId] = useState<string | null>(props.initialFocus.game ?? null);
   const [space, setSpace] = useState<SpaceId | null>(props.initialFocus.space ?? null);
   /** Élément ciblé dans la scène : sert à l'aide des boutons. */
@@ -410,7 +412,7 @@ export function Home(props: Props) {
         <h1 className="scene-title scene-title-m">Aucun jeu pour l'instant</h1>
         <div className="scene-line">Connecte un store pour retrouver tes jeux ici.</div>
         <div className="scene-btns">
-          <button className="rb rb-primary" data-focusable onClick={() => props.onNavigate({ kind: "stores" })}>
+          <button className="rb rb-primary" data-focusable onClick={() => props.onNavigate({ kind: "launchers" })}>
             Connecter un store
           </button>
         </div>
@@ -557,7 +559,7 @@ export function Home(props: Props) {
     );
   else art = <div className="home-art home-art-dim home-art-flat" />;
 
-  const discordBadge = Boolean(sys.discord?.unread || sys.discord?.call);
+  const discordBadge = sys.openWindows.includes("social") && Boolean(sys.discord?.unread || sys.discord?.call);
   const librarySize = games?.length ?? 0;
 
   return (

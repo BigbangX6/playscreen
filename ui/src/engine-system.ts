@@ -20,10 +20,10 @@ const EMPTY: SystemSnapshot = {
   network: null,
   discord: null,
   music: null,
-  musicServices: ["Spotify", "YouTube Music", "Deezer"],
   disks: null,
   trophiesUnlocked: null,
   lastTrophy: null,
+  openWindows: [],
 };
 
 /** Traduit la réponse du moteur dans le format des écrans (system.ts). */
@@ -123,6 +123,19 @@ export function createEngineSystem(client: EngineClient): SystemBridge {
     musicNext: () => act(() => client.media("next")),
     trophies: (gameId) => trophies?.games[gameId] ?? null,
     lastSession: () => null,
+    // Pas encore dans l'API (docs/interface-moteur.md, « Deuxième vague ») : les écrans
+    // cachent ces éléments.
+    trophyDetails: async () => null,
+    gameOptions: () => null,
+    setGameOption: () => undefined,
+    verifyGame: () => false,
+    // Le moteur relit l'état des launchers tout seul (store.updated).
+    relayEnded: () => undefined,
+    windowChanged(window, open) {
+      const others = state.openWindows.filter((w) => w !== window);
+      state = { ...state, openWindows: open ? [...others, window] : others };
+      changed();
+    },
     power(action: PowerAction) {
       // « Bureau Windows » : moteur arrêté, Playscreen fermé ; seule la sentinelle reste et le
       // méta-raccourci relance tout.

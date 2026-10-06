@@ -446,3 +446,350 @@ input.search-field::placeholder {
   text-transform: uppercase;
   color: var(--text-label);
 }
+
+/* ——— Ajouts : sous-titre, lignes cochées ——— */
+
+.title-sub {
+  display: block;
+  margin-top: calc(var(--cq) * 0.4);
+  font-size: calc(var(--cq) * 1.05);
+  font-weight: 500;
+  color: var(--text-sub);
+}
+
+.title-s:has(.title-sub) + .page-body,
+.title-s:has(.title-sub) + .settings-grid {
+  top: calc(var(--cq) * 10.5);
+}
+
+.srow-on {
+  color: var(--live);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.srow-dim {
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+
+/* ——— Page d'un jeu ——— */
+
+.game-scene {
+  top: calc(var(--cq) * 9);
+}
+
+.game-progress {
+  position: relative;
+  display: block;
+  width: calc(var(--cq) * 30);
+  height: calc(var(--cq) * 0.5);
+  border-radius: calc(var(--cq) * 1);
+  background: var(--glass-8);
+  overflow: hidden;
+}
+
+.game-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: calc(var(--cq) * 1);
+  background: var(--accent);
+  transition: width var(--slow) linear;
+}
+
+.game-below {
+  position: absolute;
+  left: calc(var(--cq) * 5);
+  right: calc(var(--cq) * 5);
+  top: calc(var(--cq) * 31);
+  display: grid;
+  justify-items: start;
+  gap: calc(var(--cq) * 2.4);
+}
+
+.game-trophies {
+  display: grid;
+  gap: calc(var(--cq) * 1);
+}
+
+.game-sec {
+  font-size: calc(var(--cq) * 0.85);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--timeline-label);
+}
+
+.game-trophy-row {
+  display: flex;
+  gap: calc(var(--cq) * 1);
+}
+
+.trophy-chip {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 0.8);
+  padding: calc(var(--cq) * 0.8) calc(var(--cq) * 1.2);
+  border-radius: calc(var(--cq) * 1);
+  background: var(--glass-1);
+  font-size: calc(var(--cq) * 1.05);
+  font-weight: 700;
+}
+
+.trophy-chip small {
+  display: block;
+  font-size: calc(var(--cq) * 0.8);
+  font-weight: 500;
+  color: var(--text-sub);
+}
+
+.trophy-ico {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: calc(var(--cq) * 2.6);
+  height: calc(var(--cq) * 2.6);
+  border-radius: 50%;
+  background: var(--glass-3);
+}
+
+.trophy-ico .icon {
+  width: calc(var(--cq) * 1.4);
+  height: calc(var(--cq) * 1.4);
+  stroke: var(--text-sub);
+}
+
+.trophy-ico-on {
+  background: var(--trophy-bg);
+}
+
+.trophy-ico-on .icon {
+  stroke: var(--trophy-gold);
+}
+
+/* ——— Trophées d'un jeu ——— */
+
+.trophy-head .stack-games {
+  background: var(--trophy-gold);
+}
+
+.trophy-tabs {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 1.4);
+  margin-top: calc(var(--cq) * 0.4);
+}
+
+.trophy-tab {
+  font-size: calc(var(--cq) * 1);
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.trophy-tab-on {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: calc(var(--cq) * 0.5);
+  text-decoration-thickness: calc(var(--cq) * 0.2);
+}
+
+.trophy-row {
+  justify-content: flex-start;
+}
+
+.trophy-text {
+  display: grid;
+  flex: 1;
+  gap: calc(var(--cq) * 0.2);
+  min-width: 0;
+}
+
+.trophy-meta {
+  display: grid;
+  justify-items: end;
+  gap: calc(var(--cq) * 0.2);
+  font-size: calc(var(--cq) * 1);
+  white-space: nowrap;
+}
+
+.trophy-locked .trophy-text b {
+  color: var(--text-soft);
+}
+
+.srow-danger {
+  color: var(--danger-soft);
+}
+
+/* ——— Launchers : lignes, logos, états ——— */
+
+.lrow {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 1.4);
+  padding: calc(var(--cq) * 1) calc(var(--cq) * 1.4);
+  border-radius: calc(var(--cq) * 0.8);
+  background: var(--glass-0);
+  font-size: calc(var(--cq) * 1.15);
+}
+
+.lr-logo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: calc(var(--cq) * 3);
+  height: calc(var(--cq) * 3);
+  border-radius: calc(var(--cq) * 0.8);
+  font-size: calc(var(--cq) * 1.4);
+  font-weight: 800;
+}
+
+.lr-logo.store-steam {
+  background: var(--store-steam-bg);
+  color: var(--store-steam);
+}
+.lr-logo.store-epic {
+  background: var(--store-epic-bg);
+  color: var(--store-epic);
+}
+.lr-logo.store-xbox {
+  background: var(--store-xbox-bg);
+  color: var(--store-xbox);
+}
+.lr-logo.store-battlenet {
+  background: var(--store-battlenet-bg);
+  color: var(--store-battlenet);
+}
+.lr-logo.store-other {
+  background: var(--store-other-bg);
+  color: var(--store-other);
+}
+
+.lrow-info {
+  display: grid;
+  flex: 1;
+  gap: calc(var(--cq) * 0.2);
+  min-width: 0;
+}
+
+.lrow-info small,
+.wcard-status {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 0.5);
+  font-size: calc(var(--cq) * 0.95);
+  color: var(--text-sub);
+}
+
+.lrow-actions {
+  display: flex;
+  gap: calc(var(--cq) * 0.6);
+}
+
+.dot {
+  width: calc(var(--cq) * 0.6);
+  height: calc(var(--cq) * 0.6);
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.dot + * {
+  margin-right: calc(var(--cq) * 0.6);
+}
+
+.dot-ok {
+  background: var(--live);
+}
+
+.dot-warn {
+  background: var(--warning);
+}
+
+.wcard-done {
+  color: var(--live);
+}
+
+/* ——— Premier démarrage ——— */
+
+.welcome-art {
+  background: var(--space-boutique);
+}
+
+.welcome-body {
+  position: absolute;
+  left: calc(var(--cq) * 5);
+  right: calc(var(--cq) * 5);
+  top: calc(var(--cq) * 6);
+  display: grid;
+  justify-items: start;
+  gap: calc(var(--cq) * 1.4);
+}
+
+.welcome .welcome-eb {
+  color: var(--space-boutique-eb);
+}
+
+.steps {
+  display: flex;
+  gap: calc(var(--cq) * 2.4);
+  margin: calc(var(--cq) * 0.6) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: calc(var(--cq) * 1.1);
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 0.7);
+}
+
+.step-n {
+  display: grid;
+  place-items: center;
+  width: calc(var(--cq) * 2);
+  height: calc(var(--cq) * 2);
+  border-radius: 50%;
+  border: calc(var(--cq) * 0.12) solid var(--tile-line);
+  font-size: calc(var(--cq) * 0.95);
+  font-weight: 800;
+}
+
+.step-done {
+  color: var(--text);
+}
+
+.step-done .step-n {
+  border-color: transparent;
+  background: var(--live);
+  color: var(--bg-deep);
+}
+
+.wcards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: calc(var(--cq) * 1.2);
+  width: 100%;
+  margin-top: calc(var(--cq) * 0.6);
+}
+
+.wcard {
+  display: grid;
+  align-content: start;
+  gap: calc(var(--cq) * 0.9);
+  padding: calc(var(--cq) * 1.4);
+  border-radius: calc(var(--cq) * 1.2);
+  background: var(--glass-1);
+}
+
+.wcard-head {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cq) * 1);
+  font-size: calc(var(--cq) * 1.4);
+}
+
+.wcard-btn {
+  justify-self: start;
+}

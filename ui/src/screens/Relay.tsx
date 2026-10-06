@@ -13,7 +13,7 @@ interface Props {
   to: string;
   title: string;
   text?: string;
-  /** Souris virtuelle (sentinelle) : affiche les commandes et le retour par Select + Start. */
+  /** Souris virtuelle (sentinelle) : affiche les commandes et le retour par Select + Y. */
   mouse: boolean;
   /** Chargement : se termine seul après `ms`. */
   loading?: { ms: number; onDone(): void };
@@ -29,7 +29,7 @@ export function Relay({ to, title, text, mouse, loading, onBack }: Props) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Démo : B joue le rôle de Select + Start (retour à Playscreen).
+  // Démo : B joue le rôle de Select + Y (retour à Playscreen).
   useNavAction((action) => {
     if (action === "back") onBack();
     return true;
@@ -69,7 +69,7 @@ export function Relay({ to, title, text, mouse, loading, onBack }: Props) {
               </div>
             </div>
             <div className="relay-steps relay-return">
-              Pour revenir : maintiens <b>Select + Start</b>
+              Pour revenir : <b>Select + Y</b>
             </div>
           </>
         ) : (

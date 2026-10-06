@@ -20,12 +20,13 @@ npm run build                # vérification des types + construction dans dist/
 | `src/screens/Relay.tsx` | **Relais** : passage à la souris virtuelle (Paramètres Windows, activer une clé) et chargement d'une page web |
 | `src/screens/Browser.tsx` | **Navigateur manette** : quatre fenêtres (Boutique, Social, Musique, Internet), onglets LB / RB ; page simulée dans la démo |
 | `src/screens/Settings.tsx` | **Paramètres** : liste à gauche, contenu à droite (Stockage : disque et jeux par taille, X pour désinstaller) |
-| `src/screens/Pages.tsx` | Pages simples : Rechercher, Trophées, Notifications |
+| `src/screens/Pages.tsx` | Pages simples : Rechercher, Trophées, Notifications, Musique (choix du service) |
+| `src/screens/GamePages.tsx` | Page d'un jeu (Jouer, trophées, Workshop pour Steam, paramètres du jeu), trophées d'un jeu, paramètres d'un jeu |
+| `src/screens/Launchers.tsx` | Premier démarrage (console vierge), Comptes et launchers (installer, se connecter, synchroniser), réglages d'un launcher |
+| `src/prefs.ts` | Préférences gardées sur le PC : service de musique, premier démarrage terminé |
 | `src/screens/spaces.ts` | Espaces de la capsule, sites du navigateur, sections des paramètres, destinations (`Route`) |
 | `src/system.ts` | Ce que l'interface sait du PC hors jeux (son, luminosité, Discord, musique, disques, trophées…) : simulé dans la démo (`src/demo/demo-system.ts`), « indisponible » ailleurs (les écrans le cachent) |
 | `src/screens/Library.tsx` | Bibliothèque : filtres LB / RB (Tous, Installés, stores), tri X (récents, nom, temps de jeu), B pour revenir à l'accueil |
-| `src/screens/GameDetail.tsx` | Fiche (X Options depuis l'accueil) : Jouer / Installer (progression) / Désinstaller (confirmation) |
-| `src/screens/Stores.tsx` | État des stores, Se connecter (Epic : Autre méthode), Synchroniser |
 | `src/screens/Overlays.tsx` | Écran d'attente du lancement, accompagnement connexion / installation, confirmation, moteur indisponible |
 | `src/components/` | Tuile, jaquette de remplacement, progression, aide des boutons (`Hints`, et `PadHints` pour les écrans console), pictogrammes, notifications, états vides / erreur |
 | `src/theme.css` | Tous les jetons de design (couleurs, `--unit`, `--cq` pour les écrans console, marges de sécurité) |
@@ -86,6 +87,9 @@ Fait dans la nuit du 5 au 6 octobre (voir `docs/passation.md` § 0 bis) : alimen
 manette, trophées, dernière partie, clavier manette (page Rechercher), relais avec souris
 virtuelle. Le PC passe par `src/engine-system.ts` (lecture de `GET /system` toutes les 3 s).
 
+- Deuxième vague (fermer une fenêtre web, détail des trophées, Workshop, propriétés d'un
+  jeu, favori / caché / vérifier, installer un launcher, paramètres complets d'un launcher) :
+  `docs/interface-moteur.md` § 5.
 - Discord (dans le navigateur Playscreen) : appel en cours (salon, nombre de personnes),
   couper le micro, quitter l'appel, messages non lus, amis en ligne.
 - Navigateur manette : fenêtres web (Boutique, Social, Musique, Internet) qui restent

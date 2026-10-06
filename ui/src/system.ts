@@ -44,14 +44,34 @@ export interface SystemSnapshot {
   network: string | null;
   discord: DiscordState | null;
   music: MusicState | null;
-  /** Services de musique proposés (le premier est celui choisi). */
-  musicServices: string[];
   disks: Disk[] | null;
   trophiesUnlocked: number | null;
   lastTrophy: { name: string; game: string; when: string } | null;
+  /** Fenêtres web ouvertes (gardées en arrière-plan) : « social », « musique »… */
+  openWindows: string[];
 }
 
 export type PowerAction = "sleep" | "shutdown" | "restart" | "desktop";
+
+/** Un trophée (succès) d'un jeu. */
+export interface TrophyDetail {
+  id: string;
+  name: string;
+  description: string;
+  /** Date d'obtention, null s'il reste à obtenir. */
+  unlockedAt: string | null;
+  /** Part des joueurs qui l'ont (0 à 100), si le launcher la donne. */
+  rarity: number | null;
+  /** Trophée secret : description cachée tant qu'il n'est pas obtenu. */
+  secret: boolean;
+}
+
+/** Réglages d'un jeu dans Playscreen (Playnite les garde). */
+export interface GameOptions {
+  favorite: boolean;
+  /** Caché de l'accueil et de la bibliothèque. */
+  hidden: boolean;
+}
 
 export interface SystemBridge {
   snapshot(): SystemSnapshot;
@@ -67,6 +87,17 @@ export interface SystemBridge {
   /** Durée de la dernière partie (secondes), si connue. */
   lastSession(gameId: string): number | null;
   power(action: PowerAction): void;
+  /** Liste des trophées d'un jeu ; null si le moteur ne la donne pas. */
+  trophyDetails(gameId: string): Promise<TrophyDetail[] | null>;
+  /** Favori, caché ; null si indisponible. */
+  gameOptions(gameId: string): GameOptions | null;
+  setGameOption(gameId: string, option: keyof GameOptions, value: boolean): void;
+  /** Vérifier / réparer les fichiers du jeu dans son launcher ; faux si impossible ici. */
+  verifyGame(gameId: string): boolean;
+  /** Une fenêtre web (Discord, musique…) vient d'être ouverte ou fermée. */
+  windowChanged(window: string, open: boolean): void;
+  /** Retour d'un relais (démo : un launcher « installé » le devient vraiment). */
+  relayEnded(target: string): void;
 }
 
 const UNAVAILABLE: SystemSnapshot = {
@@ -76,10 +107,10 @@ const UNAVAILABLE: SystemSnapshot = {
   network: null,
   discord: null,
   music: null,
-  musicServices: ["Spotify", "YouTube Music", "Deezer"],
   disks: null,
   trophiesUnlocked: null,
   lastTrophy: null,
+  openWindows: [],
 };
 
 const noop = () => undefined;
@@ -98,6 +129,12 @@ const NO_SYSTEM: SystemBridge = {
   trophies: () => null,
   lastSession: () => null,
   power: noop,
+  trophyDetails: async () => null,
+  gameOptions: () => null,
+  setGameOption: noop,
+  verifyGame: () => false,
+  windowChanged: noop,
+  relayEnded: noop,
 };
 
 let bridge: SystemBridge = NO_SYSTEM;
@@ -139,6 +176,12 @@ export const system: SystemBridge = {
   trophies: (id) => bridge.trophies(id),
   lastSession: (id) => bridge.lastSession(id),
   power: (action) => bridge.power(action),
+  trophyDetails: (id) => bridge.trophyDetails(id),
+  gameOptions: (id) => bridge.gameOptions(id),
+  setGameOption: (id, option, value) => bridge.setGameOption(id, option, value),
+  verifyGame: (id) => bridge.verifyGame(id),
+  windowChanged: (window, open) => bridge.windowChanged(window, open),
+  relayEnded: (target) => bridge.relayEnded(target),
 };
 
 /** État du système, redessiné à chaque changement. */

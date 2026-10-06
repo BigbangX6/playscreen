@@ -9,7 +9,7 @@ import { browserHide, browserOpen, inShell } from "../shell.ts";
 import { Icon } from "../components/Icons.tsx";
 import { PadGlyph, PadHints } from "../components/PadHints.tsx";
 import { useNavAction } from "../input/navigation.ts";
-import { SITES, type SiteId } from "./spaces.ts";
+import { getSite, type SiteId } from "./spaces.ts";
 import "./console-pages.css";
 
 interface Props {
@@ -36,7 +36,7 @@ function useClock(): string {
 }
 
 export function Browser({ site, tabs, covered = false, onSite, onBack }: Props) {
-  const info = SITES[site];
+  const info = getSite(site);
   const time = useClock();
   const [block, setBlock] = useState(2);
   const chrome = useRef<HTMLDivElement>(null);

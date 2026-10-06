@@ -11,17 +11,18 @@ import { formatPlaytime } from "./format.ts";
 import { useNavAction } from "./input/navigation.ts";
 import { Overlay } from "./components/Overlay.tsx";
 import { Browser } from "./screens/Browser.tsx";
-import { GameDetail } from "./screens/GameDetail.tsx";
+import { GamePage, GameSettingsPage, TrophyDetailPage } from "./screens/GamePages.tsx";
+import { LauncherPage, LaunchersPage, Welcome } from "./screens/Launchers.tsx";
+import { prefs, setPrefs } from "./prefs.ts";
 import { Home, type HomeFocus } from "./screens/Home.tsx";
 import { Library, type LibraryFilter, type LibrarySort } from "./screens/Library.tsx";
 import { EngineOffline, InstallGuide, Launching, LoginGuide, UninstallConfirm } from "./screens/Overlays.tsx";
-import { NotificationsPage, SearchPage, TrophiesPage, type NotificationEntry } from "./screens/Pages.tsx";
+import { MusicPage, NotificationsPage, SearchPage, TrophiesPage, type NotificationEntry } from "./screens/Pages.tsx";
 import { QuickCenter, type Download } from "./screens/QuickCenter.tsx";
 import { Relay } from "./screens/Relay.tsx";
 import { Settings } from "./screens/Settings.tsx";
-import { RELAY_INFO, SITES, type BrowserWindow, type RelayTarget, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
-import { Stores } from "./screens/Stores.tsx";
-import { endRelay, focusLauncherWindow, resumeGame, startRelay } from "./shell.ts";
+import { getSite, relayInfo, type BrowserWindow, type RelayTarget, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
+import { browserClose, endRelay, focusLauncherWindow, resumeGame, startRelay } from "./shell.ts";
 import { connectSystem, system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
@@ -30,9 +31,13 @@ type Screen =
   | { name: "home" }
   | { name: "library" }
   | { name: "game"; gameId: string; from: Screen }
-  | { name: "stores"; from: Screen }
+  | { name: "launchers"; from: Screen }
+  | { name: "launcher"; store: StoreId; from: Screen }
+  | { name: "welcome" }
+  | { name: "trophies"; gameId: string; from: Screen }
+  | { name: "game-settings"; gameId: string; from: Screen }
   | { name: "settings"; section: SettingsSection }
-  | { name: "page"; page: "search" | "trophees" | "notifications"; from: Screen }
+  | { name: "page"; page: "search" | "trophees" | "notifications" | "music"; from: Screen }
   | { name: "web"; window: BrowserWindow; from: Screen };
 
 type Dialog =
@@ -49,7 +54,7 @@ type Dialog =
 const WINDOW_TABS: Record<BrowserWindow, SiteId[]> = {
   boutique: ["instant-gaming", "steam", "epic", "xbox", "battlenet"],
   social: ["discord"],
-  musique: ["spotify", "youtube-music", "deezer"],
+  musique: ["music"],
   internet: ["new-page", "youtube", "twitch", "wikipedia"],
 };
 
@@ -57,7 +62,8 @@ const WINDOW_TABS: Record<BrowserWindow, SiteId[]> = {
 function spaceOf(screen: Screen): SpaceId | null {
   if (screen.name === "web") return screen.window;
   if (screen.name === "settings") return "parametres";
-  if (screen.name === "page") return screen.page === "search" ? "search" : screen.page === "trophees" ? "trophees" : null;
+  if (screen.name === "page") return screen.page === "search" ? "search" : screen.page === "trophees" ? "trophees" : screen.page === "music" ? "musique" : null;
+  if (screen.name === "launchers" || screen.name === "launcher") return "parametres";
   return null;
 }
 
@@ -118,7 +124,7 @@ export function App() {
   const [windowSites, setWindowSites] = useState<Record<BrowserWindow, SiteId>>({
     boutique: "instant-gaming",
     social: "discord",
-    musique: "spotify",
+    musique: "music",
     internet: "new-page",
   });
   const [history, setHistory] = useState<NotificationEntry[]>([]);
@@ -450,7 +456,7 @@ export function App() {
     setDialog(null);
     switch (route.kind) {
       case "web": {
-        const window = SITES[route.site].window;
+        const window = getSite(route.site).window;
         setWindowSites((all) => ({ ...all, [window]: route.site }));
         setDialog({ kind: "loading", site: route.site, from });
         break;
@@ -466,7 +472,23 @@ export function App() {
         setScreen({ name: "page", page: route.page, from });
         break;
       case "stores":
-        setScreen({ name: "stores", from });
+      case "launchers":
+        setScreen({ name: "launchers", from });
+        break;
+      case "launcher":
+        setScreen({ name: "launcher", store: route.store, from });
+        break;
+      case "welcome":
+        setScreen({ name: "welcome" });
+        break;
+      case "trophies":
+        setScreen({ name: "trophies", gameId: route.gameId, from });
+        break;
+      case "game":
+        setScreen({ name: "game", gameId: route.gameId, from });
+        break;
+      case "game-settings":
+        setScreen({ name: "game-settings", gameId: route.gameId, from });
         break;
       case "library":
         setScreen({ name: "library" });
@@ -474,10 +496,22 @@ export function App() {
     }
   };
 
+  /** Ferme une fenêtre web (Discord, musique) pour libérer la mémoire. */
+  const closeWindow = (window: BrowserWindow) => {
+    system.windowChanged(window, false);
+    void browserClose(window);
+    notify("info", window === "social" ? "Discord fermé" : `${getSite("music").name} fermé`, "Mémoire libérée.");
+  };
+
   const openGame = (game: Game) => {
     setDialog(null);
     setScreen({ name: "game", gameId: game.id, from: screen });
   };
+
+  // Console vierge (aucun jeu) au premier démarrage : l'accueil « Prépare ta console ».
+  useEffect(() => {
+    if (games && games.length === 0 && !prefs().welcomed && screen.name !== "welcome") setScreen({ name: "welcome" });
+  }, [games]);
 
   // Start : centre rapide, partout. Priorité la plus basse : les écrans et fenêtres passent avant.
   useNavAction((action) => {
@@ -520,32 +554,74 @@ export function App() {
   if (screen.name === "game") {
     const game = games?.find((g) => g.id === screen.gameId) ?? null;
     current = (
-      <GameDetail
+      <GamePage
         key={screen.gameId}
         client={view}
         game={game}
         loading={!games}
         installing={screen.gameId in installs}
         progress={installs[screen.gameId] ?? null}
-        running={session?.gameId === screen.gameId}
-        runningName={runningName}
+        running={session?.phase === "running" && session.gameId === screen.gameId}
+        lastSession={game ? sessions[game.id] ?? game.lastSessionSeconds ?? system.lastSession(game.id) : null}
         onPlay={play}
         onInstall={install}
+        onResume={() => setDialog({ kind: "quick" })}
         onUninstall={(g) => setDialog({ kind: "uninstall", gameId: g.id })}
+        onNavigate={navigate}
         onBack={() => back(screen.from)}
       />
     );
-  } else if (screen.name === "stores") {
+  } else if (screen.name === "trophies") {
+    current = <TrophyDetailPage game={games?.find((g) => g.id === screen.gameId) ?? null} onBack={() => back(screen.from)} />;
+  } else if (screen.name === "game-settings") {
     current = (
-      <Stores
+      <GameSettingsPage
+        game={games?.find((g) => g.id === screen.gameId) ?? null}
+        onNavigate={navigate}
+        onUninstall={(g) => setDialog({ kind: "uninstall", gameId: g.id })}
+        onNotify={(title, message) => notify("info", title, message)}
+        onBack={() => back(screen.from)}
+      />
+    );
+  } else if (screen.name === "launchers") {
+    current = (
+      <LaunchersPage
         stores={stores}
         error={storesError}
         syncing={syncing}
-        runningName={runningName}
+        onNavigate={navigate}
         onLogin={login}
         onSync={sync}
         onRetry={() => void loadStores()}
         onBack={() => back(screen.from.name === "home" ? undefined : screen.from)}
+      />
+    );
+  } else if (screen.name === "launcher") {
+    current = (
+      <LauncherPage
+        client={view}
+        storeId={screen.store}
+        store={stores?.find((s) => s.id === screen.store)}
+        syncing={syncing}
+        onNavigate={navigate}
+        onLogin={login}
+        onSync={sync}
+        onNotify={(title, message) => notify("info", title, message)}
+        onBack={() => back(screen.from)}
+      />
+    );
+  } else if (screen.name === "welcome") {
+    current = (
+      <Welcome
+        stores={stores}
+        syncing={syncing}
+        onNavigate={navigate}
+        onLogin={login}
+        onSync={sync}
+        onDone={() => {
+          setPrefs({ welcomed: true });
+          setScreen({ name: "home" });
+        }}
       />
     );
   } else if (screen.name === "library") {
@@ -568,7 +644,7 @@ export function App() {
           setScreen({ name: "game", gameId: game.id, from: { name: "library" } });
         }}
         onRetry={() => void loadGames()}
-        onOpenStores={() => setScreen({ name: "stores", from: { name: "library" } })}
+        onOpenStores={() => setScreen({ name: "launchers", from: { name: "library" } })}
         onBack={() => back()}
       />
     );
@@ -593,7 +669,9 @@ export function App() {
       screen.page === "search" ? (
         <SearchPage games={games} onOpenGame={openGame} onBack={onBack} />
       ) : screen.page === "trophees" ? (
-        <TrophiesPage games={games} onOpenGame={openGame} onBack={onBack} />
+        <TrophiesPage games={games} onOpenTrophies={(g) => navigate({ kind: "trophies", gameId: g.id })} onBack={onBack} />
+      ) : screen.page === "music" ? (
+        <MusicPage onOpen={() => navigate({ kind: "web", site: "music" })} onBack={onBack} />
       ) : (
         <NotificationsPage entries={history} onBack={onBack} />
       );
@@ -662,6 +740,7 @@ export function App() {
           onQuit={() => sessionGame && quit(sessionGame, false)}
           onForceQuit={() => session && setDialog({ kind: "force", gameId: session.gameId })}
           onNavigate={navigate}
+          onCloseWindow={closeWindow}
           onOpenGame={openGame}
           onPower={power}
         />
@@ -703,24 +782,29 @@ export function App() {
       )}
       {client && dialog?.kind === "relay" && (
         <Relay
-          to={RELAY_INFO[dialog.target].to}
+          to={relayInfo(dialog.target).to}
           title="Ta manette devient une souris"
-          text={RELAY_INFO[dialog.target].text}
+          text={relayInfo(dialog.target).text}
           mouse
-          onBack={() => setDialog(null)}
+          onBack={() => {
+            system.relayEnded(dialog.target);
+            setDialog(null);
+          }}
         />
       )}
       {client && dialog?.kind === "loading" && (
         <Relay
           key={dialog.site}
-          to={SITES[dialog.site].name}
-          title={`${SITES[dialog.site].name} s'ouvre…`}
+          to={getSite(dialog.site).name}
+          title={`${getSite(dialog.site).name} s'ouvre…`}
           mouse={false}
           loading={{
             ms: 1200,
             onDone: () => {
               setDialog(null);
-              setScreen({ name: "web", window: SITES[dialog.site].window, from: dialog.from.name === "web" ? { name: "home" } : dialog.from });
+              const window = getSite(dialog.site).window;
+              system.windowChanged(window, true);
+              setScreen({ name: "web", window, from: dialog.from.name === "web" ? { name: "home" } : dialog.from });
             },
           }}
           onBack={() => setDialog(null)}

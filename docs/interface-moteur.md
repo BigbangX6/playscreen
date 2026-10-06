@@ -70,3 +70,26 @@ La liste à jour est aussi dans `ui/README.md`, section « Pas encore possible �
   reprennent exactement les maquettes validées par la personne.
 - Le centre rapide reste sur **Start, partout**, et remplace l'ancien menu et l'ancien menu
   rapide en jeu.
+
+## 5. Deuxième vague (6 octobre 2026, après le test sur le PC)
+
+Écrans ajoutés côté design. Ce qui manque au moteur est **caché** dans la vraie interface
+(ou fait une action de repli) et **simulé** dans la démo. Code des écrans :
+`ui/src/screens/GamePages.tsx`, `Launchers.tsx`, `Pages.tsx` (Musique), `QuickCenter.tsx`.
+
+| # | Besoin | Écran | Piste | Où brancher |
+|---|---|---|---|---|
+| 13 | **Fermer une fenêtre web** (Discord, musique) pour libérer la mémoire | Centre rapide › En fond › « ✕ Fermer » | Commande Tauri `browser_close { window }` (détruire la WebView) ; aujourd'hui repli sur `browser_hide` | `browserClose()` dans `ui/src/shell.ts` |
+| 14 | **Service de musique choisi** (liste de 11 services + lien personnalisé) | Musique › Changer de service | Rien côté moteur : la fenêtre « musique » ouvre `getSite("music").url` (préférence gardée dans le stockage de la fenêtre) | `ui/src/prefs.ts`, `MUSIC_SERVICES` |
+| 15 | **Détail des trophées** d'un jeu : nom, description, date, rareté, secret | Trophées › un jeu ; page d'un jeu (« Derniers trophées ») | `GET /trophies/{gameId}` depuis SuccessStory (`Items` : Name, Description, DateUnlocked, Percent, IsHidden) | `trophyDetails()` dans `engine-system.ts` (renvoie `null` aujourd'hui) |
+| 16 | **Workshop** (jeux Steam) | Page du jeu, Paramètres du jeu | Relais `steam-workshop:<appid>` → `steam://url/SteamWorkshopPage/<appid>` | `ui/src-tauri/src/relay.rs`, fonction `target()` |
+| 17 | **Propriétés du jeu dans son launcher** | Page du jeu, Paramètres du jeu | Relais `game-properties:<store>:<id>` → Steam : `steam://gameproperties/<appid>` (à vérifier) ; Epic, Battle.net : page du jeu | `relay.rs` |
+| 18 | **Favori, caché, vérifier les fichiers** | Paramètres du jeu | Playnite : `Game.Favorite`, `Game.Hidden` ; vérifier : `steam://validate/<appid>`, Epic `?action=verify` | `gameOptions`, `setGameOption`, `verifyGame` (`engine-system.ts`) ; les lignes s'affichent dès que `gameOptions` n'est plus `null` |
+| 19 | **Installer un launcher** depuis Playscreen (premier démarrage, Comptes et launchers) | Relais `install-<launcher>` | Idéal : `winget install --id <LAUNCHERS[].winget> --silent` par le moteur (UAC : voir D9) ; sinon ouvrir `LAUNCHERS[].installUrl` en grand avec la souris | `relay.rs` ; catalogue dans `ui/src/screens/spaces.ts` (`LAUNCHERS`) |
+| 20 | **Paramètres complets d'un launcher** | Comptes et launchers › Réglages › « Tous les paramètres » | Relais `launcher-settings-<store>` → `steam://open/settings`, Epic `com.epicgames.launcher://settings`, Battle.net / Xbox : fenêtre principale | `relay.rs` |
+| 21 | Réglages recommandés (déjà faits : `GET/POST /launchers/settings`) | Comptes et launchers › Réglages | ✅ branché sur l'API existante | — |
+
+Le premier démarrage (« Prépare ta console ») s'affiche quand la bibliothèque est vide et
+que la personne ne l'a pas encore terminé (préférence `welcomed`). Il ne demande rien de
+plus au moteur : `stores()` (launcher installé, compte connecté, nombre de jeux), `login`,
+`sync`, et le relais `install-<launcher>` du point 19.

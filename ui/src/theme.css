@@ -119,6 +119,8 @@
   --stick-ring: #6b7488;
   --thumb-glow: rgba(61, 139, 255, 0.8);
   --adjust-help: #c3cbe0;
+  --trophy-gold: #f2d58f;
+  --trophy-bg: rgba(242, 213, 143, 0.16);
 
   /* Teinte de chaque espace (fond de l'aperçu sur l'accueil) et couleur de son surtitre */
   --space-search: radial-gradient(70% 90% at 80% 20%, #2a3550 0%, #141a2c 45%, #0a0d18 80%);

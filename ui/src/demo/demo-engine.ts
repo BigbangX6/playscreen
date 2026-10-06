@@ -240,6 +240,8 @@ class DemoEngine implements EngineClient {
     this.emit("sync.started", { storeId });
     this.later(2000, () => {
       this.busy.delete(`sync:${storeId}`);
+      // Console vierge : les jeux du compte arrivent à la synchronisation.
+      if (store.connected) this.importGames(storeId);
       this.emit("store.updated", this.storeView(store));
       this.emit("sync.finished", store.connected === false
         ? { storeId, ok: false, error: "not connected" }
@@ -256,8 +258,43 @@ class DemoEngine implements EngineClient {
     this.later(4000, () => {
       this.busy.delete("login");
       store.connected = this.settings.loginSucceeds;
+      if (store.connected) this.importGames(storeId);
       this.emit("store.updated", this.storeView(store));
     });
+  }
+
+  /** Ajoute les jeux d'exemple d'un store absents de la bibliothèque (console vierge). */
+  private importGames(storeId: StoreId) {
+    const added = demoGames()
+      .filter((g) => g.store === storeId && !this.gameMap.has(g.id))
+      .map((g) => ({ ...g, installed: false, installDirectory: null, lastPlayed: null, playtimeSeconds: 0 }));
+    if (!added.length) return;
+    for (const game of added) this.gameMap.set(game.id, game);
+    this.emit("library.updated", { added: added.map((g) => g.id), updated: [], removed: [] });
+  }
+
+  /**
+   * Premier démarrage sur une console vierge : aucun jeu, Steam et l'appli Xbox installés
+   * mais pas connectés, Epic et Battle.net à installer.
+   */
+  blankConsole() {
+    this.settings = { ...this.settings, emptyLibrary: true };
+    this.loadLibrary();
+    const blank: Record<StoreId, [boolean, boolean]> = { steam: [true, false], epic: [false, false], xbox: [true, false], battlenet: [false, false] };
+    for (const store of this.storeMap.values()) {
+      [store.launcherInstalled, store.connected] = blank[store.id];
+      this.emit("store.updated", this.storeView(store));
+    }
+    this.emit("library.updated", { added: [], updated: [], removed: [] });
+    this.changed();
+  }
+
+  /** Démo : le relais « Installer » a abouti (le vrai moteur le verra au retour). */
+  launcherInstalled(storeId: StoreId) {
+    const store = this.storeMap.get(storeId);
+    if (!store || store.launcherInstalled) return;
+    store.launcherInstalled = true;
+    this.emit("store.updated", this.storeView(store));
   }
 
   async session(): Promise<Session | null> {
@@ -324,13 +361,25 @@ class DemoEngine implements EngineClient {
     this.ensureOnline();
   }
 
+  /** Réglages recommandés des launchers (docs/launchers.md), modifiables dans la démo. */
+  private launcherOptions: LauncherSetting[] = [
+    { id: "steam.bigPictureOverlay", store: "steam", label: "Overlay manette de Steam en jeu", value: "0", recommended: "Activé", applied: false, launcherRunning: false },
+    { id: "steam.newsPopups", store: "steam", label: "Fenêtres d'actualités au démarrage", value: "1", recommended: "Désactivées", applied: false, launcherRunning: false },
+    { id: "battlenet.startMinimized", store: "battlenet", label: "Démarrer réduit", value: "true", recommended: "Oui", applied: true, launcherRunning: false },
+    { id: "battlenet.gameLaunch", store: "battlenet", label: "Au lancement d'un jeu : se ranger", value: null, recommended: "Zone de notification", applied: false, launcherRunning: true },
+  ];
+
   async launcherSettings(): Promise<LauncherSetting[]> {
     this.ensureOnline();
-    return [];
+    return this.launcherOptions.map((s) => ({ ...s }));
   }
 
-  async applyLauncherSetting(_id: string): Promise<void> {
+  async applyLauncherSetting(id: string): Promise<void> {
     this.ensureOnline();
+    const setting = this.launcherOptions.find((s) => s.id === id);
+    if (!setting) throw new ApiError(404, "unknown setting");
+    if (setting.launcherRunning) throw new ApiError(409, "running");
+    setting.applied = true;
   }
 
   mediaUrl(id: string, kind: "cover" | "background" | "icon"): string {
