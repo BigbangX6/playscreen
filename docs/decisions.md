@@ -101,7 +101,8 @@ Windows (tâche planifiée), sans fenêtre :
    (`PLAYSCREEN_SHORTCUT=select+start` : Select + Start maintenus 0,5 s). Raison :
    maintenir Select + Start ~1,5 s fait changer de mode certaines manettes (GameSir Nova 2
    Lite : Switch → PS4 → Xbox 360), ce qui explique aussi que Steam la voyait sous des noms
-   différents.
+   différents. **Select + X** (ajouté le 6 octobre 2026) force ou coupe la souris manette,
+   où que l'on soit.
 2. **Au démarrage**, affiche une notification Windows : « Maintiens Select + Start pour
    ouvrir Playscreen », avec les pictogrammes des touches selon la manette détectée.
 3. Au raccourci : **lance Playscreen** s'il n'est pas ouvert, sinon **le ramène au

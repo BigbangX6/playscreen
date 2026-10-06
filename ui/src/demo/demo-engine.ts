@@ -3,7 +3,7 @@
 // réglables depuis le panneau de démo (F2) pour voir chaque situation.
 
 import { ApiError, type EngineClient } from "../../../api/client.ts";
-import type { EngineEvent, EventMap, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophyItem, TrophySummary, Volume } from "../../../api/types.ts";
+import type { AppCandidate, EngineEvent, EventMap, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophyItem, TrophySummary, Volume } from "../../../api/types.ts";
 import { demoGames, demoImage, demoStores } from "./library.ts";
 
 export interface DemoSettings {
@@ -371,6 +371,34 @@ class DemoEngine implements EngineClient {
 
   async verifyGame(_gameId: string): Promise<void> {
     this.ensureOnline();
+  }
+
+  async appCandidates(): Promise<AppCandidate[]> {
+    this.ensureOnline();
+    return [
+      { name: "Minecraft Launcher", path: "C:\XboxGames\Minecraft Launcher\Minecraft.exe", arguments: "", added: false },
+      { name: "RetroArch", path: "C:\RetroArch\retroarch.exe", arguments: "", added: false },
+    ];
+  }
+
+  async addApp(app: { name: string; path: string; arguments?: string }): Promise<Game> {
+    this.ensureOnline();
+    const game: Game = { id: `app-${Date.now()}`, name: app.name, store: "other", installed: true, playtimeSeconds: 0, added: new Date().toISOString() };
+    this.gameMap.set(game.id, game);
+    this.emit("library.updated", { added: [game.id], updated: [], removed: [] });
+    return { ...game };
+  }
+
+  async removeApp(gameId: string): Promise<void> {
+    const game = await this.game(gameId);
+    if (game.store !== "other") throw new ApiError(409, "store game");
+    this.gameMap.delete(gameId);
+    this.emit("library.updated", { added: [], updated: [], removed: [gameId] });
+  }
+
+  async cancelInstall(gameId: string): Promise<void> {
+    this.ensureOnline();
+    this.emit("install.cancelled", { gameId });
   }
 
   async refreshTrophies(): Promise<void> {

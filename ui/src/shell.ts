@@ -124,3 +124,45 @@ export async function browserClose(window: string): Promise<void> {
     await invoke("browser_hide");
   }
 }
+
+/** Le temps pour un launcher d'afficher sa fenêtre après une demande d'installation. */
+const AWAY_WAIT_MS = 120_000;
+let awayArmed: (() => void) | null = null;
+
+/**
+ * Installation, désinstallation : le launcher va ouvrir une fenêtre (confirmation, dossier,
+ * place sur le disque). Dès que Playscreen perd le premier plan, la manette devient une
+ * souris pour y cliquer ; elle redevient une manette au retour sur Playscreen (Select + Y).
+ */
+export function mouseWhileAway(onBack?: () => void): void {
+  if (!IN_TAURI) return;
+  awayArmed?.();
+  let away = false;
+  const setMouse = async (on: boolean) => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("set_mouse_mode", { on });
+  };
+  const onBlur = () => {
+    if (away) return;
+    away = true;
+    clearTimeout(timer);
+    void setMouse(true);
+  };
+  const onFocus = () => {
+    if (!away) return;
+    disarm();
+    void setMouse(false);
+    onBack?.();
+  };
+  const disarm = () => {
+    clearTimeout(timer);
+    window.removeEventListener("blur", onBlur);
+    window.removeEventListener("focus", onFocus);
+    awayArmed = null;
+  };
+  // Pas de fenêtre au bout de deux minutes : on n'attend plus.
+  const timer = setTimeout(disarm, AWAY_WAIT_MS);
+  window.addEventListener("blur", onBlur);
+  window.addEventListener("focus", onFocus);
+  awayArmed = disarm;
+}

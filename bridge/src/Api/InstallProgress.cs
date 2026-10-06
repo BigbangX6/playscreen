@@ -31,8 +31,6 @@ namespace Playscreen.Bridge.Api
         private readonly HashSet<Guid> tracked = new HashSet<Guid>();
         /// <summary>Jeux dont le téléchargement a commencé (au moins un install.progress).</summary>
         private readonly HashSet<Guid> progressed = new HashSet<Guid>();
-        /// <summary>Installations annulées dans le launcher : le suivi s'arrête.</summary>
-        private readonly HashSet<Guid> cancelled = new HashSet<Guid>();
 
         public InstallProgress(IPlayniteAPI api, EventHub events)
         {
@@ -57,13 +55,13 @@ namespace Playscreen.Bridge.Api
             }
         }
 
-        /// <summary>Annulée dans le launcher (F30) : on arrête le suivi et on prévient l'interface.</summary>
+        /// <summary>
+        /// Pas de téléchargement (annulé dans le launcher, F30) : le jeu n'est plus « en
+        /// installation » et l'interface est prévenue. Le suivi continue : si le launcher
+        /// télécharge finalement, install.progress reprend.
+        /// </summary>
         public void Cancel(Guid gameId)
         {
-            lock (tracked)
-            {
-                cancelled.Add(gameId);
-            }
             logger.Info($"Playscreen: install of {gameId} cancelled in the launcher");
             // Playnite le croirait sinon toujours « en cours d'installation » et ignorerait
             // toute nouvelle demande (vu le 6 octobre 2026).
@@ -79,13 +77,7 @@ namespace Playscreen.Bridge.Api
             events.Publish("install.cancelled", new { gameId });
         }
 
-        private bool Running(DateTime started, Guid gameId)
-        {
-            lock (tracked)
-            {
-                return DateTime.Now - started < MaxDuration && !cancelled.Contains(gameId);
-            }
-        }
+        private static bool Running(DateTime started, Guid gameId) => DateTime.Now - started < MaxDuration;
 
         /// <summary>Suit l'installation en arrière-plan, si le store le permet.</summary>
         public void Track(Game game)
@@ -102,7 +94,6 @@ namespace Playscreen.Bridge.Api
                     return;
                 }
                 progressed.Remove(game.Id);
-                cancelled.Remove(game.Id);
             }
             if (store == "steam")
             {

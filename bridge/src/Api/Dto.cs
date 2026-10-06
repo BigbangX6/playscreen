@@ -75,6 +75,9 @@ namespace Playscreen.Bridge.Api
         [SerializationPropertyName("gameId")] public Guid GameId { get; set; }
         [SerializationPropertyName("phase")] public string Phase { get; set; }
         [SerializationPropertyName("startedAt")] public DateTime StartedAt { get; set; }
+        /// <summary>Fenêtre de l'application hors launcher (GameWindows), à mettre au premier plan.</summary>
+        [SerializationPropertyName("windowHandle")] public long? WindowHandle { get; set; }
+        [DontSerialize] public uint ProcessId { get; set; }
     }
 
     /// <summary>Partie en cours, tenue à jour par les événements de jeu de Playnite.</summary>
@@ -102,6 +105,21 @@ namespace Playscreen.Bridge.Api
                     current = new SessionDto { GameId = gameId, StartedAt = DateTime.Now };
                 }
                 current.Phase = "running";
+            }
+        }
+
+        /// <summary>Faux si la partie n'est plus en cours.</summary>
+        public bool SetWindow(Guid gameId, IntPtr handle, uint processId)
+        {
+            lock (sync)
+            {
+                if (current?.GameId != gameId)
+                {
+                    return false;
+                }
+                current.WindowHandle = handle.ToInt64();
+                current.ProcessId = processId;
+                return true;
             }
         }
 

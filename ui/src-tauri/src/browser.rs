@@ -81,20 +81,11 @@ fn open(app: &AppHandle, window: &str, url: &str, user_agent: Option<String>) ->
         .parent(&main)
         .map_err(|e| e.to_string())?
         .initialization_script(CURSOR_SCRIPT)
-        // Nouvelle fenêtre (lien « _blank », window.open) : ouverte dans la même page.
+        // Fenêtre surgissante (connexion Google / Discord, window.open, lien « _blank ») :
+        // vraie fenêtre, au-dessus du site, qui garde le lien avec la page (window.opener).
         .on_new_window({
             let app = app.clone();
-            let label = label.clone();
-            move |target, _features| {
-                let app = app.clone();
-                let label = label.clone();
-                std::thread::spawn(move || {
-                    if let Some(view) = app.get_webview_window(&label) {
-                        let _ = view.navigate(target);
-                    }
-                });
-                tauri::webview::NewWindowResponse::Deny
-            }
+            move |target, features| popup(&app, target, features)
         });
     if let Some(agent) = user_agent {
         builder = builder.user_agent(&agent);
@@ -109,6 +100,43 @@ fn open(app: &AppHandle, window: &str, url: &str, user_agent: Option<String>) ->
     Ok(())
 }
 
+static POPUPS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Crée la fenêtre surgissante demandée par un site : centrée, avec sa barre de titre (croix
+/// pour la fermer), toujours devant le site en plein écran. La souris manette reste active.
+fn popup(app: &AppHandle, target: Url, features: tauri::webview::NewWindowFeatures) -> tauri::webview::NewWindowResponse<tauri::Wry> {
+    let label = format!("popup-{}", POPUPS.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+    let sized = features.size().is_some();
+    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(target))
+        .title("Playscreen – fenêtre du site")
+        .skip_taskbar(true)
+        .always_on_top(true)
+        .initialization_script(CURSOR_SCRIPT)
+        .window_features(features);
+    if !sized {
+        builder = builder.inner_size(1000.0, 750.0);
+    }
+    match builder.center().build() {
+        Ok(window) => {
+            let _ = window.set_focus();
+            tauri::webview::NewWindowResponse::Create { window }
+        }
+        Err(error) => {
+            eprintln!("[navigateur] fenêtre surgissante : {error}");
+            tauri::webview::NewWindowResponse::Deny
+        }
+    }
+}
+
+/// Les fenêtres surgissantes restent devant tout : on les ferme en revenant à Playscreen.
+fn close_popups(app: &AppHandle) {
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("popup-") {
+            let _ = window.destroy();
+        }
+    }
+}
+
 /// Cache le navigateur (retour à Playscreen) ; les pages restent chargées. La manette
 /// redevient une manette.
 #[tauri::command]
@@ -121,6 +149,7 @@ pub fn browser_hide(app: AppHandle) {
             let _ = view.hide();
         }
     }
+    close_popups(&app);
     if any_visible {
         crate::relay::set_mouse_mode(false);
     }
@@ -137,6 +166,7 @@ pub fn browser_close(app: AppHandle, window: String) {
     let label = label(&window);
     let state = app.state::<BrowserState>();
     state.views.lock().unwrap().remove(&label);
+    close_popups(&app);
     if let Some(view) = app.get_webview_window(&label) {
         let visible = view.is_visible().unwrap_or(false);
         let _ = view.destroy();

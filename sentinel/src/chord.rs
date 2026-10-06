@@ -10,6 +10,7 @@ pub mod buttons {
     pub const START: u16 = 0x0010;
     /// « Select », « View » (Xbox) ou « Create/Share » (PlayStation).
     pub const BACK: u16 = 0x0020;
+    pub const X: u16 = 0x4000;
     pub const Y: u16 = 0x8000;
 }
 
@@ -28,6 +29,9 @@ pub const SELECT_Y: Shortcut = Shortcut { chord: buttons::BACK | buttons::Y, hol
 /// Select + Start, maintenus une demi-seconde (avant le changement de mode de certaines manettes).
 pub const SELECT_START: Shortcut =
     Shortcut { chord: META_CHORD, hold: Duration::from_millis(500), label: "Select + Start (maintenus)" };
+
+/// Select + X : active ou coupe la souris manette, où que l'on soit.
+pub const SELECT_X: u16 = buttons::BACK | buttons::X;
 
 impl Shortcut {
     /// « select+y » ou « select+start » (réglage PLAYSCREEN_SHORTCUT) ; Select + Y sinon.

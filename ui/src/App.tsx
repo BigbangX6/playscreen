@@ -22,7 +22,7 @@ import { QuickCenter, type Download } from "./screens/QuickCenter.tsx";
 import { Relay } from "./screens/Relay.tsx";
 import { Settings } from "./screens/Settings.tsx";
 import { getSite, relayInfo, type BrowserWindow, type RelayTarget, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
-import { browserClose, endRelay, focusLauncherWindow, resumeGame, startRelay } from "./shell.ts";
+import { browserClose, endRelay, focusLauncherWindow, mouseWhileAway, resumeGame, startRelay } from "./shell.ts";
 import { connectSystem, system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
@@ -89,6 +89,8 @@ interface Session {
 
 /** Sans progression après ce délai, on explique ce que le launcher attend (F4). */
 const INSTALL_GUIDE_DELAY_MS = 1500;
+/** Après le retour sur Playscreen, le temps laissé au launcher pour commencer à télécharger. */
+const NO_DOWNLOAD_GRACE_MS = 15_000;
 const TOAST_MS = 5000;
 
 function describeError(error: unknown): string {
@@ -211,15 +213,24 @@ export function App() {
     void loadStores();
     client.volume().then(setVolume, () => setVolume(null));
     client.session().then(
-      (current) =>
+      (current) => {
+        if (current?.windowHandle) appWindows.current[current.gameId] = current.windowHandle;
         setSession((s) =>
           current
             ? { gameId: current.gameId, phase: current.phase, since: Date.parse(current.startedAt), hidden: s?.hidden ?? false }
             : null,
-        ),
+        );
+      },
       () => undefined,
     );
   }, [client, loadGames, loadStores]);
+
+  // Fenêtre des applications hors launcher (game.window) : « Reprendre » la met devant.
+  const appWindows = useRef<Record<string, number>>({});
+  const bringGameForward = (game: Game) => {
+    const handle = appWindows.current[game.id];
+    return handle ? focusLauncherWindow(handle) : resumeGame(game);
+  };
 
   // Retour sur Playscreen pendant une partie (Select + Start, D10) : menu rapide d'abord.
   const sessionRef = useRef(session);
@@ -276,6 +287,11 @@ export function App() {
         break;
       case "game.starting":
         setSession((s) => (s?.gameId === event.data.gameId ? s : { gameId: event.data.gameId, phase: "starting", since: Date.now(), hidden: false }));
+        // Mémoire pour le jeu : les fenêtres web fermées, sauf Discord et la musique.
+        for (const window of ["boutique", "internet"] as const) {
+          system.windowChanged(window, false);
+          void browserClose(window);
+        }
         break;
       case "game.started": {
         setSession((s) => ({ gameId: event.data.gameId, phase: "running", since: s?.since ?? Date.now(), hidden: false }));
@@ -284,10 +300,16 @@ export function App() {
         // Windows empêche le jeu (lancé en arrière-plan par son launcher) de passer devant
         // Playscreen : c'est Playscreen, au premier plan, qui lui cède la place.
         const game = gamesRef.current?.find((g) => g.id === event.data.gameId);
-        if (game) void resumeGame(game);
+        if (game) void bringGameForward(game);
         break;
       }
+      case "game.window":
+        appWindows.current[event.data.gameId] = event.data.handle;
+        // Lancée en arrière-plan, l'application s'ouvre derrière Playscreen : on lui cède la place.
+        if (document.hasFocus()) void focusLauncherWindow(event.data.handle);
+        break;
       case "game.stopped":
+        delete appWindows.current[event.data.gameId];
         setSession(null);
         setSessions((all) => ({ ...all, [event.data.gameId]: event.data.sessionSeconds }));
         setDialog((d) => (d?.kind === "quick" || d?.kind === "force" ? null : d));
@@ -361,6 +383,13 @@ export function App() {
     if (!client) return;
     forgetLauncher(game);
     setInstalls((all) => ({ ...all, [game.id]: null }));
+    // Retour sur Playscreen sans téléchargement commencé (annulé, fenêtre fermée) : le jeu
+    // n'est plus noté « en téléchargement ».
+    mouseWhileAway(() =>
+      setTimeout(() => {
+        if (installsRef.current[game.id] === null) void client.cancelInstall(game.id).catch(() => undefined);
+      }, NO_DOWNLOAD_GRACE_MS),
+    );
     client.install(game.id).then(
       () =>
         setTimeout(() => {
@@ -376,6 +405,7 @@ export function App() {
   const uninstall = (game: Game) => {
     if (!client) return;
     setDialog(null);
+    mouseWhileAway();
     client.uninstall(game.id).then(
       () => notify("info", `Désinstallation de ${game.name}…`),
       (error) => notify("error", `Impossible de désinstaller ${game.name}`, describeError(error)),
@@ -410,7 +440,7 @@ export function App() {
   /** Reprendre : on ferme le menu et on remet le jeu au premier plan (dans Tauri). */
   const resume = (game: Game) => {
     setDialog(null);
-    void resumeGame(game);
+    void bringGameForward(game);
   };
 
   /** Quitter le jeu (ou forcer sa fermeture) ; la fin arrive par game.stopped. */

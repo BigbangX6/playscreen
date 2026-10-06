@@ -121,6 +121,15 @@ Testés sur le PC : trophées détaillés (Worms, Among Us), favori, propriété
 paramètres Steam, paramètres Epic, vérification Steam et Epic. Pas testés : installation
 d'un launcher par winget (UAC sur le bureau sécurisé, voir F31), fermeture d'une fenêtre web.
 
+**Soir du 6 octobre** (retours de la personne après son test, le web « marche très bien ») :
+fenêtres surgissantes, souris pendant installation / désinstallation, Select + X (souris
+forcée), plus de « téléchargement » fantôme, ménage au lancement d'un jeu (fenêtres web,
+autres launchers fermés), applications hors launcher ([`hors-launcher.md`](hors-launcher.md)).
+Détail : [`interface-moteur.md` § 6](interface-moteur.md). Testé sur le PC : Bloc-notes et
+Audacity (fenêtre trouvée, « Quitter », Steam et Epic fermés au lancement), ajout / retrait
+d'Audacity, liste des candidats (45). Pas testés à la manette : Select + X, fenêtres
+surgissantes, souris à l'installation.
+
 **Prochaine tâche annoncée** : finir Xbox, puis navigateur manette (fenêtres WebView2 cachées : Boutique,
 Social / Discord, Musique / Spotify, Internet), puis étude des options des launchers
 (overlay Big Picture de Steam, etc.) pour les ramener sur Playscreen. Ensuite Xbox (phase

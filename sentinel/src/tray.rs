@@ -5,7 +5,7 @@
 
 use std::cell::RefCell;
 use std::ptr::{null, null_mut};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -26,7 +26,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::actions::{self, Config};
-use crate::chord::{ChordDetector, Shortcut};
+use crate::chord::{ChordDetector, Shortcut, SELECT_X};
 use crate::input::{DefaultSource, GamepadSource};
 use crate::mouse::{Key, MouseMapper, MouseStep};
 use crate::nav::{NavKey, NavMapper};
@@ -49,6 +49,8 @@ struct State {
     source: DefaultSource,
     detector: ChordDetector,
     shortcut: Shortcut,
+    /// Select + X : souris manette forcée ou coupée.
+    mouse_toggle: ChordDetector,
     taskbar: Taskbar,
     ticks: u32,
     /// Manette → touches pour Playscreen au premier plan ; None si Playscreen n'est pas devant.
@@ -76,6 +78,7 @@ pub fn run(config: Config) {
             source,
             detector: ChordDetector::new(shortcut.chord, shortcut.hold),
             shortcut,
+            mouse_toggle: ChordDetector::new(SELECT_X, Duration::ZERO),
             taskbar: Taskbar::new(),
             ticks: 0,
             nav: None,
@@ -171,7 +174,20 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                             state.nav = None;
                         }
                     }
-                    if state.detector.update(pad.buttons, now) {
+                    if state.mouse_toggle.update(pad.buttons, now) {
+                        if let Some((mut mapper, _)) = state.mouse.take() {
+                            send_mouse(&mapper.release_all());
+                            actions::log("Souris manette coupée (Select + X)");
+                        } else {
+                            let mut mapper = MouseMapper::new();
+                            // Les boutons encore enfoncés ne comptent pas.
+                            mapper.step(pad, 0.0);
+                            state.mouse = Some((mapper, now));
+                            state.remote = false;
+                            actions::log("Souris manette forcée (Select + X)");
+                        }
+                        state.nav = None;
+                    } else if state.detector.update(pad.buttons, now) {
                         // Le méta-raccourci termine aussi le mode souris : retour à Playscreen.
                         if let Some((mut mapper, _)) = state.mouse.take() {
                             send_mouse(&mapper.release_all());

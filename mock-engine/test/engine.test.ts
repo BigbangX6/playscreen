@@ -180,6 +180,16 @@ describe("faux moteur", () => {
     });
     assert.equal(events.at(-1)?.type, "game.updated");
   });
+  it("ajoute puis retire une application hors launcher", async () => {
+    const [candidate] = await client.appCandidates();
+    const app = await client.addApp({ name: candidate!.name, path: candidate!.path });
+    assert.equal(app.store, "other");
+    assert.ok((await client.games()).some((g) => g.id === app.id));
+    await client.removeApp(app.id);
+    assert.ok(!(await client.games()).some((g) => g.id === app.id));
+    const [storeGame] = await client.games({ store: "steam" });
+    await assert.rejects(() => client.removeApp(storeGame!.id), (e) => e instanceof ApiError && e.status === 409);
+  });
   it("règle un launcher seulement s'il est fermé", async () => {
     await assert.rejects(() => client.applyLauncherSetting("steam.bigPictureOverlay"), (e) => e instanceof ApiError && e.status === 409);
     await client.applyLauncherSetting("battlenet.gameLaunch");

@@ -53,6 +53,8 @@ export interface Session {
   /** « starting » : lancé, le jeu n'a pas encore démarré ; « running » : il tourne. */
   phase: "starting" | "running";
   startedAt: string;
+  /** Fenêtre d'une application hors launcher, à mettre au premier plan (voir game.window). */
+  windowHandle?: number | null;
 }
 
 /**
@@ -110,6 +112,15 @@ export interface TrophySummary {
   refreshing: boolean;
 }
 
+/** Application ou jeu hors launcher proposé à l'ajout (raccourcis du menu Démarrer). */
+export interface AppCandidate {
+  name: string;
+  path: string;
+  arguments: string;
+  /** Déjà dans la bibliothèque. */
+  added: boolean;
+}
+
 /** Un trophée d'un jeu (GET /trophies/{gameId}). */
 export interface TrophyItem {
   /** Identifiant donné par le launcher. */
@@ -145,6 +156,8 @@ export interface EventMap {
   "game.stopped": { gameId: string; sessionSeconds: number };
   "game.installed": { gameId: string };
   "game.uninstalled": { gameId: string };
+  /** Application hors launcher : sa fenêtre est apparue (derrière Playscreen, à mettre devant). */
+  "game.window": { gameId: string; handle: number };
   /** Favori ou caché changé (POST /games/{id}/options). */
   "game.updated": Game;
   "install.progress": { gameId: string; bytesDone: number; bytesTotal: number };

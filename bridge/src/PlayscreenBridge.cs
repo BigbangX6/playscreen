@@ -56,6 +56,20 @@ namespace Playscreen.Bridge
             events.Publish("game.starting", new { gameId = args.Game.Id });
             // Le launcher peut démarrer ou se mettre à jour avant le jeu (F26).
             launchers.Watch(Stores.FromPluginId(args.Game.PluginId));
+            // La mémoire pour le jeu : les autres launchers sont fermés.
+            LauncherShutdown.CloseOthers(PlayniteApi, Stores.FromPluginId(args.Game.PluginId));
+            if (Stores.FromPluginId(args.Game.PluginId) == "other")
+            {
+                // Application hors launcher : sa fenêtre s'ouvre derrière Playscreen.
+                var gameId = args.Game.Id;
+                Api.GameWindows.Watch(gameId, () => session.Current?.GameId == gameId, (handle, processId) =>
+                {
+                    if (session.SetWindow(gameId, handle, processId))
+                    {
+                        events.Publish("game.window", new { gameId, handle = handle.ToInt64() });
+                    }
+                });
+            }
         }
 
         public override void OnGameStarted(OnGameStartedEventArgs args)

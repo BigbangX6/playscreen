@@ -215,6 +215,33 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
         return json(200, game);
       }),
     ),
+    route("GET", /^\/apps\/candidates$/, () =>
+      json(200, [{ name: "RetroArch", path: "C:\RetroArch\retroarch.exe", arguments: "", added: false }]),
+    ),
+    route("POST", /^\/apps$/, (_, query) => {
+      const path = query.get("path") ?? "";
+      if (!path.toLowerCase().endsWith(".exe")) return json(400, { error: "existing .exe path required" });
+      const game = { id: `app-${games.size + 1}`, name: query.get("name") || "Application", store: "other" as const, installed: true, playtimeSeconds: 0 };
+      games.set(game.id, game as never);
+      emit("library.updated", { added: [game.id], updated: [], removed: [] });
+      return json(201, game);
+    }),
+    route("DELETE", /^\/games\/([^/]+)$/, ([id]) =>
+      withGame(id!, (game) => {
+        if (game.store !== "other") return json(409, { error: "store game" });
+        if (session?.gameId === game.id) return json(409, { error: "running" });
+        games.delete(game.id);
+        emit("library.updated", { added: [], updated: [], removed: [game.id] });
+        return empty(204);
+      }),
+    ),
+    route("POST", /^\/games\/([^/]+)\/install\/cancel$/, ([id]) =>
+      withGame(id!, (game) => {
+        if (game.installed) return json(409, { error: "downloading" });
+        emit("install.cancelled", { gameId: game.id });
+        return empty(202);
+      }),
+    ),
     route("POST", /^\/games\/([^/]+)\/verify$/, ([id]) =>
       withGame(id!, (game) => {
         if (!game.installed) return json(409, { error: "not installed" });

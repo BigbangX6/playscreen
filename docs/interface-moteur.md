@@ -113,3 +113,29 @@ Le premier démarrage (« Prépare ta console ») s'affiche quand la bibliothèq
 que la personne ne l'a pas encore terminé (préférence `welcomed`). Il ne demande rien de
 plus au moteur : `stores()` (launcher installé, compte connecté, nombre de jeux), `login`,
 `sync`, et le relais `install-<launcher>` du point 19.
+
+## 6. Après le test du 6 octobre au soir (session Windows)
+
+Demandé par la personne, fait dans le moteur ; ce qui touche l'écran est déjà branché
+dans `App.tsx` ou à dessiner :
+
+- **Fenêtres surgissantes des sites** (connexion Google, Discord…) : vraies fenêtres,
+  centrées, devant le site, fermées au retour sur Playscreen.
+- **Souris pendant une installation / désinstallation** : dès que Playscreen perd le
+  premier plan après la demande (fenêtre du launcher), la manette devient une souris ;
+  elle redevient une manette au retour (`mouseWhileAway` dans `shell.ts`). Le relais
+  `install-<launcher>` était déjà en mode souris.
+- **Select + X** (sentinelle) : force ou coupe la souris manette, partout. **À dessiner** :
+  le mentionner dans l'aide / les raccourcis.
+- **Pas de téléchargement = pas « en téléchargement »** : si la personne revient sur
+  Playscreen et qu'aucun téléchargement n'a commencé 15 s plus tard, `POST
+  /games/{id}/install/cancel` (→ `install.cancelled`). La passerelle le fait aussi quand la
+  fenêtre de confirmation du launcher se ferme sans téléchargement (tous les stores
+  désormais). Si le launcher télécharge finalement, `install.progress` reprend.
+- **Au lancement d'un jeu** : fenêtres web Boutique et Internet fermées (Discord et la
+  musique gardés) ; autres launchers **vraiment fermés** (Steam proprement, Epic,
+  Battle.net, Xbox arrêtés), sauf celui du jeu et ceux qui téléchargent. EA app, Ubisoft
+  Connect ne sont pas touchés (certains jeux en ont besoin).
+- **Jeux et applications hors launcher** : voir [`hors-launcher.md`](hors-launcher.md)
+  (fenêtre mise devant, « Quitter », ajout depuis le menu Démarrer, retrait). **À dessiner** :
+  « Ajouter une application », vignette sans jaquette, « Retirer de la bibliothèque ».

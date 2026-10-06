@@ -1,6 +1,6 @@
 // Client de l'API Playscreen, partagé par `psc`, les tests et (plus tard) l'interface.
 
-import type { EngineEvent, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume, TrophyItem } from "./types.ts";
+import type { AppCandidate, EngineEvent, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume, TrophyItem } from "./types.ts";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -50,6 +50,14 @@ export interface EngineClient {
   setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean }): Promise<Game>;
   /** Vérifier les fichiers dans le launcher (Steam, Epic ; 409 ailleurs). */
   verifyGame(gameId: string): Promise<void>;
+  /** Applications hors launcher proposées à l'ajout (menu Démarrer, sans les outils de Windows). */
+  appCandidates(): Promise<AppCandidate[]>;
+  /** Ajoute une application hors launcher (store « other »), avec son icône. */
+  addApp(app: { name: string; path: string; arguments?: string }): Promise<Game>;
+  /** Retire de la bibliothèque une application hors launcher (409 pour un jeu de store ou en cours). */
+  removeApp(gameId: string): Promise<void>;
+  /** Aucun téléchargement n'a commencé : le jeu n'est plus « en installation » (install.cancelled ; 409 s'il télécharge). */
+  cancelInstall(gameId: string): Promise<void>;
   /** Récupère les trophées de toute la bibliothèque en arrière-plan (suite : trophies.updated). */
   refreshTrophies(): Promise<void>;
   /** Réglages des launchers recommandés pour Playscreen. */
@@ -210,6 +218,24 @@ export class PlayscreenClient implements EngineClient {
   /** Vérifier les fichiers dans le launcher (Steam, Epic). */
   verifyGame(gameId: string) {
     return this.post(`/games/${encodeURIComponent(gameId)}/verify`);
+  }
+
+  appCandidates() {
+    return this.get<AppCandidate[]>("/apps/candidates");
+  }
+
+  async addApp(app: { name: string; path: string; arguments?: string }): Promise<Game> {
+    const query = new URLSearchParams({ name: app.name, path: app.path, arguments: app.arguments ?? "" });
+    const response = await this.request("POST", `/apps?${query}`);
+    return (await response.json()) as Game;
+  }
+
+  async removeApp(gameId: string): Promise<void> {
+    await this.request("DELETE", `/games/${encodeURIComponent(gameId)}`);
+  }
+
+  cancelInstall(gameId: string) {
+    return this.post(`/games/${encodeURIComponent(gameId)}/install/cancel`);
   }
 
   refreshTrophies() {

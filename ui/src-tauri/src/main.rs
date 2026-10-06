@@ -66,6 +66,12 @@ fn end_relay(target: String) -> bool {
     relay::end(&target)
 }
 
+/// Souris manette oui / non (installation, désinstallation : fenêtres des launchers).
+#[tauri::command]
+fn set_mouse_mode(on: bool) -> bool {
+    relay::set_mouse_mode(on)
+}
+
 /// La sentinelle tourne-t-elle ? Elle lit alors la manette pour l'interface (toutes les
 /// manettes) et l'interface ne la lit plus elle-même, pour éviter les doubles appuis.
 #[tauri::command]
@@ -76,7 +82,7 @@ fn sentinel_running() -> bool {
 fn main() {
     tauri::Builder::default()
         .manage(browser::BrowserState::default())
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, set_mouse_mode, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

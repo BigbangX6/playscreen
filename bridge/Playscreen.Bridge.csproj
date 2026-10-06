@@ -23,6 +23,7 @@
     <Reference Include="WindowsBase" />
     <Reference Include="System.Xaml" />
     <Reference Include="System.Management" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 
   <ItemGroup>

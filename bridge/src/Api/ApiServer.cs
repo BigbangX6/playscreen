@@ -96,7 +96,7 @@ namespace Playscreen.Bridge.Api
                     progress.Track(game);
                     var gameId = game.Id;
                     launcherWindows.Watch(storeId, gameId, () => progress.HasProgress(gameId),
-                        storeId == "steam" ? (Action)(() => progress.Cancel(gameId)) : null, windowsBefore);
+                        () => progress.Cancel(gameId), windowsBefore);
                     // Demande faite pendant que le launcher démarre ou se met à jour : il
                     // l'ignore parfois (F25). On la renvoie une fois qu'il est prêt.
                     launchers.Watch(storeId, wasReady ? null : (Action)(() => ResendInstall(game.Id)));
@@ -119,6 +119,33 @@ namespace Playscreen.Bridge.Api
                     launcherWindows.Watch(Stores.FromPluginId(game.PluginId), game.Id);
                     launchers.Watch(Stores.FromPluginId(game.PluginId));
                     return reply;
+                })),
+                // Applications hors launcher (docs/hors-launcher.md).
+                new Route("GET", @"^/apps/candidates$", _ => Json(200, CustomApps.Candidates(api))),
+                new Route("POST", @"^/apps$", ctx => AddApp(ctx.Request.QueryString)),
+                new Route("DELETE", @"^/games/([^/]+)$", ctx => WithGame(ctx, game =>
+                {
+                    if (game.PluginId != Guid.Empty)
+                    {
+                        return Json(409, new { error = "store game" });
+                    }
+                    if (session.Current?.GameId == game.Id)
+                    {
+                        return Json(409, new { error = "running" });
+                    }
+                    api.MainView.UIDispatcher.Invoke(() => api.Database.Games.Remove(game.Id));
+                    events.Publish("library.updated", new { added = new string[0], updated = new string[0], removed = new[] { game.Id.ToString() } });
+                    return new Reply(204);
+                })),
+                // L'interface revient sans qu'aucun téléchargement n'ait commencé (F30).
+                new Route("POST", @"^/games/([^/]+)/install/cancel$", ctx => WithGame(ctx, game =>
+                {
+                    if (game.IsInstalled || progress.HasProgress(game.Id))
+                    {
+                        return Json(409, new { error = "downloading" });
+                    }
+                    progress.Cancel(game.Id);
+                    return new Reply(202);
                 })),
                 new Route("POST", @"^/games/([^/]+)/options$", ctx => WithGame(ctx, game => SetGameOptions(game, ctx.Request.QueryString))),
                 new Route("POST", @"^/games/([^/]+)/verify$", ctx => WithGame(ctx, Verify)),
@@ -271,6 +298,13 @@ namespace Playscreen.Bridge.Api
                 return Json(409, new { error = "not running" });
             }
             var count = GameProcesses.Stop(game, force);
+            var current = session.Current;
+            if (count == 0 && current?.WindowHandle != null
+                && GameWindows.Close(new IntPtr(current.WindowHandle.Value), current.ProcessId, force))
+            {
+                // Application hors launcher : processus hors de son dossier (GameWindows).
+                count = 1;
+            }
             logger.Info($"Playscreen: stop {game.Name} (force: {force}) -> {count} process(es)");
             return count > 0 ? new Reply(202) : Json(409, new { error = "no process found" });
         }
@@ -308,6 +342,19 @@ namespace Playscreen.Bridge.Api
                     logger.Error(e, $"Playscreen: Xbox uninstall of {familyName} failed");
                 }
             });
+        }
+
+        private Reply AddApp(System.Collections.Specialized.NameValueCollection query)
+        {
+            var path = query["path"];
+            if (string.IsNullOrEmpty(path) || !path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+            {
+                return Json(400, new { error = "existing .exe path required" });
+            }
+            Playnite.SDK.Models.Game game = null;
+            api.MainView.UIDispatcher.Invoke(() => game = CustomApps.Add(api, query["name"], path, query["arguments"]));
+            events.Publish("library.updated", new { added = new[] { game.Id.ToString() }, updated = new string[0], removed = new string[0] });
+            return Json(201, GameDto.From(game, api));
         }
 
         /// <summary>Favori, caché (?favorite=true&amp;hidden=false) : Playnite les garde.</summary>

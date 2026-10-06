@@ -102,6 +102,36 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Game" }
         "404": { description: Jeu inconnu }
+    delete:
+      summary: Retire une application hors launcher de la bibliothèque (docs/hors-launcher.md)
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "204": { description: Retirée (événement library.updated) }
+        "404": { description: Jeu inconnu }
+        "409": { description: Jeu d'un store, ou en cours }
+  /apps/candidates:
+    get:
+      summary: Applications proposées à l'ajout (raccourcis du menu Démarrer vers un .exe, sans les outils de Windows)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/AppCandidate" } }
+  /apps:
+    post:
+      summary: Ajoute une application hors launcher (store « other »), installée, avec l'icône de l'exécutable
+      parameters:
+        - { name: path, in: query, required: true, schema: { type: string }, description: Chemin d'un .exe existant }
+        - { name: name, in: query, schema: { type: string } }
+        - { name: arguments, in: query, schema: { type: string } }
+      responses:
+        "201":
+          description: Ajoutée (événement library.updated)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Game" }
+        "400": { description: Pas un .exe existant }
   /games/{gameId}/start:
     post:
       summary: Lance le jeu
@@ -266,6 +296,14 @@ paths:
         "202": { description: Désinstallation demandée (événement game.uninstalled) }
         "404": { description: Jeu inconnu }
         "409": { description: Non installé }
+  /games/{gameId}/install/cancel:
+    post:
+      summary: Aucun téléchargement n'a commencé (annulé dans le launcher) ; le jeu n'est plus « en installation »
+      parameters: [{ $ref: "#/components/parameters/GameId" }]
+      responses:
+        "202": { description: Fait (événement install.cancelled) ; si le launcher télécharge finalement, install.progress reprend }
+        "404": { description: Jeu inconnu }
+        "409": { description: Installé, ou téléchargement en cours }
   /games/{gameId}/options:
     post:
       summary: Favori, caché (Playnite les garde) ; renvoie le jeu (événement game.updated)
@@ -369,6 +407,14 @@ components:
         gameId: { type: string, format: uuid }
         phase: { type: string, enum: [starting, running] }
         startedAt: { type: string, format: date-time }
+        windowHandle: { type: integer, nullable: true, description: Fenêtre d'une application hors launcher (game.window) }
+    AppCandidate:
+      type: object
+      properties:
+        name: { type: string }
+        path: { type: string }
+        arguments: { type: string }
+        added: { type: boolean, description: Déjà dans la bibliothèque }
     Volume:
       type: object
       required: [level, muted]
@@ -450,6 +496,7 @@ components:
         - game.stopped : { gameId, sessionSeconds }
         - game.installed / game.uninstalled : { gameId }
         - game.updated : Game (favori ou caché changé)
+        - game.window : { gameId, handle } (application hors launcher : sa fenêtre, à mettre au premier plan)
         - install.progress : { gameId, bytesDone, bytesTotal }
         - install.cancelled : { gameId } — installation annulée dans le launcher (fenêtre de
           confirmation fermée sans téléchargement ; Steam pour l'instant)
