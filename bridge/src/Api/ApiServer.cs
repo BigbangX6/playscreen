@@ -96,7 +96,7 @@ namespace Playscreen.Bridge.Api
                     progress.Track(game);
                     var gameId = game.Id;
                     launcherWindows.Watch(storeId, gameId, () => progress.HasProgress(gameId),
-                        () => progress.Cancel(gameId), windowsBefore);
+                        () => progress.Cancel(gameId), windowsBefore, () => launchers.Current(storeId) == LauncherMonitor.Ready);
                     // Demande faite pendant que le launcher démarre ou se met à jour : il
                     // l'ignore parfois (F25). On la renvoie une fois qu'il est prêt.
                     launchers.Watch(storeId, wasReady ? null : (Action)(() => ResendInstall(game.Id)));

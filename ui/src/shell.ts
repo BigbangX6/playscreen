@@ -125,18 +125,19 @@ export async function browserClose(window: string): Promise<void> {
   }
 }
 
-/** Le temps pour un launcher d'afficher sa fenêtre après une demande d'installation. */
-const AWAY_WAIT_MS = 120_000;
-let awayArmed: (() => void) | null = null;
+/** Au-delà, on ne suit plus l'installation (le launcher n'a rien montré ou tout est fini). */
+const AWAY_WAIT_MS = 10 * 60_000;
 
 /**
- * Installation, désinstallation : le launcher va ouvrir une fenêtre (confirmation, dossier,
- * place sur le disque). Dès que Playscreen perd le premier plan, la manette devient une
- * souris pour y cliquer ; elle redevient une manette au retour sur Playscreen (Select + Y).
+ * Installation, désinstallation : le launcher ouvre des fenêtres (démarrage, confirmation,
+ * dossier, place sur le disque). Chaque fois que Playscreen perd le premier plan, la manette
+ * devient une souris pour y cliquer ; chaque fois qu'il le reprend, elle redevient une
+ * manette et `onBack` est appelé. Le launcher peut passer devant plusieurs fois (Steam :
+ * écran de démarrage, puis la fenêtre « Installer »). Renvoie la fonction qui arrête le
+ * suivi (téléchargement commencé, installation annulée…).
  */
-export function mouseWhileAway(onBack?: () => void): void {
-  if (!IN_TAURI) return;
-  awayArmed?.();
+export function mouseWhileAway(onBack?: () => void): () => void {
+  if (!IN_TAURI) return () => undefined;
   let away = false;
   const setMouse = async (on: boolean) => {
     const { invoke } = await import("@tauri-apps/api/core");
@@ -145,12 +146,11 @@ export function mouseWhileAway(onBack?: () => void): void {
   const onBlur = () => {
     if (away) return;
     away = true;
-    clearTimeout(timer);
     void setMouse(true);
   };
   const onFocus = () => {
     if (!away) return;
-    disarm();
+    away = false;
     void setMouse(false);
     onBack?.();
   };
@@ -158,11 +158,9 @@ export function mouseWhileAway(onBack?: () => void): void {
     clearTimeout(timer);
     window.removeEventListener("blur", onBlur);
     window.removeEventListener("focus", onFocus);
-    awayArmed = null;
   };
-  // Pas de fenêtre au bout de deux minutes : on n'attend plus.
   const timer = setTimeout(disarm, AWAY_WAIT_MS);
   window.addEventListener("blur", onBlur);
   window.addEventListener("focus", onFocus);
-  awayArmed = disarm;
+  return disarm;
 }

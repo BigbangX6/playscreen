@@ -123,13 +123,15 @@ dans `App.tsx` ou à dessiner :
   centrées, devant le site, fermées au retour sur Playscreen.
 - **Souris pendant une installation / désinstallation** : dès que Playscreen perd le
   premier plan après la demande (fenêtre du launcher), la manette devient une souris ;
-  elle redevient une manette au retour (`mouseWhileAway` dans `shell.ts`). Le relais
+  elle redevient une manette au retour (`mouseWhileAway` dans `shell.ts`), autant de fois
+  que le launcher passe devant (Steam : écran de démarrage, puis fenêtre « Installer »). Le relais
   `install-<launcher>` était déjà en mode souris.
 - **Select + X** (sentinelle) : force ou coupe la souris manette, partout. **À dessiner** :
   le mentionner dans l'aide / les raccourcis.
 - **Pas de téléchargement = pas « en téléchargement »** : si la personne revient sur
   Playscreen et qu'aucun téléchargement n'a commencé 15 s plus tard, `POST
-  /games/{id}/install/cancel` (→ `install.cancelled`). La passerelle le fait aussi quand la
+  /games/{id}/install/cancel` (→ `install.cancelled`), à condition que Playscreen soit
+  toujours devant. La passerelle le fait aussi quand la
   fenêtre de confirmation du launcher se ferme sans téléchargement (tous les stores
   désormais). Si le launcher télécharge finalement, `install.progress` reprend.
 - **Au lancement d'un jeu** : fenêtres web Boutique et Internet fermées (Discord et la

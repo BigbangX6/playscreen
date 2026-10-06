@@ -259,6 +259,8 @@ export function App() {
     switch (event.type) {
       case "install.progress": {
         const { gameId, bytesDone, bytesTotal } = event.data;
+        // Le téléchargement a commencé : plus besoin de guetter les fenêtres du launcher.
+        stopAway(gameId);
         if (!installStarts.current[gameId] && bytesDone > 0) installStarts.current[gameId] = { at: Date.now(), bytes: bytesDone };
         setInstalls((all) => ({ ...all, [gameId]: { bytesDone, bytesTotal } }));
         // Le téléchargement a commencé : la consigne n'est plus utile.
@@ -266,11 +268,13 @@ export function App() {
         break;
       }
       case "install.cancelled":
+        stopAway(event.data.gameId);
         setInstalls(({ [event.data.gameId]: _, ...rest }) => rest);
         setDialog((d) => (d?.kind === "install" && d.gameId === event.data.gameId ? null : d));
         notify("info", `Installation annulée : ${nameOf(event.data.gameId)}`);
         break;
       case "game.installed":
+        stopAway(event.data.gameId);
         delete installStarts.current[event.data.gameId];
         setInstalls(({ [event.data.gameId]: _, ...rest }) => rest);
         setDialog((d) => (d?.kind === "install" && d.gameId === event.data.gameId ? null : d));
@@ -278,6 +282,7 @@ export function App() {
         void loadGames();
         break;
       case "game.uninstalled":
+        stopAway(event.data.gameId);
         notify("info", `${nameOf(event.data.gameId)} est désinstallé`);
         void loadGames();
         break;
@@ -379,15 +384,23 @@ export function App() {
     });
   };
 
+  /** Suivi « souris quand le launcher passe devant » de chaque installation / désinstallation. */
+  const awayWatchers = useRef<Record<string, () => void>>({});
+  const stopAway = (gameId: string) => {
+    awayWatchers.current[gameId]?.();
+    delete awayWatchers.current[gameId];
+  };
+
   const install = (game: Game) => {
     if (!client) return;
     forgetLauncher(game);
     setInstalls((all) => ({ ...all, [game.id]: null }));
-    // Retour sur Playscreen sans téléchargement commencé (annulé, fenêtre fermée) : le jeu
-    // n'est plus noté « en téléchargement ».
-    mouseWhileAway(() =>
+    // Retour sur Playscreen, resté devant, sans téléchargement commencé (annulé, fenêtre
+    // fermée) : le jeu n'est plus noté « en téléchargement ».
+    stopAway(game.id);
+    awayWatchers.current[game.id] = mouseWhileAway(() =>
       setTimeout(() => {
-        if (installsRef.current[game.id] === null) void client.cancelInstall(game.id).catch(() => undefined);
+        if (document.hasFocus() && installsRef.current[game.id] === null) void client.cancelInstall(game.id).catch(() => undefined);
       }, NO_DOWNLOAD_GRACE_MS),
     );
     client.install(game.id).then(
@@ -405,7 +418,8 @@ export function App() {
   const uninstall = (game: Game) => {
     if (!client) return;
     setDialog(null);
-    mouseWhileAway();
+    stopAway(game.id);
+    awayWatchers.current[game.id] = mouseWhileAway();
     client.uninstall(game.id).then(
       () => notify("info", `Désinstallation de ${game.name}…`),
       (error) => notify("error", `Impossible de désinstaller ${game.name}`, describeError(error)),

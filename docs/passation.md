@@ -127,8 +127,15 @@ forcée), plus de « téléchargement » fantôme, ménage au lancement d'un jeu
 autres launchers fermés), applications hors launcher ([`hors-launcher.md`](hors-launcher.md)).
 Détail : [`interface-moteur.md` § 6](interface-moteur.md). Testé sur le PC : Bloc-notes et
 Audacity (fenêtre trouvée, « Quitter », Steam et Epic fermés au lancement), ajout / retrait
-d'Audacity, liste des candidats (45). Pas testés à la manette : Select + X, fenêtres
-surgissantes, souris à l'installation.
+d'Audacity, liste des candidats (45). Testés ensuite avec la manette virtuelle (nouvelle
+version) : Bloc-notes devant Playscreen, Reprendre, Quitter ; Select + X ; fenêtre
+surgissante (connexion Google sur Instant Gaming) fermée au retour ; au lancement, Boutique
+fermée et Discord gardé ; « ✕ Fermer » ; installation de Spider-Man 2 avec Steam fermé
+(souris sur la fenêtre « Installer », « Annuler », plus « en téléchargement » 15 s après le
+retour). Deux défauts corrigés pendant ces tests : la souris coupée quand l'écran de
+démarrage de Steam se fermait, et « annulé » annoncé trop tôt (fenêtre « Se connecter à
+Steam » prise pour la confirmation). Vu une fois, pas reproduit : une fenêtre
+d'impression de Windows sur Playscreen.
 
 **Prochaine tâche annoncée** : finir Xbox, puis navigateur manette (fenêtres WebView2 cachées : Boutique,
 Social / Discord, Musique / Spotify, Internet), puis étude des options des launchers

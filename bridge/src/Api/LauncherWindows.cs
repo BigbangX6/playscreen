@@ -58,7 +58,7 @@ namespace Playscreen.Bridge.Api
                 ? new HashSet<IntPtr>(Find(names).Select(w => w.Handle))
                 : new HashSet<IntPtr>();
 
-        public void Watch(string storeId, Guid? gameId, Func<bool> started = null, Action cancelled = null, HashSet<IntPtr> before = null)
+        public void Watch(string storeId, Guid? gameId, Func<bool> started = null, Action cancelled = null, HashSet<IntPtr> before = null, Func<bool> launcherReady = null)
         {
             if (!Processes.TryGetValue(storeId, out var names))
             {
@@ -93,7 +93,9 @@ namespace Playscreen.Bridge.Api
                         {
                             // La fenêtre principale du launcher reste ouverte : seule une vraie
                             // fenêtre de confirmation compte pour savoir si on a annulé.
-                            if (!MainTitles.Contains(window.Title))
+                            // Fenêtres du démarrage du launcher (« Se connecter à Steam »…) : pas
+                            // une confirmation, on attend qu'il soit prêt.
+                            if (!MainTitles.Contains(window.Title) && (launcherReady == null || launcherReady()))
                             {
                                 prompts.Add(window.Handle);
                             }
