@@ -204,6 +204,8 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
     route("POST", /^\/system\/power$/, (_, query) =>
       ["sleep", "shutdown", "restart"].includes(query.get("action") ?? "") ? empty(202) : json(400, { error: "unknown action" }),
     ),
+    // Le faux moteur reste ouvert (tests).
+    route("POST", /^\/system\/quit$/, () => empty(202)),
     route("POST", /^\/system\/brightness$/, (_, query) => {
       const level = Number(query.get("level"));
       if (!Number.isFinite(level)) return json(400, { error: "level required" });

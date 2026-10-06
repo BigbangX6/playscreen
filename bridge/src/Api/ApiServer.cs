@@ -137,6 +137,7 @@ namespace Playscreen.Bridge.Api
                     : trophies.TryRefresh() ? new Reply(202) : Json(409, new { error = "busy" })),
                 new Route("GET", @"^/system$", _ => Json(200, systemInfo.Get())),
                 new Route("POST", @"^/system/power$", ctx => Power(ctx.Request.QueryString["action"])),
+                new Route("POST", @"^/system/quit$", _ => Quit()),
                 new Route("POST", @"^/system/brightness$", ctx => SetBrightness(ctx.Request.QueryString["level"])),
                 new Route("POST", @"^/system/audio-output/next$", _ =>
                 {
@@ -333,6 +334,19 @@ namespace Playscreen.Bridge.Api
                 // Même commande que l'extension Battle.net de Playnite.
                 Process.Start(exe, $"--game={progress.BattleNetUid(game)}");
             }
+        }
+
+        /// <summary>
+        /// « Bureau Windows » : arrête le moteur (Playnite et la passerelle). Seule la sentinelle
+        /// reste ; le méta-raccourci relance tout. Répond d'abord, puis demande à Playnite de se
+        /// fermer proprement (son option --shutdown, comme le fait start-engine.cmd).
+        /// </summary>
+        private Reply Quit()
+        {
+            var exe = Process.GetCurrentProcess().MainModule.FileName;
+            logger.Info("Playscreen: engine shutdown requested");
+            Task.Delay(500).ContinueWith(_ => Process.Start(exe, "--shutdown"));
+            return new Reply(202);
         }
 
         /// <summary>Répond d'abord : un arrêt immédiat couperait la réponse.</summary>

@@ -28,7 +28,7 @@ pub const POLL_INTERVAL: Duration = Duration::from_millis(16);
 
 #[cfg(windows)]
 fn main() {
-    let config = actions::Config::from_env();
+    let config = actions::Config::load();
     // `--focus` : fait une fois ce que fait Select + Start, puis s'arrête (tests, scripts).
     if std::env::args().any(|arg| arg == "--focus") {
         actions::launch_or_focus(&config);
@@ -52,9 +52,9 @@ fn main() {
     use input::{DefaultSource, GamepadSource};
     use std::time::Instant;
 
-    let config = actions::Config::from_env();
+    let config = actions::Config::load();
     let mut source = DefaultSource;
-    let shortcut = Shortcut::parse(std::env::var("PLAYSCREEN_SHORTCUT").ok().as_deref());
+    let shortcut = Shortcut::parse(config.shortcut.as_deref());
     let mut detector = ChordDetector::new(shortcut.chord, shortcut.hold);
     actions::log("Prête. Maintiens Select + Start pour ouvrir Playscreen.");
     loop {

@@ -88,6 +88,8 @@ namespace Playscreen.Bridge.Api
             switch (name.ToLowerInvariant())
             {
                 case "zunemusic": return "Lecteur multimédia";
+                // Les sites ouverts dans le navigateur de Playscreen (WebView2).
+                case "msedgewebview2": return "Navigateur Playscreen";
                 case "zunevideo": return "Films et TV";
                 case "chrome": return "Chrome";
                 case "msedge": return "Edge";

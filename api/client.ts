@@ -34,6 +34,8 @@ export interface EngineClient {
   system(): Promise<SystemInfo>;
   /** Veille, arrêt ou redémarrage immédiats du PC. */
   power(action: PowerAction): Promise<void>;
+  /** Arrête le moteur (« Bureau Windows ») ; la sentinelle le relance. */
+  quit(): Promise<void>;
   /** Faux (409) si l'écran ne se règle pas. */
   setBrightness(level: number): Promise<number>;
   /** Passe à la sortie audio suivante ; renvoie son nom. */
@@ -147,6 +149,10 @@ export class PlayscreenClient implements EngineClient {
 
   power(action: PowerAction) {
     return this.post(`/system/power?action=${action}`);
+  }
+
+  quit() {
+    return this.post("/system/quit");
   }
 
   async setBrightness(level: number) {

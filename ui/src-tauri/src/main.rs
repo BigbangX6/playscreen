@@ -36,11 +36,11 @@ fn engine_info() -> Result<serde_json::Value, String> {
     serde_json::from_str(&text).map_err(|e| e.to_string())
 }
 
-/// « Bureau Windows » : réduit la fenêtre (Playscreen reste en mémoire). La sentinelle la
-/// restaure avec Select + Start.
+/// « Bureau Windows » : ferme Playscreen (le moteur est arrêté par l'interface). Seule la
+/// sentinelle reste ; le méta-raccourci relance tout.
 #[tauri::command]
-fn hide_to_desktop(window: tauri::WebviewWindow) -> bool {
-    window.minimize().is_ok()
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
 }
 
 /// Clavier manette de Windows : ouvert quand un champ de texte a le focus, fermé ensuite.
@@ -76,7 +76,7 @@ fn sentinel_running() -> bool {
 fn main() {
     tauri::Builder::default()
         .manage(browser::BrowserState::default())
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard, start_relay, end_relay, browser::browser_open, browser::browser_hide, sentinel_running])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, browser::browser_open, browser::browser_hide, sentinel_running])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

@@ -36,6 +36,7 @@ namespace Playscreen.Bridge
                 server.Start();
                 logger.Info($"Playscreen API listening on port {server.Port}");
                 sync.RefreshConnections();
+                SystemVolume.Watch(events);
             }
             catch (Exception e)
             {

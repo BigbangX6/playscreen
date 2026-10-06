@@ -9,6 +9,36 @@ namespace Playscreen.Bridge.Api
     /// </summary>
     internal static class SystemVolume
     {
+        /// <summary>
+        /// Surveille le volume (lu chaque seconde) et publie volume.changed quand il change
+        /// ailleurs que dans Playscreen (touches du clavier, mélangeur de Windows, casque…).
+        /// </summary>
+        public static void Watch(EventHub events)
+        {
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                VolumeDto last = null;
+                while (true)
+                {
+                    try
+                    {
+                        var current = Get();
+                        if (last != null && (current.Level != last.Level || current.Muted != last.Muted))
+                        {
+                            events.Publish("volume.changed", current);
+                        }
+                        last = current;
+                    }
+                    catch (Exception)
+                    {
+                        // Pas de sortie audio pour l'instant (casque débranché…) : on réessaie.
+                        last = null;
+                    }
+                    await System.Threading.Tasks.Task.Delay(1000).ConfigureAwait(false);
+                }
+            });
+        }
+
         public static VolumeDto Get()
         {
             var endpoint = Endpoint();

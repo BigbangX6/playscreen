@@ -297,6 +297,10 @@ class DemoEngine implements EngineClient {
     this.ensureOnline();
   }
 
+  async quit(): Promise<void> {
+    this.ensureOnline();
+  }
+
   async setBrightness(level: number): Promise<number> {
     this.ensureOnline();
     return Math.max(0, Math.min(100, Math.round(level)));

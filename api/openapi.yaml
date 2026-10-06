@@ -204,6 +204,11 @@ paths:
       responses:
         "202": { description: Demandé (exécuté une demi-seconde après la réponse) }
         "400": { description: Action inconnue }
+  /system/quit:
+    post:
+      summary: Arrête le moteur (« Bureau Windows ») ; la sentinelle le relance au méta-raccourci
+      responses:
+        "202": { description: Demandé (exécuté une demi-seconde après la réponse) }
   /system/brightness:
     post:
       summary: Règle la luminosité de l'écran intégré

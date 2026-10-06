@@ -10,26 +10,63 @@ pub const PLAYSCREEN_WINDOW_TITLE: &str = "Playscreen";
 pub struct Config {
     /// Exécutable de Playscreen à lancer s'il n'est pas déjà ouvert.
     pub playscreen_exe: Option<PathBuf>,
+    /// Démarrage du moteur (start-engine.cmd), lancé avant Playscreen s'il est arrêté.
+    pub engine: Option<PathBuf>,
     /// Titre exact de la fenêtre à ramener au premier plan.
     pub window_title: String,
+    /// Méta-raccourci (« select+y » ou « select+start »).
+    pub shortcut: Option<String>,
+}
+
+/// Réglages lus dans %LOCALAPPDATA%\Playscreen\sentinel.cfg (lignes « clé=valeur » : exe,
+/// engine, window, shortcut). Les variables d'environnement PLAYSCREEN_EXE, PLAYSCREEN_ENGINE,
+/// PLAYSCREEN_WINDOW et PLAYSCREEN_SHORTCUT passent devant (tests).
+pub fn parse_config(text: &str) -> Vec<(String, String)> {
+    text.lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                return None;
+            }
+            let (key, value) = line.split_once('=')?;
+            Some((key.trim().to_ascii_lowercase(), value.trim().to_string()))
+        })
+        .collect()
 }
 
 impl Config {
-    /// PLAYSCREEN_EXE et PLAYSCREEN_WINDOW (tant que l'interface n'existe pas, on teste
-    /// avec n'importe quel programme, par exemple le Bloc-notes).
-    pub fn from_env() -> Self {
+    pub fn load() -> Self {
+        let file = std::env::var_os("LOCALAPPDATA")
+            .map(|d| PathBuf::from(d).join("Playscreen").join("sentinel.cfg"))
+            .and_then(|f| std::fs::read_to_string(f).ok())
+            .unwrap_or_default();
+        let settings = parse_config(&file);
+        let get = |env: &str, key: &str| {
+            std::env::var(env).ok().or_else(|| settings.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone()))
+        };
         Self {
-            playscreen_exe: std::env::var_os("PLAYSCREEN_EXE").map(PathBuf::from),
-            window_title: std::env::var("PLAYSCREEN_WINDOW").unwrap_or_else(|_| PLAYSCREEN_WINDOW_TITLE.to_string()),
+            playscreen_exe: get("PLAYSCREEN_EXE", "exe").map(PathBuf::from),
+            engine: get("PLAYSCREEN_ENGINE", "engine").map(PathBuf::from),
+            window_title: get("PLAYSCREEN_WINDOW", "window").unwrap_or_else(|| PLAYSCREEN_WINDOW_TITLE.to_string()),
+            shortcut: get("PLAYSCREEN_SHORTCUT", "shortcut"),
         }
     }
 }
 
-/// Ramène Playscreen au premier plan, ou le lance s'il n'est pas ouvert.
+/// Ramène Playscreen au premier plan, ou le lance (avec le moteur s'il est arrêté).
 pub fn launch_or_focus(config: &Config) {
     if platform::focus_window(&config.window_title) {
         log("Playscreen ramené au premier plan");
         return;
+    }
+    if let Some(engine) = &config.engine {
+        if !platform::process_running("Playnite.DesktopApp") {
+            // start-engine.cmd sans fenêtre de console.
+            match platform::start_hidden(engine) {
+                Ok(()) => log(&format!("Moteur démarré : {}", engine.display())),
+                Err(e) => log(&format!("Échec du démarrage du moteur {} : {e}", engine.display())),
+            }
+        }
     }
     match &config.playscreen_exe {
         Some(exe) => {
@@ -39,7 +76,7 @@ pub fn launch_or_focus(config: &Config) {
                 Err(e) => log(&format!("Échec du lancement de {} : {e}", exe.display())),
             }
         }
-        None => log("Playscreen introuvable : PLAYSCREEN_EXE n'est pas défini"),
+        None => log("Playscreen introuvable : « exe » absent de sentinel.cfg"),
     }
 }
 
@@ -118,6 +155,44 @@ mod platform {
         unsafe { !FindWindowW(std::ptr::null(), title.as_ptr()).is_null() }
     }
 
+    pub fn process_running(name: &str) -> bool {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+        };
+        let wanted = format!("{name}.exe").to_ascii_lowercase();
+        // SAFETY : instantané des processus parcouru puis fermé.
+        unsafe {
+            let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            if snapshot.is_null() {
+                return false;
+            }
+            let mut entry: PROCESSENTRY32W = std::mem::zeroed();
+            entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+            let mut found = false;
+            let mut ok = Process32FirstW(snapshot, &mut entry) != 0;
+            while ok && !found {
+                let len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
+                found = String::from_utf16_lossy(&entry.szExeFile[..len]).to_ascii_lowercase() == wanted;
+                ok = Process32NextW(snapshot, &mut entry) != 0;
+            }
+            CloseHandle(snapshot);
+            found
+        }
+    }
+
+    /// Lance un script (.cmd) sans fenêtre de console.
+    pub fn start_hidden(path: &std::path::Path) -> std::io::Result<()> {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let mut command = std::process::Command::new("cmd");
+        command.arg("/c").arg(path).creation_flags(CREATE_NO_WINDOW);
+        if let Some(dir) = path.parent() {
+            command.current_dir(dir);
+        }
+        command.spawn().map(|_| ())
+    }
+
     /// Autorise le programme lancé à passer au premier plan.
     pub fn allow_launched_window_to_take_focus() {
         // SAFETY : sans argument pointeur.
@@ -148,4 +223,26 @@ mod platform {
     }
 
     pub fn allow_launched_window_to_take_focus() {}
+
+    pub fn process_running(_name: &str) -> bool {
+        false
+    }
+
+    pub fn start_hidden(_path: &std::path::Path) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_config;
+
+    #[test]
+    fn lit_les_reglages() {
+        let settings = parse_config("# commentaire\nexe = C:\\Playscreen\\Playscreen.exe\n\nShortcut=select+start\nsans egal\n");
+        assert_eq!(settings, vec![
+            ("exe".to_string(), "C:\\Playscreen\\Playscreen.exe".to_string()),
+            ("shortcut".to_string(), "select+start".to_string()),
+        ]);
+    }
 }

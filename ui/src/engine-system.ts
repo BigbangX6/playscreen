@@ -5,7 +5,7 @@
 import type { EngineClient } from "../../api/client.ts";
 import type { SystemInfo, TrophySummary } from "../../api/types.ts";
 import { formatRelativeDate } from "./format.ts";
-import { hideToDesktop } from "./shell.ts";
+import { quitApp } from "./shell.ts";
 import type { PowerAction, SystemBridge, SystemSnapshot } from "./system.ts";
 
 /** Assez souvent pour suivre la musique, sans charger le moteur. */
@@ -124,7 +124,9 @@ export function createEngineSystem(client: EngineClient): SystemBridge {
     trophies: (gameId) => trophies?.games[gameId] ?? null,
     lastSession: () => null,
     power(action: PowerAction) {
-      if (action === "desktop") void hideToDesktop();
+      // « Bureau Windows » : moteur arrêté, Playscreen fermé ; seule la sentinelle reste et le
+      // méta-raccourci relance tout.
+      if (action === "desktop") void client.quit().finally(() => void quitApp());
       else act(() => client.power(action));
     },
   };

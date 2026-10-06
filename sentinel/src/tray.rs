@@ -67,7 +67,7 @@ thread_local! {
 }
 
 pub fn run(config: Config) {
-    let shortcut = Shortcut::parse(std::env::var("PLAYSCREEN_SHORTCUT").ok().as_deref());
+    let shortcut = Shortcut::parse(config.shortcut.as_deref());
     let source = DefaultSource::new();
     let description = source.describe();
     STATE.with(|s| {
