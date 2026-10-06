@@ -12,6 +12,8 @@ mod input;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod mouse;
 #[cfg_attr(not(windows), allow(dead_code))]
+mod nav;
+#[cfg_attr(not(windows), allow(dead_code))]
 mod taskbar;
 #[cfg(windows)]
 mod sdl;

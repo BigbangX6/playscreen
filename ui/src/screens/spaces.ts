@@ -66,9 +66,19 @@ export interface Site {
   window: BrowserWindow;
   /** Adresse ouverte dans le vrai navigateur (fenêtre Playscreen). */
   url: string;
+  /** Identité donnée au site ; le site a alors sa propre fenêtre (YouTube TV). */
+  userAgent?: string;
   /** Couleurs du bandeau de la page simulée (démo). */
   hero: [string, string];
 }
+
+/**
+ * Une télé Sony : YouTube sert alors son interface TV (youtube.com/tv), faite pour la
+ * télécommande (flèches, Entrée, Échap : croix, Start, B en mode souris). Même identité que
+ * l'extension « Youtube TV On PC ».
+ */
+const TV_USER_AGENT =
+  "Mozilla/5.0 (Linux; Andr0id 9; BRAVIA 8K UR2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.125 Safari/537.36 OPR/46.0.2207.0 OMI/4.21.0.273.DIA6.149 Model/Sony-BRAVIA-8K-UR2";
 
 export const SITES: Record<SiteId, Site> = {
   "instant-gaming": { name: "Instant Gaming", domain: "instant-gaming.com", window: "boutique", url: "https://www.instant-gaming.com/fr/", hero: ["#ff5a1f", "#ff9a3c"] },
@@ -81,7 +91,7 @@ export const SITES: Record<SiteId, Site> = {
   "youtube-music": { name: "YouTube Music", domain: "music.youtube.com", window: "musique", url: "https://music.youtube.com/", hero: ["#ff0033", "#7a0019"] },
   deezer: { name: "Deezer", domain: "deezer.com", window: "musique", url: "https://www.deezer.com/fr/", hero: ["#a238ff", "#5b1aa8"] },
   "new-page": { name: "Nouvelle page", domain: "Rechercher ou saisir une adresse", window: "internet", url: "https://www.google.com/", hero: ["#3a4256", "#262c3c"] },
-  youtube: { name: "YouTube", domain: "youtube.com", window: "internet", url: "https://www.youtube.com/", hero: ["#ff0033", "#a8001f"] },
+  youtube: { name: "YouTube", domain: "youtube.com/tv", window: "internet", url: "https://www.youtube.com/tv", userAgent: TV_USER_AGENT, hero: ["#ff0033", "#a8001f"] },
   wikipedia: { name: "Wikipédia", domain: "fr.wikipedia.org", window: "internet", url: "https://fr.wikipedia.org/", hero: ["#8a8f99", "#c9ccd1"] },
   twitch: { name: "Twitch", domain: "twitch.tv", window: "internet", url: "https://www.twitch.tv/", hero: ["#9146ff", "#5c16c5"] },
 };

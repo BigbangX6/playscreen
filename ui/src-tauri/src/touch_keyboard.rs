@@ -8,7 +8,8 @@ pub fn show() -> bool {
     set_visible(true)
 }
 
-/// Ouvre ou ferme le clavier (Y dans le navigateur).
+/// Ouvre ou ferme le clavier.
+#[allow(dead_code)]
 pub fn toggle() {
     let visible = is_visible();
     set_visible(!visible);

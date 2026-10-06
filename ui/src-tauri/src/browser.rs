@@ -1,52 +1,55 @@
-//! Navigateur manette : les vrais sites (Boutique, Social, Musique, Internet), chacun dans une
-//! fenêtre sans bordure posée sous la barre du navigateur de l'interface et rattachée à
-//! Playscreen (toujours au-dessus de lui, absente de la barre des tâches). Une fenêtre par
-//! fenêtre du navigateur, gardée ouverte et cachée quand on revient à Playscreen : la musique
-//! et l'appel Discord continuent. La manette y est gérée par browser-pad.js.
+//! Navigateur Playscreen : les vrais sites (Boutique, Social, Musique, Internet), chacun dans une
+//! fenêtre sans bordure, en plein écran, rattachée à Playscreen (au-dessus de lui, absente de la
+//! barre des tâches). Une fenêtre par fenêtre du navigateur, gardée ouverte et cachée quand on
+//! revient à Playscreen : la musique et l'appel Discord continuent.
+//! Le site n'est pas modifié : la manette pilote la vraie souris (mode souris de la sentinelle :
+//! A clic, B Échap, stick droit molette…) et le méta-raccourci ramène Playscreen. Le script
+//! injecté (browser-pad.js) affiche seulement un gros curseur.
 //! (Une vue ajoutée dans la fenêtre Playscreen, `add_child`, restait vide le 6 octobre 2026.)
 
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindowBuilder};
 
-const PAD_SCRIPT: &str = include_str!("browser-pad.js");
-const ZOOM_STEP: f64 = 0.1;
+const CURSOR_SCRIPT: &str = include_str!("browser-pad.js");
 
-/// Par vue : dernière adresse demandée par l'interface, et zoom.
+/// Par fenêtre : dernière adresse demandée par l'interface.
 #[derive(Default)]
 pub struct BrowserState {
-    views: Mutex<HashMap<String, (String, f64)>>,
+    views: Mutex<HashMap<String, String>>,
 }
 
 fn label(window: &str) -> String {
     format!("web-{window}")
 }
 
-/// Ouvre (ou montre) la fenêtre `window` du navigateur sur `url`, sous `top` pixels (la
-/// barre de l'interface). Une vue déjà ouverte sur la même adresse n'est pas rechargée.
-/// Asynchrone : sous Windows, créer une fenêtre web depuis une commande synchrone la bloque
-/// (fenêtre blanche, jamais initialisée).
+/// Ouvre (ou montre) la fenêtre `window` du navigateur sur `url`, en plein écran, et passe la
+/// manette en souris. `user_agent` : identité donnée au site (YouTube TV : une télé), seulement
+/// à la création de la fenêtre. Une fenêtre déjà ouverte sur la même adresse n'est pas rechargée.
+/// Asynchrone : sous Windows, créer une fenêtre web depuis une commande synchrone la bloque.
 #[tauri::command]
-pub async fn browser_open(app: AppHandle, window: String, url: String, top: f64) -> Result<(), String> {
-    let result = open(&app, &window, &url, top);
+pub async fn browser_open(app: AppHandle, window: String, url: String, user_agent: Option<String>) -> Result<(), String> {
+    // YouTube TV (identité de télé) se pilote comme avec une télécommande ; les autres sites
+    // avec la souris.
+    let remote = user_agent.is_some();
+    let result = open(&app, &window, &url, user_agent);
     if let Err(error) = &result {
         eprintln!("[navigateur] {window} {url} : {error}");
+    } else if remote {
+        crate::relay::set_remote_mode();
+    } else {
+        crate::relay::set_mouse_mode(true);
     }
     result
 }
 
-fn open(app: &AppHandle, window: &str, url: &str, top: f64) -> Result<(), String> {
-    let url = url.to_string();
+fn open(app: &AppHandle, window: &str, url: &str, user_agent: Option<String>) -> Result<(), String> {
     let main = app.get_webview_window("main").ok_or("fenêtre principale introuvable")?;
-    let scale = main.scale_factor().map_err(|e| e.to_string())?;
-    let origin = main.inner_position().map_err(|e| e.to_string())?;
-    let inner = main.inner_size().map_err(|e| e.to_string())?;
-    // `top` vient de l'interface, en pixels CSS : on le convertit en pixels de l'écran.
-    let top = (top * scale).round() as i32;
-    let position = PhysicalPosition::new(origin.x, origin.y + top);
-    let size = PhysicalSize::new(inner.width, inner.height.saturating_sub(top as u32).max(1));
+    let position = main.inner_position().map_err(|e| e.to_string())?;
+    let size = main.inner_size().map_err(|e| e.to_string())?;
     let label = label(window);
+    let parsed = Url::parse(url).map_err(|e| e.to_string())?;
     let state = app.state::<BrowserState>();
     let mut views = state.views.lock().unwrap();
 
@@ -58,10 +61,9 @@ fn open(app: &AppHandle, window: &str, url: &str, top: f64) -> Result<(), String
     }
 
     if let Some(view) = app.get_webview_window(&label) {
-        let entry = views.entry(label.clone()).or_insert((url.clone(), 1.0));
-        if entry.0 != url {
-            entry.0 = url.clone();
-            view.navigate(Url::parse(&url).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+        if views.get(&label).map(String::as_str) != Some(url) {
+            views.insert(label.clone(), url.to_string());
+            view.navigate(parsed).map_err(|e| e.to_string())?;
         }
         view.set_position(position).map_err(|e| e.to_string())?;
         view.set_size(size).map_err(|e| e.to_string())?;
@@ -70,18 +72,15 @@ fn open(app: &AppHandle, window: &str, url: &str, top: f64) -> Result<(), String
         return Ok(());
     }
 
-    let handle = app.clone();
-    let view_label = label.clone();
-    let view = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(Url::parse(&url).map_err(|e| e.to_string())?))
+    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
         .title("Playscreen – navigateur")
         .decorations(false)
         .skip_taskbar(true)
         .resizable(false)
         .parent(&main)
         .map_err(|e| e.to_string())?
-        .initialization_script(PAD_SCRIPT)
-        // Nouvelle fenêtre (lien « _blank », window.open) : ouverte dans la même page, qui a
-        // la manette. À revoir si une connexion par fenêtre surgissante l'exige.
+        .initialization_script(CURSOR_SCRIPT)
+        // Nouvelle fenêtre (lien « _blank », window.open) : ouverte dans la même page.
         .on_new_window({
             let app = app.clone();
             let label = label.clone();
@@ -95,67 +94,34 @@ fn open(app: &AppHandle, window: &str, url: &str, top: f64) -> Result<(), String
                 });
                 tauri::webview::NewWindowResponse::Deny
             }
-        })
-        .on_navigation(move |target| {
-            if target.scheme() != "playscreen" {
-                return true;
-            }
-            let command = format!("{}{}", target.host_str().unwrap_or(""), target.path());
-            handle_command(&handle, &view_label, command.trim_end_matches('/'));
-            false
-        })
-        .build()
-        .map_err(|e| e.to_string())?;
+        });
+    if let Some(agent) = user_agent {
+        builder = builder.user_agent(&agent);
+    }
+    let view = builder.build().map_err(|e| e.to_string())?;
     view.set_position(position).map_err(|e| e.to_string())?;
     view.set_size(size).map_err(|e| e.to_string())?;
     let _ = view.set_focus();
-    views.insert(label, (url, 1.0));
+    views.insert(label, url.to_string());
     Ok(())
 }
 
-/// Cache le navigateur (retour à Playscreen) ; les pages restent chargées.
+/// Cache le navigateur (retour à Playscreen) ; les pages restent chargées. La manette
+/// redevient une manette.
 #[tauri::command]
 pub fn browser_hide(app: AppHandle) {
-    hide_all(&app);
-}
-
-fn hide_all(app: &AppHandle) {
     let state = app.state::<BrowserState>();
+    let mut any_visible = false;
     for label in state.views.lock().unwrap().keys() {
         if let Some(view) = app.get_webview_window(label) {
+            any_visible |= view.is_visible().unwrap_or(false);
             let _ = view.hide();
         }
     }
+    if any_visible {
+        crate::relay::set_mouse_mode(false);
+    }
     if let Some(main) = app.get_webview_window("main") {
         let _ = main.set_focus();
-    }
-}
-
-/// Commandes envoyées par browser-pad.js (« playscreen://back », etc.).
-fn handle_command(app: &AppHandle, label: &str, command: &str) {
-    match command {
-        "keyboard/show" => {
-            std::thread::spawn(crate::touch_keyboard::show);
-        }
-        "keyboard/toggle" => {
-            std::thread::spawn(crate::touch_keyboard::toggle);
-        }
-        "zoom/in" | "zoom/out" => {
-            let state = app.state::<BrowserState>();
-            let mut views = state.views.lock().unwrap();
-            if let (Some(entry), Some(view)) = (views.get_mut(label), app.get_webview_window(label)) {
-                let delta = if command == "zoom/in" { ZOOM_STEP } else { -ZOOM_STEP };
-                entry.1 = (entry.1 + delta).clamp(0.5, 3.0);
-                let _ = view.set_zoom(entry.1);
-            }
-        }
-        _ => {
-            // back, menu, tab/next, tab/previous : l'interface décide. Pour « back » et
-            // « menu », la page est cachée tout de suite pour que l'interface reprenne la main.
-            if command == "back" || command == "menu" {
-                hide_all(app);
-            }
-            let _ = app.emit("browser", command.to_string());
-        }
     }
 }

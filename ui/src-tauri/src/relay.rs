@@ -25,8 +25,19 @@ pub fn start(target: &str) -> bool {
 }
 
 /// Prévient la sentinelle (fenêtre cachée « PlayscreenSentinel ») : mode souris oui / non.
-#[cfg(windows)]
 pub fn set_mouse_mode(on: bool) -> bool {
+    send_pad_mode(if on { 1 } else { 0 })
+}
+
+/// Mode télécommande (YouTube TV) : la manette envoie des flèches, Entrée et Échap à la
+/// fenêtre au premier plan, sans souris.
+pub fn set_remote_mode() -> bool {
+    send_pad_mode(2)
+}
+
+/// 0 : manette normale ; 1 : souris ; 2 : télécommande.
+#[cfg(windows)]
+fn send_pad_mode(mode: usize) -> bool {
     use windows_sys::Win32::UI::WindowsAndMessaging::{FindWindowW, PostMessageW, WM_APP};
     // Même valeur que WM_MOUSE_MODE dans sentinel/src/tray.rs.
     const WM_MOUSE_MODE: u32 = WM_APP + 2;
@@ -34,11 +45,24 @@ pub fn set_mouse_mode(on: bool) -> bool {
     // SAFETY : chaîne terminée par un zéro ; message simple sans pointeur.
     unsafe {
         let hwnd = FindWindowW(class_name.as_ptr(), std::ptr::null());
-        !hwnd.is_null() && PostMessageW(hwnd, WM_MOUSE_MODE, on as usize, 0) != 0
+        !hwnd.is_null() && PostMessageW(hwnd, WM_MOUSE_MODE, mode, 0) != 0
     }
 }
 
 #[cfg(not(windows))]
-pub fn set_mouse_mode(_on: bool) -> bool {
+fn send_pad_mode(_mode: usize) -> bool {
+    false
+}
+
+#[cfg(windows)]
+pub fn sentinel_running() -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::FindWindowW;
+    let class_name: Vec<u16> = "PlayscreenSentinel".encode_utf16().chain(std::iter::once(0)).collect();
+    // SAFETY : chaîne terminée par un zéro.
+    unsafe { !FindWindowW(class_name.as_ptr(), std::ptr::null()).is_null() }
+}
+
+#[cfg(not(windows))]
+pub fn sentinel_running() -> bool {
     false
 }

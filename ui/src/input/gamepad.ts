@@ -75,8 +75,22 @@ function emit(action: NavAction) {
   window.dispatchEvent(new CustomEvent<NavAction>(NAV_EVENT, { detail: action }));
 }
 
+/** Vérifie régulièrement si la sentinelle tourne (elle peut démarrer après l'interface). */
+const SENTINEL_CHECK_MS = 3000;
+
 /** Démarre la lecture ; renvoie la fonction d'arrêt. */
 export function startInput(): () => void {
+  // Dans la fenêtre Windows, la sentinelle lit toutes les manettes (le moteur web ne
+  // reconnaît pas la GameSir en mode PS4, par exemple) et envoie des touches : l'interface ne
+  // lit alors plus la manette elle-même, sinon chaque appui compterait deux fois.
+  let sentinel = false;
+  const checkSentinel = () =>
+    void import("../shell.ts").then((shell) => shell.sentinelRunning()).then(
+      (running) => (sentinel = running),
+      () => (sentinel = false),
+    );
+  checkSentinel();
+  const sentinelTimer = setInterval(checkSentinel, SENTINEL_CHECK_MS);
   const held = new Map<NavAction, { since: number; last: number }>();
   let hadFocus = document.hasFocus();
   let frame = 0;
@@ -85,7 +99,7 @@ export function startInput(): () => void {
     const pressed = new Set<NavAction>();
     // Sans le focus (navigateur manette, jeu, fenêtre d'un launcher par-dessus), la manette
     // n'est pas pour Playscreen : la page reste visible et continuerait sinon à la lire.
-    const pads = document.hasFocus() ? navigator.getGamepads() : [];
+    const pads = document.hasFocus() && !sentinel ? navigator.getGamepads() : [];
     for (const pad of pads) {
       if (!pad) continue;
       pad.buttons.forEach((button, index) => {
@@ -101,7 +115,7 @@ export function startInput(): () => void {
 
     // Focus retrouvé : un bouton encore enfoncé (B qui vient de fermer le navigateur…) ne
     // compte pas comme un nouvel appui.
-    const focused = pads.length > 0;
+    const focused = document.hasFocus() && !sentinel;
     if (focused && !hadFocus) for (const action of pressed) held.set(action, { since: now, last: now });
     hadFocus = focused;
 
@@ -135,6 +149,7 @@ export function startInput(): () => void {
   frame = requestAnimationFrame(poll);
   window.addEventListener("keydown", onKey);
   return () => {
+    clearInterval(sentinelTimer);
     cancelAnimationFrame(frame);
     window.removeEventListener("keydown", onKey);
   };

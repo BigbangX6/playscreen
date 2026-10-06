@@ -14,16 +14,18 @@ pub fn show() -> bool {
 /// Ouvre ou ferme le clavier (Y en mode souris).
 pub fn toggle() {
     let visible = is_visible();
-    set_visible(!visible);
+    let ok = set_visible(!visible);
+    crate::actions::log(&format!("Clavier manette : {} ({})", if visible { "fermeture" } else { "ouverture" }, if ok { "ok" } else { "échec" }));
 }
 
+/// Le clavier est-il affiché ? (Il lit alors la manette lui-même.)
 #[cfg(windows)]
-fn is_visible() -> bool {
+pub fn is_visible() -> bool {
     std::thread::spawn(imp::visible).join().unwrap_or(false)
 }
 
 #[cfg(not(windows))]
-fn is_visible() -> bool {
+pub fn is_visible() -> bool {
     false
 }
 

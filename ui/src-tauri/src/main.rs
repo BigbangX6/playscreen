@@ -66,10 +66,17 @@ fn stop_mouse_mode() -> bool {
     relay::set_mouse_mode(false)
 }
 
+/// La sentinelle tourne-t-elle ? Elle lit alors la manette pour l'interface (toutes les
+/// manettes) et l'interface ne la lit plus elle-même, pour éviter les doubles appuis.
+#[tauri::command]
+fn sentinel_running() -> bool {
+    relay::sentinel_running()
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(browser::BrowserState::default())
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard, start_relay, stop_mouse_mode, browser::browser_open, browser::browser_hide])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, hide_to_desktop, show_keyboard, hide_keyboard, start_relay, stop_mouse_mode, browser::browser_open, browser::browser_hide, sentinel_running])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

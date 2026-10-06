@@ -15,7 +15,7 @@ use windows_sys::Win32::UI::Shell::{
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_KEYUP, MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEINPUT, VK_CONTROL, VK_DOWN, VK_ESCAPE, VK_LEFT, VK_RETURN, VK_RIGHT, VK_UP,
+    MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEINPUT, VK_CONTROL, VK_DOWN, VK_ESCAPE, VK_LEFT, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT, VK_UP,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu, DispatchMessageW,
@@ -29,6 +29,7 @@ use crate::actions::{self, Config};
 use crate::chord::{ChordDetector, Shortcut};
 use crate::input::{DefaultSource, GamepadSource};
 use crate::mouse::{Key, MouseMapper, MouseStep};
+use crate::nav::{NavKey, NavMapper};
 use crate::taskbar::Taskbar;
 use crate::touch_keyboard;
 use crate::POLL_INTERVAL;
@@ -50,6 +51,12 @@ struct State {
     shortcut: Shortcut,
     taskbar: Taskbar,
     ticks: u32,
+    /// Manette → touches pour Playscreen au premier plan ; None si Playscreen n'est pas devant.
+    nav: Option<(NavMapper, Instant)>,
+    /// Mode télécommande (YouTube TV) : les mêmes touches, pour la fenêtre au premier plan.
+    remote: bool,
+    /// Clavier manette de Windows affiché : il lit la manette lui-même, on n'envoie rien.
+    keyboard_open: bool,
     /// Mode souris actif : suivi des boutons et heure du pas précédent.
     mouse: Option<(MouseMapper, Instant)>,
 }
@@ -71,6 +78,9 @@ pub fn run(config: Config) {
             shortcut,
             taskbar: Taskbar::new(),
             ticks: 0,
+            nav: None,
+            remote: false,
+            keyboard_open: false,
             mouse: None,
         })
     });
@@ -146,13 +156,29 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                         state.taskbar.update(open);
                     }
                     let pad = state.source.pad();
+                    // Clavier : vérifié environ 4 fois par seconde.
+                    if state.ticks.is_multiple_of(15) {
+                        let was_open = state.keyboard_open;
+                        state.keyboard_open = touch_keyboard::is_visible();
+                        if was_open && !state.keyboard_open {
+                            // Clavier refermé : un bouton encore enfoncé ne compte pas.
+                            if let Some((mapper, _)) = state.mouse.as_mut() {
+                                *mapper = MouseMapper::new();
+                                mapper.step(pad, 0.0);
+                            }
+                            state.nav = None;
+                        }
+                    }
                     if state.detector.update(pad.buttons, now) {
                         // Le méta-raccourci termine aussi le mode souris : retour à Playscreen.
                         if let Some((mut mapper, _)) = state.mouse.take() {
                             send_mouse(&mapper.release_all());
                             actions::log(&format!("Mode souris terminé ({})", state.shortcut.label));
                         }
+                        state.remote = false;
                         actions::launch_or_focus(&state.config);
+                    } else if state.keyboard_open {
+                        // Le clavier manette de Windows lit la manette lui-même.
                     } else if let Some((mapper, last)) = state.mouse.as_mut() {
                         let step = mapper.step(pad, now.duration_since(*last).as_secs_f32());
                         send_mouse(&step);
@@ -160,6 +186,18 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                             std::thread::spawn(touch_keyboard::toggle);
                         }
                         *last = now;
+                        state.nav = None;
+                    } else if state.remote || actions::playscreen_in_front(&state.config) {
+                        let (nav, last) = state.nav.get_or_insert_with(|| {
+                            let mut nav = NavMapper::new();
+                            nav.reset(pad);
+                            (nav, now)
+                        });
+                        let keys = nav.step(pad, now.duration_since(*last).as_secs_f32());
+                        *last = now;
+                        send_nav(&keys);
+                    } else {
+                        state.nav = None;
                     }
                 }
             });
@@ -168,14 +206,22 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
         WM_MOUSE_MODE => {
             STATE.with(|s| {
                 if let Some(state) = s.borrow_mut().as_mut() {
-                    if wparam == 1 && state.mouse.is_none() {
-                        state.mouse = Some((MouseMapper::new(), Instant::now()));
-                        actions::log("Mode souris activé");
-                    } else if wparam == 0 {
-                        if let Some((mut mapper, _)) = state.mouse.take() {
-                            send_mouse(&mapper.release_all());
-                            actions::log("Mode souris terminé");
+                    // Quitter le mode précédent (relâcher un clic encore enfoncé).
+                    if let Some((mut mapper, _)) = state.mouse.take() {
+                        send_mouse(&mapper.release_all());
+                    }
+                    state.remote = false;
+                    state.nav = None;
+                    match wparam {
+                        1 => {
+                            state.mouse = Some((MouseMapper::new(), Instant::now()));
+                            actions::log("Mode souris activé");
                         }
+                        2 => {
+                            state.remote = true;
+                            actions::log("Mode télécommande activé");
+                        }
+                        _ => actions::log("Manette normale"),
                     }
                 }
             });
@@ -280,6 +326,33 @@ fn send_mouse(step: &MouseStep) {
         // SAFETY : tableau de structures INPUT valides, taille exacte.
         unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
     }
+}
+
+/// Touches pour l'interface Playscreen (ui/src/input/gamepad.ts les comprend déjà).
+fn send_nav(keys: &[NavKey]) {
+    if keys.is_empty() {
+        return;
+    }
+    let mut inputs = Vec::new();
+    for k in keys {
+        let code = match k {
+            NavKey::Up => VK_UP,
+            NavKey::Down => VK_DOWN,
+            NavKey::Left => VK_LEFT,
+            NavKey::Right => VK_RIGHT,
+            NavKey::Enter => VK_RETURN,
+            NavKey::Escape => VK_ESCAPE,
+            NavKey::X => 0x58,
+            NavKey::Y => 0x59,
+            NavKey::M => 0x4D,
+            NavKey::PageUp => VK_PRIOR,
+            NavKey::PageDown => VK_NEXT,
+        };
+        inputs.push(key(code, false));
+        inputs.push(key(code, true));
+    }
+    // SAFETY : tableau de structures INPUT valides, taille exacte.
+    unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
 }
 
 fn key(code: u16, up: bool) -> INPUT {

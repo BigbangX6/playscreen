@@ -88,13 +88,14 @@ export async function stopMouseMode(): Promise<boolean> {
 }
 
 /**
- * Navigateur manette : ouvre la vraie page de la fenêtre `window` (Boutique, Social…) sous
- * `top` pixels (la barre de l'interface). La page garde son état quand on la cache.
+ * Navigateur : ouvre la vraie page dans une fenêtre plein écran (`window` : Boutique,
+ * Social…, une page gardée par fenêtre) et passe la manette en souris (sentinelle).
+ * `userAgent` : identité donnée au site (YouTube TV se croit sur une télé).
  */
-export async function browserOpen(window: string, url: string, top: number): Promise<void> {
+export async function browserOpen(window: string, url: string, userAgent?: string): Promise<void> {
   if (!IN_TAURI) return;
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("browser_open", { window, url, top });
+  await invoke("browser_open", { window, url, userAgent: userAgent ?? null });
 }
 
 export async function browserHide(): Promise<void> {
@@ -103,9 +104,9 @@ export async function browserHide(): Promise<void> {
   await invoke("browser_hide");
 }
 
-/** Commandes de la manette dans la page : « back », « menu », « tab/next », « tab/previous ». */
-export async function onBrowserCommand(callback: (command: string) => void): Promise<() => void> {
-  if (!IN_TAURI) return () => undefined;
-  const { listen } = await import("@tauri-apps/api/event");
-  return listen<string>("browser", (event) => callback(event.payload));
+/** La sentinelle tourne : c'est elle qui lit la manette (toutes les manettes) pour l'interface. */
+export async function sentinelRunning(): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("sentinel_running");
 }

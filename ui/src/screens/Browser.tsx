@@ -1,13 +1,13 @@
 // Navigateur manette : un seul navigateur, quatre fenêtres (Boutique, Social, Musique,
 // Internet), chacune avec ses onglets (LB / RB). Dans la fenêtre Windows de Playscreen, la
-// vraie page s'affiche sous la barre (vue web de la coque Tauri, manette gérée dans la page
-// par browser-pad.js). Ailleurs (démo, navigateur de développement) : page simulée.
+// vraie page s'affiche en plein écran (fenêtre de la coque Tauri) et la manette pilote la vraie
+// souris (sentinelle) ; Select + Y revient. Ailleurs (démo, navigateur de développement) :
+// page simulée.
 
 import { useEffect, useRef, useState } from "react";
-import { browserHide, browserOpen, inShell, onBrowserCommand } from "../shell.ts";
+import { browserHide, browserOpen, inShell } from "../shell.ts";
 import { Icon } from "../components/Icons.tsx";
 import { PadGlyph, PadHints } from "../components/PadHints.tsx";
-import { NAV_EVENT } from "../input/gamepad.ts";
 import { useNavAction } from "../input/navigation.ts";
 import { SITES, type SiteId } from "./spaces.ts";
 import "./console-pages.css";
@@ -50,42 +50,33 @@ export function Browser({ site, tabs, covered = false, onSite, onBack }: Props) 
     onSite(tabs[(index + step + tabs.length) % tabs.length]!);
   };
 
-  // Vraie page : ouverte sous la barre, cachée quand on quitte le navigateur ou qu'une
-  // fenêtre de l'interface passe par-dessus.
+  // Vraie page : en plein écran, manette en souris (sentinelle). Le méta-raccourci (Select + Y)
+  // ramène Playscreen au premier plan : on revient alors en arrière, page cachée mais gardée.
+  const latest = useRef(onBack);
+  latest.current = onBack;
   useEffect(() => {
     if (!real) return;
     if (covered) {
       void browserHide();
       return;
     }
-    const top = chrome.current?.getBoundingClientRect().height ?? 0;
-    void browserOpen(info.window, info.url, top);
+    void browserOpen(info.userAgent ? site : info.window, info.url, info.userAgent);
+    let away = false;
+    const onBlur = () => (away = true);
+    const onFocus = () => {
+      if (!away) return;
+      away = false;
+      void browserHide();
+      latest.current();
+    };
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [real, site, covered]);
   useEffect(() => (real ? () => void browserHide() : undefined), [real]);
-
-  // Boutons gérés par la page elle-même mais décidés ici.
-  const latest = useRef({ onBack, switchTab });
-  latest.current = { onBack, switchTab };
-  useEffect(() => {
-    if (!real) return;
-    // L'abonnement arrive après coup : s'il est déjà annulé, on le coupe dès son arrivée.
-    let cancelled = false;
-    let stop = () => undefined as void;
-    void onBrowserCommand((command) => {
-      if (command === "back") latest.current.onBack();
-      else if (command === "tab/next") latest.current.switchTab(1);
-      else if (command === "tab/previous") latest.current.switchTab(-1);
-      // Start : le centre rapide, comme partout.
-      else if (command === "menu") window.dispatchEvent(new CustomEvent(NAV_EVENT, { detail: "menu" }));
-    }).then((unlisten) => {
-      if (cancelled) unlisten();
-      else stop = unlisten;
-    });
-    return () => {
-      cancelled = true;
-      stop();
-    };
-  }, [real]);
 
   useNavAction((action) => {
     switch (action) {

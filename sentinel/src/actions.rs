@@ -49,6 +49,12 @@ pub fn playscreen_open(config: &Config) -> bool {
     platform::window_exists(&config.window_title)
 }
 
+/// Playscreen est-il la fenêtre au premier plan ?
+#[cfg(windows)]
+pub fn playscreen_in_front(config: &Config) -> bool {
+    platform::foreground_is(&config.window_title)
+}
+
 /// Console (en développement) et fichier %LOCALAPPDATA%\Playscreen\sentinel.log (la
 /// version finale n'a pas de console).
 pub fn log(message: &str) {
@@ -94,6 +100,15 @@ mod platform {
                 BringWindowToTop(hwnd);
                 SetForegroundWindow(hwnd) != 0
             })
+        }
+    }
+
+    pub fn foreground_is(title: &str) -> bool {
+        let title: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+        // SAFETY : chaîne terminée par un zéro ; comparaison de handles.
+        unsafe {
+            let hwnd = FindWindowW(std::ptr::null(), title.as_ptr());
+            !hwnd.is_null() && GetForegroundWindow() == hwnd
         }
     }
 
