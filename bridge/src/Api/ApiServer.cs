@@ -116,6 +116,12 @@ namespace Playscreen.Bridge.Api
                 new Route("GET", @"^/session$", _ => Json(200, session.Current)),
                 new Route("GET", @"^/system/volume$", _ => Json(200, SystemVolume.Get())),
                 new Route("POST", @"^/system/volume$", ctx => SetVolume(ctx.Request.QueryString)),
+                new Route("GET", @"^/launchers/settings$", _ => Json(200, LauncherSettings.List())),
+                new Route("POST", @"^/launchers/settings/([^/]+)/apply$", ctx =>
+                {
+                    var error = LauncherSettings.Apply(ctx.Params[0]);
+                    return error == null ? new Reply(204) : Json(error == "unknown" ? 404 : 409, new { error });
+                }),
                 new Route("GET", @"^/trophies$", _ => Json(200, trophies.Get())),
                 new Route("POST", @"^/trophies/refresh$", _ =>
                     !trophies.Available ? Json(409, new { error = "SuccessStory missing" })

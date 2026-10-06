@@ -107,6 +107,19 @@ export interface TrophySummary {
   refreshing: boolean;
 }
 
+/** Réglage d'un launcher qui lui fait rendre la main à Playscreen (docs/launchers.md). */
+export interface LauncherSetting {
+  id: string;
+  store: StoreId;
+  label: string;
+  /** Valeur écrite par le launcher, ou null si absente. */
+  value: string | null;
+  recommended: string;
+  applied: boolean;
+  /** Le launcher tourne : il faut le fermer pour régler (il réécrit son fichier en quittant). */
+  launcherRunning: boolean;
+}
+
 export type PowerAction = "sleep" | "shutdown" | "restart";
 export type MediaCommand = "toggle" | "previous" | "next";
 

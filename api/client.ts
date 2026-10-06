@@ -1,6 +1,6 @@
 // Client de l'API Playscreen, partagé par `psc`, les tests et (plus tard) l'interface.
 
-import type { EngineEvent, EventType, Game, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume } from "./types.ts";
+import type { EngineEvent, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume } from "./types.ts";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -44,6 +44,10 @@ export interface EngineClient {
   trophies(): Promise<TrophySummary>;
   /** Récupère les trophées de toute la bibliothèque en arrière-plan (suite : trophies.updated). */
   refreshTrophies(): Promise<void>;
+  /** Réglages des launchers recommandés pour Playscreen. */
+  launcherSettings(): Promise<LauncherSetting[]>;
+  /** Règle sur la valeur recommandée (409 « running » si le launcher tourne). */
+  applyLauncherSetting(id: string): Promise<void>;
   mediaUrl(id: string, kind: "cover" | "background" | "icon"): string;
   events(signal?: AbortSignal): AsyncGenerator<EngineEvent>;
 }
@@ -166,6 +170,15 @@ export class PlayscreenClient implements EngineClient {
 
   refreshTrophies() {
     return this.post("/trophies/refresh");
+  }
+
+  async launcherSettings(): Promise<LauncherSetting[]> {
+    const list = await this.get<Partial<LauncherSetting>[]>("/launchers/settings");
+    return list.map((s) => ({ ...(s as LauncherSetting), value: s.value ?? null }));
+  }
+
+  applyLauncherSetting(id: string) {
+    return this.post(`/launchers/settings/${encodeURIComponent(id)}/apply`);
   }
 
   async *events(signal?: AbortSignal): AsyncGenerator<EngineEvent> {

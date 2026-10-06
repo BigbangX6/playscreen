@@ -153,6 +153,24 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Volume" }
+  /launchers/settings:
+    get:
+      summary: Réglages des launchers recommandés pour Playscreen (docs/launchers.md)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/LauncherSetting" } }
+  /launchers/settings/{settingId}/apply:
+    post:
+      summary: Règle sur la valeur recommandée, launcher fermé
+      parameters:
+        - { name: settingId, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Réglé }
+        "404": { description: Réglage inconnu }
+        "409": { description: "error = running (fermer le launcher d'abord) ou not found (fichier ou section absents)" }
   /trophies:
     get:
       summary: Trophées de la bibliothèque (extension SuccessStory)
@@ -324,6 +342,17 @@ components:
         totalBytes: { type: integer }
         freeBytes: { type: integer }
         gamesBytes: { type: integer, description: Taille des jeux installés sur ce disque }
+    LauncherSetting:
+      type: object
+      required: [id, store, label, recommended, applied, launcherRunning]
+      properties:
+        id: { type: string }
+        store: { type: string }
+        label: { type: string }
+        value: { type: string, nullable: true }
+        recommended: { type: string }
+        applied: { type: boolean }
+        launcherRunning: { type: boolean }
     TrophySummary:
       type: object
       properties:

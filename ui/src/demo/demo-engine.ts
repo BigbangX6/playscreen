@@ -3,7 +3,7 @@
 // réglables depuis le panneau de démo (F2) pour voir chaque situation.
 
 import { ApiError, type EngineClient } from "../../../api/client.ts";
-import type { EngineEvent, EventMap, EventType, Game, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume } from "../../../api/types.ts";
+import type { EngineEvent, EventMap, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume } from "../../../api/types.ts";
 import { demoGames, demoImage, demoStores } from "./library.ts";
 
 export interface DemoSettings {
@@ -317,6 +317,15 @@ class DemoEngine implements EngineClient {
   }
 
   async refreshTrophies(): Promise<void> {
+    this.ensureOnline();
+  }
+
+  async launcherSettings(): Promise<LauncherSetting[]> {
+    this.ensureOnline();
+    return [];
+  }
+
+  async applyLauncherSetting(_id: string): Promise<void> {
     this.ensureOnline();
   }
 

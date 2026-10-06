@@ -10,6 +10,7 @@ import {
   type EventType,
   type Game,
   type Session,
+  type LauncherSetting,
   type Store,
   type StoreId,
   type SystemInfo,
@@ -46,6 +47,11 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
   const syncing = new Set<StoreId>();
   let session: Session | null = null;
   const volume: Volume = { level: 60, muted: false };
+  // Réglages des launchers simulés : Steam « tourne », Battle.net non.
+  const launcherSettings: LauncherSetting[] = [
+    { id: "steam.bigPictureOverlay", store: "steam", label: "Overlay Big Picture", value: "0", recommended: "1", applied: false, launcherRunning: true },
+    { id: "battlenet.gameLaunch", store: "battlenet", label: "Réduire Battle.net au lancement d'un jeu", value: null, recommended: "3", applied: false, launcherRunning: false },
+  ];
   // Le PC simulé : rien n'est vraiment éteint ni mis en veille.
   const audioOutputs = ["Haut-parleurs", "Télé (HDMI)"];
   const system: SystemInfo = {
@@ -172,6 +178,15 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
       if (muted !== null) volume.muted = muted === "true";
       emit("volume.changed", { ...volume });
       return json(200, volume);
+    }),
+    route("GET", /^\/launchers\/settings$/, () => json(200, launcherSettings)),
+    route("POST", /^\/launchers\/settings\/([^/]+)\/apply$/, ([id]) => {
+      const setting = launcherSettings.find((s) => s.id === decodeURIComponent(id!));
+      if (!setting) return json(404, { error: "unknown" });
+      if (setting.launcherRunning) return json(409, { error: "running" });
+      setting.value = setting.recommended;
+      setting.applied = true;
+      return empty(204);
     }),
     route("GET", /^\/trophies$/, () =>
       json(200, {

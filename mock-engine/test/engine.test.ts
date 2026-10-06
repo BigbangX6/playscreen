@@ -163,4 +163,10 @@ describe("faux moteur", () => {
     const events = await collectUntil("trophies.updated", () => client.refreshTrophies());
     assert.equal(events.at(-1)?.type, "trophies.updated");
   });
+  it("règle un launcher seulement s'il est fermé", async () => {
+    await assert.rejects(() => client.applyLauncherSetting("steam.bigPictureOverlay"), (e) => e instanceof ApiError && e.status === 409);
+    await client.applyLauncherSetting("battlenet.gameLaunch");
+    const settings = await client.launcherSettings();
+    assert.equal(settings.find((s) => s.id === "battlenet.gameLaunch")?.applied, true);
+  });
 });
