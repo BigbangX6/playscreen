@@ -1,4 +1,6 @@
-//! Détection du méta-raccourci : Select + Start maintenus pendant une durée donnée.
+//! Détection du méta-raccourci : par défaut Select + Y, dès l'appui (choix de la personne,
+//! 6 octobre 2026 : Select + Start maintenus fait changer de mode certaines manettes, comme la
+//! GameSir Nova 2 Lite : Switch → PS4 → Xbox). Select + Start reste possible en réglage.
 //! Logique pure, indépendante de Windows, testée unitairement.
 
 use std::time::{Duration, Instant};
@@ -8,10 +10,34 @@ pub mod buttons {
     pub const START: u16 = 0x0010;
     /// « Select », « View » (Xbox) ou « Create/Share » (PlayStation).
     pub const BACK: u16 = 0x0020;
+    pub const Y: u16 = 0x8000;
 }
 
 pub const META_CHORD: u16 = buttons::START | buttons::BACK;
-pub const DEFAULT_HOLD: Duration = Duration::from_millis(1000);
+
+/// Combinaison du méta-raccourci et durée de maintien.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Shortcut {
+    pub chord: u16,
+    pub hold: Duration,
+    pub label: &'static str,
+}
+
+/// Select + Y, sans maintien : le choix par défaut.
+pub const SELECT_Y: Shortcut = Shortcut { chord: buttons::BACK | buttons::Y, hold: Duration::ZERO, label: "Select + Y" };
+/// Select + Start, maintenus une demi-seconde (avant le changement de mode de certaines manettes).
+pub const SELECT_START: Shortcut =
+    Shortcut { chord: META_CHORD, hold: Duration::from_millis(500), label: "Select + Start (maintenus)" };
+
+impl Shortcut {
+    /// « select+y » ou « select+start » (réglage PLAYSCREEN_SHORTCUT) ; Select + Y sinon.
+    pub fn parse(text: Option<&str>) -> Shortcut {
+        match text.map(|t| t.trim().to_ascii_lowercase()) {
+            Some(t) if t == "select+start" => SELECT_START,
+            _ => SELECT_Y,
+        }
+    }
+}
 
 /// Déclenche une seule fois par appui maintenu : il faut relâcher pour réarmer.
 #[derive(Debug)]
@@ -50,6 +76,22 @@ mod tests {
 
     fn ms(n: u64) -> Duration {
         Duration::from_millis(n)
+    }
+
+    #[test]
+    fn select_y_declenche_des_l_appui() {
+        let t0 = Instant::now();
+        let mut d = ChordDetector::new(SELECT_Y.chord, SELECT_Y.hold);
+        assert!(!d.update(buttons::BACK, t0), "Select seul ne suffit pas");
+        assert!(d.update(buttons::BACK | buttons::Y, t0));
+        assert!(!d.update(buttons::BACK | buttons::Y, t0 + ms(500)), "une seule fois par appui");
+    }
+
+    #[test]
+    fn reglage_du_raccourci() {
+        assert_eq!(Shortcut::parse(None), SELECT_Y);
+        assert_eq!(Shortcut::parse(Some(" Select+Start ")), SELECT_START);
+        assert_eq!(Shortcut::parse(Some("n'importe quoi")), SELECT_Y);
     }
 
     #[test]

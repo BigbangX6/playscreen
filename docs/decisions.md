@@ -95,8 +95,13 @@ après le démarrage du PC.
 **Décision.** Une application native **minuscule**, lancée à l'ouverture de session
 Windows (tâche planifiée), sans fenêtre :
 
-1. **Écoute la manette en arrière-plan** (XInput, et SDL/HID pour DualSense et Switch
-   Pro) et reconnaît le méta-raccourci **Select + Start maintenus 1 s**.
+1. **Écoute la manette en arrière-plan** (SDL2 si `SDL2.dll` est présente : Switch,
+   PlayStation, Xbox ; XInput sinon) et reconnaît le méta-raccourci. **Révisé le 6 octobre
+   2026 : Select + Y, dès l'appui** (choix de la personne), réglable
+   (`PLAYSCREEN_SHORTCUT=select+start` : Select + Start maintenus 0,5 s). Raison :
+   maintenir Select + Start ~1,5 s fait changer de mode certaines manettes (GameSir Nova 2
+   Lite : Switch → PS4 → Xbox 360), ce qui explique aussi que Steam la voyait sous des noms
+   différents.
 2. **Au démarrage**, affiche une notification Windows : « Maintiens Select + Start pour
    ouvrir Playscreen », avec les pictogrammes des touches selon la manette détectée.
 3. Au raccourci : **lance Playscreen** s'il n'est pas ouvert, sinon **le ramène au

@@ -1,71 +1,90 @@
 //! Lecture des manettes en arrière-plan.
-//! Windows : XInput (manettes Xbox et compatibles), qui fonctionne même sans focus.
-//! À venir : DualSense / Switch Pro via HID ou SDL (phase 4).
+//! Windows : SDL2 si SDL2.dll est à côté de la sentinelle (toutes les manettes : Switch,
+//! PlayStation, Xbox…), sinon XInput (manettes Xbox et compatibles). Les deux marchent sans
+//! focus. Hors Windows : aucune manette (pour compiler et tester la logique partout).
 
-/// Retourne les boutons enfoncés, toutes manettes confondues (format XInput).
+use crate::mouse::PadState;
+
 pub trait GamepadSource {
-    fn pressed_buttons(&mut self) -> u16;
+    /// Boutons de toutes les manettes réunis (format XInput), sticks et gâchettes.
+    fn pad(&mut self) -> PadState;
 }
 
 #[cfg(windows)]
-pub use xinput::XInputSource as DefaultSource;
+pub use windows_source::Source as DefaultSource;
 
 #[cfg(not(windows))]
 pub use null::NullSource as DefaultSource;
 
 #[cfg(windows)]
-mod xinput {
+mod windows_source {
     use super::GamepadSource;
+    use crate::mouse::PadState;
     use windows_sys::Win32::UI::Input::XboxController::{XInputGetState, XINPUT_STATE, XUSER_MAX_COUNT};
 
-    pub struct XInputSource;
+    pub enum Source {
+        Sdl(crate::sdl::Shared),
+        XInput,
+    }
 
-    impl XInputSource {
-        /// Nombre de manettes XInput branchées (pour le journal).
-        pub fn connected_count() -> usize {
-            (0..XUSER_MAX_COUNT)
-                .filter(|&slot| {
-                    // SAFETY : voir pressed_buttons.
-                    let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
-                    unsafe { XInputGetState(slot, &mut state) == 0 }
-                })
-                .count()
+    impl Source {
+        /// SDL si possible, XInput sinon.
+        pub fn new() -> Self {
+            match crate::sdl::start() {
+                Some(shared) => Source::Sdl(shared),
+                None => Source::XInput,
+            }
+        }
+
+        /// Pour le journal : méthode de lecture et manettes branchées.
+        pub fn describe(&self) -> String {
+            match self {
+                Source::Sdl(shared) => format!("SDL, {} manette(s)", shared.count()),
+                Source::XInput => format!("XInput, {} manette(s)", xinput_count()),
+            }
         }
     }
 
-    impl XInputSource {
-        /// État complet (sticks compris) de la première manette branchée : mode souris.
-        pub fn first_pad() -> Option<crate::mouse::PadState> {
-            (0..XUSER_MAX_COUNT).find_map(|slot| {
-                // SAFETY : voir pressed_buttons.
-                let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
-                if unsafe { XInputGetState(slot, &mut state) } != 0 {
-                    return None;
-                }
-                let pad = state.Gamepad;
-                Some(crate::mouse::PadState {
-                    buttons: pad.wButtons,
-                    left_x: pad.sThumbLX,
-                    left_y: pad.sThumbLY,
-                    right_x: pad.sThumbRX,
-                    right_y: pad.sThumbRY,
-                })
-            })
-        }
-    }
-
-    impl GamepadSource for XInputSource {
-        fn pressed_buttons(&mut self) -> u16 {
-            let mut pressed = 0u16;
-            for slot in 0..XUSER_MAX_COUNT {
+    fn xinput_count() -> usize {
+        (0..XUSER_MAX_COUNT)
+            .filter(|&slot| {
                 // SAFETY : structure C sans pointeur, valide une fois remplie de zéros.
                 let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
-                // 0 = ERROR_SUCCESS ; sinon manette absente sur ce slot.
-                if unsafe { XInputGetState(slot, &mut state) } == 0 {
-                    pressed |= state.Gamepad.wButtons;
+                unsafe { XInputGetState(slot, &mut state) == 0 }
+            })
+            .count()
+    }
+
+    impl GamepadSource for Source {
+        fn pad(&mut self) -> PadState {
+            match self {
+                Source::Sdl(shared) => shared.pad(),
+                Source::XInput => {
+                    let mut pad = PadState::default();
+                    let mut sticks_taken = false;
+                    for slot in 0..XUSER_MAX_COUNT {
+                        // SAFETY : structure C sans pointeur, valide une fois remplie de zéros.
+                        let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
+                        // 0 = ERROR_SUCCESS ; sinon manette absente sur ce slot.
+                        if unsafe { XInputGetState(slot, &mut state) } != 0 {
+                            continue;
+                        }
+                        let g = state.Gamepad;
+                        pad.buttons |= g.wButtons;
+                        if !sticks_taken {
+                            pad.left_x = g.sThumbLX;
+                            pad.left_y = g.sThumbLY;
+                            pad.right_x = g.sThumbRX;
+                            pad.right_y = g.sThumbRY;
+                            // Gâchettes XInput : 0 à 255 ; PadState : 0 à 32767.
+                            pad.left_trigger = g.bLeftTrigger as u16 * 128;
+                            pad.right_trigger = g.bRightTrigger as u16 * 128;
+                            sticks_taken = true;
+                        }
+                    }
+                    pad
                 }
             }
-            pressed
         }
     }
 }
@@ -73,13 +92,14 @@ mod xinput {
 #[cfg(not(windows))]
 mod null {
     use super::GamepadSource;
+    use crate::mouse::PadState;
 
-    /// Hors Windows : aucune manette (permet de compiler et tester la logique partout).
+    /// Hors Windows : aucune manette.
     pub struct NullSource;
 
     impl GamepadSource for NullSource {
-        fn pressed_buttons(&mut self) -> u16 {
-            0
+        fn pad(&mut self) -> PadState {
+            PadState::default()
         }
     }
 }

@@ -14,8 +14,8 @@ use windows_sys::Win32::UI::Shell::{
     NOTIFYICONDATAW,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEINPUT,
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_KEYUP, MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
+    MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL, MOUSEINPUT, VK_CONTROL, VK_DOWN, VK_ESCAPE, VK_LEFT, VK_RETURN, VK_RIGHT, VK_UP,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu, DispatchMessageW,
@@ -26,9 +26,10 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::actions::{self, Config};
-use crate::chord::{ChordDetector, DEFAULT_HOLD, META_CHORD};
+use crate::chord::{ChordDetector, Shortcut};
 use crate::input::{DefaultSource, GamepadSource};
-use crate::mouse::{MouseMapper, MouseStep};
+use crate::mouse::{Key, MouseMapper, MouseStep};
+use crate::taskbar::Taskbar;
 use crate::touch_keyboard;
 use crate::POLL_INTERVAL;
 
@@ -40,14 +41,15 @@ const MENU_QUIT: usize = 1;
 const WM_MOUSE_MODE: u32 = WM_APP + 2;
 const CLASS_NAME: &str = "PlayscreenSentinel";
 
-const TIP: &str = "Playscreen : maintiens Select + Start pour ouvrir";
 const READY_TITLE: &str = "Playscreen est prêt";
-const READY_TEXT: &str = "Maintiens Select (⧉) + Start (☰) pendant 1 seconde pour ouvrir Playscreen.";
 
 struct State {
     config: Config,
     source: DefaultSource,
     detector: ChordDetector,
+    shortcut: Shortcut,
+    taskbar: Taskbar,
+    ticks: u32,
     /// Mode souris actif : suivi des boutons et heure du pas précédent.
     mouse: Option<(MouseMapper, Instant)>,
 }
@@ -58,11 +60,17 @@ thread_local! {
 }
 
 pub fn run(config: Config) {
+    let shortcut = Shortcut::parse(std::env::var("PLAYSCREEN_SHORTCUT").ok().as_deref());
+    let source = DefaultSource::new();
+    let description = source.describe();
     STATE.with(|s| {
         *s.borrow_mut() = Some(State {
             config,
-            source: DefaultSource,
-            detector: ChordDetector::new(META_CHORD, DEFAULT_HOLD),
+            source,
+            detector: ChordDetector::new(shortcut.chord, shortcut.hold),
+            shortcut,
+            taskbar: Taskbar::new(),
+            ticks: 0,
             mouse: None,
         })
     });
@@ -103,13 +111,10 @@ pub fn run(config: Config) {
         let mut icon = icon_data(hwnd);
         icon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_INFO;
         copy_wide(&mut icon.szInfoTitle, READY_TITLE);
-        copy_wide(&mut icon.szInfo, READY_TEXT);
+        copy_wide(&mut icon.szInfo, &format!("Appuie sur {} pour ouvrir Playscreen.", shortcut.label));
         icon.dwInfoFlags = NIIF_INFO;
         Shell_NotifyIconW(NIM_ADD, &icon);
-        actions::log(&format!(
-            "Prête ({} manette(s) XInput). Maintiens Select + Start pour ouvrir Playscreen.",
-            DefaultSource::connected_count()
-        ));
+        actions::log(&format!("Prête ({description}). {} pour ouvrir Playscreen.", shortcut.label));
 
         SetTimer(hwnd, TIMER_ID, POLL_INTERVAL.as_millis() as u32, None);
 
@@ -120,6 +125,11 @@ pub fn run(config: Config) {
         }
 
         Shell_NotifyIconW(NIM_DELETE, &icon_data(hwnd));
+        STATE.with(|s| {
+            if let Some(state) = s.borrow_mut().as_mut() {
+                state.taskbar.restore();
+            }
+        });
     }
 }
 
@@ -129,20 +139,25 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
             STATE.with(|s| {
                 if let Some(state) = s.borrow_mut().as_mut() {
                     let now = Instant::now();
-                    if state.detector.update(state.source.pressed_buttons(), now) {
-                        // Select + Start termine aussi le mode souris : retour à Playscreen.
+                    // Barre des tâches : vérifiée environ une fois par seconde.
+                    state.ticks = state.ticks.wrapping_add(1);
+                    if state.ticks.is_multiple_of(60) {
+                        let open = actions::playscreen_open(&state.config);
+                        state.taskbar.update(open);
+                    }
+                    let pad = state.source.pad();
+                    if state.detector.update(pad.buttons, now) {
+                        // Le méta-raccourci termine aussi le mode souris : retour à Playscreen.
                         if let Some((mut mapper, _)) = state.mouse.take() {
                             send_mouse(&mapper.release_all());
-                            actions::log("Mode souris terminé (Select + Start)");
+                            actions::log(&format!("Mode souris terminé ({})", state.shortcut.label));
                         }
                         actions::launch_or_focus(&state.config);
                     } else if let Some((mapper, last)) = state.mouse.as_mut() {
-                        if let Some(pad) = DefaultSource::first_pad() {
-                            let step = mapper.step(pad, now.duration_since(*last).as_secs_f32());
-                            send_mouse(&step);
-                            if step.toggle_keyboard {
-                                std::thread::spawn(touch_keyboard::toggle);
-                            }
+                        let step = mapper.step(pad, now.duration_since(*last).as_secs_f32());
+                        send_mouse(&step);
+                        if step.toggle_keyboard {
+                            std::thread::spawn(touch_keyboard::toggle);
                         }
                         *last = now;
                     }
@@ -200,21 +215,18 @@ unsafe fn icon_data(hwnd: HWND) -> NOTIFYICONDATAW {
     data.uID = TRAY_ID;
     data.uCallbackMessage = WM_TRAY;
     data.hIcon = LoadIconW(null_mut(), IDI_APPLICATION);
-    copy_wide(&mut data.szTip, TIP);
+    copy_wide(&mut data.szTip, "Playscreen : la manette ouvre Playscreen");
     data
 }
 
 /// Envoie à Windows ce que la manette fait faire à la souris.
 fn send_mouse(step: &MouseStep) {
     let mut inputs = Vec::new();
-    let mut push = |flags: u32, dx: i32, dy: i32, data: i32| {
-        inputs.push(INPUT {
-            r#type: INPUT_MOUSE,
-            Anonymous: INPUT_0 {
-                mi: MOUSEINPUT { dx, dy, mouseData: data as u32, dwFlags: flags, time: 0, dwExtraInfo: 0 },
-            },
-        });
+    let mouse = |flags: u32, dx: i32, dy: i32, data: i32| INPUT {
+        r#type: INPUT_MOUSE,
+        Anonymous: INPUT_0 { mi: MOUSEINPUT { dx, dy, mouseData: data as u32, dwFlags: flags, time: 0, dwExtraInfo: 0 } },
     };
+    let mut push = |input: INPUT| inputs.push(input);
     if step.dx != 0 || step.dy != 0 {
         // Position calculée nous-mêmes : un déplacement relatif subirait en plus
         // l'accélération du pointeur de Windows (curseur impossible à viser).
@@ -226,26 +238,56 @@ fn send_mouse(step: &MouseStep) {
         }
     }
     if step.left_down {
-        push(MOUSEEVENTF_LEFTDOWN, 0, 0, 0);
+        push(mouse(MOUSEEVENTF_LEFTDOWN, 0, 0, 0));
     }
     if step.left_up {
-        push(MOUSEEVENTF_LEFTUP, 0, 0, 0);
+        push(mouse(MOUSEEVENTF_LEFTUP, 0, 0, 0));
     }
     if step.right_down {
-        push(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0);
+        push(mouse(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0));
     }
     if step.right_up {
-        push(MOUSEEVENTF_RIGHTUP, 0, 0, 0);
+        push(mouse(MOUSEEVENTF_RIGHTUP, 0, 0, 0));
     }
     if step.wheel != 0 {
-        push(MOUSEEVENTF_WHEEL, 0, 0, step.wheel);
+        push(mouse(MOUSEEVENTF_WHEEL, 0, 0, step.wheel));
     }
     if step.hwheel != 0 {
-        push(MOUSEEVENTF_HWHEEL, 0, 0, step.hwheel);
+        push(mouse(MOUSEEVENTF_HWHEEL, 0, 0, step.hwheel));
+    }
+    if step.zoom != 0 {
+        // Ctrl + molette : zoom des pages web et de la plupart des applications.
+        push(key(VK_CONTROL, false));
+        push(mouse(MOUSEEVENTF_WHEEL, 0, 0, step.zoom * 120));
+        push(key(VK_CONTROL, true));
+    }
+    if step.escape {
+        push(key(VK_ESCAPE, false));
+        push(key(VK_ESCAPE, true));
+    }
+    for k in &step.keys {
+        let code = match k {
+            Key::Up => VK_UP,
+            Key::Down => VK_DOWN,
+            Key::Left => VK_LEFT,
+            Key::Right => VK_RIGHT,
+            Key::Enter => VK_RETURN,
+        };
+        push(key(code, false));
+        push(key(code, true));
     }
     if !inputs.is_empty() {
         // SAFETY : tableau de structures INPUT valides, taille exacte.
         unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
+    }
+}
+
+fn key(code: u16, up: bool) -> INPUT {
+    INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT { wVk: code, wScan: 0, dwFlags: if up { KEYEVENTF_KEYUP } else { 0 }, time: 0, dwExtraInfo: 0 },
+        },
     }
 }
 

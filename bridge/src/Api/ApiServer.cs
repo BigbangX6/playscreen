@@ -110,6 +110,11 @@ namespace Playscreen.Bridge.Api
                     {
                         return Json(409, new { error = "not installed" });
                     }
+                    if (Stores.FromPluginId(game.PluginId) == "xbox")
+                    {
+                        UninstallXbox(game);
+                        return new Reply(202);
+                    }
                     var reply = RunOnUi(() => api.UninstallGame(game.Id));
                     launcherWindows.Watch(Stores.FromPluginId(game.PluginId), game.Id);
                     launchers.Watch(Stores.FromPluginId(game.PluginId));
@@ -260,6 +265,41 @@ namespace Playscreen.Bridge.Api
             var count = GameProcesses.Stop(game, force);
             logger.Info($"Playscreen: stop {game.Name} (force: {force}) -> {count} process(es)");
             return count > 0 ? new Reply(202) : Json(409, new { error = "no process found" });
+        }
+
+        /// <summary>
+        /// Xbox : paquet retiré directement (XboxPackages), puis le jeu marqué non installé et
+        /// game.uninstalled envoyé (Playnite ne le voit pas lui-même tout de suite).
+        /// </summary>
+        private void UninstallXbox(Playnite.SDK.Models.Game game)
+        {
+            var gameId = game.Id;
+            var familyName = game.GameId;
+            Task.Run(async () =>
+            {
+                try
+                {
+                    if (!await XboxPackages.Uninstall(familyName).ConfigureAwait(false))
+                    {
+                        return;
+                    }
+                    api.MainView.UIDispatcher.Invoke(() =>
+                    {
+                        var current = api.Database.Games.Get(gameId);
+                        if (current != null && current.IsInstalled)
+                        {
+                            current.IsInstalled = false;
+                            current.InstallDirectory = null;
+                            api.Database.Games.Update(current);
+                        }
+                    });
+                    events.Publish("game.uninstalled", new { gameId });
+                }
+                catch (Exception e)
+                {
+                    logger.Error(e, $"Playscreen: Xbox uninstall of {familyName} failed");
+                }
+            });
         }
 
         private static void OpenEpicInstall(Playnite.SDK.Models.Game game) =>

@@ -43,6 +43,12 @@ pub fn launch_or_focus(config: &Config) {
     }
 }
 
+/// La fenêtre de Playscreen existe-t-elle (même réduite) ?
+#[cfg(windows)]
+pub fn playscreen_open(config: &Config) -> bool {
+    platform::window_exists(&config.window_title)
+}
+
 /// Console (en développement) et fichier %LOCALAPPDATA%\Playscreen\sentinel.log (la
 /// version finale n'a pas de console).
 pub fn log(message: &str) {
@@ -89,6 +95,12 @@ mod platform {
                 SetForegroundWindow(hwnd) != 0
             })
         }
+    }
+
+    pub fn window_exists(title: &str) -> bool {
+        let title: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
+        // SAFETY : chaîne terminée par un zéro.
+        unsafe { !FindWindowW(std::ptr::null(), title.as_ptr()).is_null() }
     }
 
     /// Autorise le programme lancé à passer au premier plan.
