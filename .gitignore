@@ -8,3 +8,4 @@ ui/src-tauri/gen/
 dist-demo/
 tools/banc/rapports/
 __pycache__/
+tools/banc/sandbox/resultats/

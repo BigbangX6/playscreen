@@ -33,6 +33,13 @@ export async function quitApp(): Promise<boolean> {
   return true;
 }
 
+/** Pendant une partie : le moteur web de l'interface rend sa mémoire à Windows (WebView2). */
+export async function setMemoryLow(low: boolean): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("set_memory_low", { low });
+}
+
 /** Clavier manette de Windows (clavier tactile, disposition « manette »). Rien hors de Tauri. */
 export async function showKeyboard(): Promise<boolean> {
   if (!IN_TAURI) return false;

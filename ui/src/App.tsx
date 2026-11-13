@@ -23,7 +23,7 @@ import { QuickCenter, type Download } from "./screens/QuickCenter.tsx";
 import { Relay } from "./screens/Relay.tsx";
 import { Settings } from "./screens/Settings.tsx";
 import { getSite, relayInfo, type BrowserWindow, type RelayTarget, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
-import { browserClose, endRelay, focusLauncherWindow, mouseWhileAway, resumeGame, startRelay } from "./shell.ts";
+import { browserClose, endRelay, focusLauncherWindow, mouseWhileAway, resumeGame, setMemoryLow, startRelay } from "./shell.ts";
 import { connectSystem, system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
@@ -200,10 +200,23 @@ export function App() {
     }
   }, [client]);
 
+  /**
+   * Compte d'un store déconnecté (connexion expirée) : on le dit une fois par session, avec
+   * quoi faire, plutôt que de laisser disparaître les jeux non installés sans explication.
+   */
+  const warnedStores = useRef(new Set<string>());
+  const warnDisconnected = (store: Store) => {
+    if (store.connected !== false || !store.launcherInstalled || store.gameCount === 0 || warnedStores.current.has(store.id)) return;
+    warnedStores.current.add(store.id);
+    notify("info", `${store.name} n'est plus connecté à Playscreen`, "Tes jeux installés marchent. Pour revoir les autres : Paramètres › Comptes et launchers › Se connecter.");
+  };
+
   const loadStores = useCallback(async () => {
     if (!client) return;
     try {
-      setStores(await client.stores());
+      const list = await client.stores();
+      list.forEach(warnDisconnected);
+      setStores(list);
       setStoresError(null);
     } catch (error) {
       setStoresError(describeError(error));
@@ -265,8 +278,19 @@ export function App() {
     const onFocus = () => {
       if (sessionRef.current?.phase === "running" && awaitingRef.current !== sessionRef.current.gameId) setDialog((d) => d ?? { kind: "quick" });
     };
+    // Le jeu devant : l'interface rend sa mémoire ; de retour sur Playscreen : normal.
+    const onBlur = () => {
+      if (sessionRef.current) void setMemoryLow(true);
+    };
+    const onRegain = () => void setMemoryLow(false);
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    window.addEventListener("focus", onRegain);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("focus", onRegain);
+      window.removeEventListener("blur", onBlur);
+    };
   }, []);
 
   // Manette branchée / débranchée.
@@ -380,6 +404,7 @@ export function App() {
       case "store.updated": {
         const store = event.data;
         setStores((list) => list?.map((s) => (s.id === store.id ? store : s)) ?? list);
+        warnDisconnected(store);
         if (dialog?.kind === "login" && dialog.storeId === store.id) {
           if (store.connected) {
             setDialog(null);

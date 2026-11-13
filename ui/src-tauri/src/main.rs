@@ -25,6 +25,38 @@ fn focus_game(install_directory: String) -> bool {
     game_window::focus(&install_directory)
 }
 
+/// Pendant une partie, le moteur web de l'interface rend un maximum de mémoire à Windows
+/// (niveau « bas » de WebView2 : caches vidés, mémoire inutilisée relâchée) ; niveau normal
+/// au retour sur Playscreen.
+#[tauri::command]
+fn set_memory_low(window: tauri::WebviewWindow, low: bool) -> bool {
+    #[cfg(windows)]
+    {
+        use webview2_com::Microsoft::Web::WebView2::Win32::{
+            ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+        };
+        use windows::core::Interface;
+        let level = if low { COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW } else { COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL };
+        window
+            .with_webview(move |webview| {
+                // SAFETY : appels COM sur le fil de la fenêtre, interfaces obtenues de WebView2.
+                unsafe {
+                    if let Ok(core) = webview.controller().CoreWebView2() {
+                        if let Ok(core) = core.cast::<ICoreWebView2_19>() {
+                            let _ = core.SetMemoryUsageTargetLevel(level);
+                        }
+                    }
+                }
+            })
+            .is_ok()
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, low);
+        false
+    }
+}
+
 /// Port et jeton du moteur, écrits par la passerelle (ou le faux moteur) dans
 /// %LOCALAPPDATA%\Playscreen\engine.json. Relu à chaque appel : le jeton change à
 /// chaque démarrage du moteur.
@@ -82,7 +114,7 @@ fn sentinel_running() -> bool {
 fn main() {
     tauri::Builder::default()
         .manage(browser::BrowserState::default())
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, set_mouse_mode, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, set_mouse_mode, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running, set_memory_low])
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

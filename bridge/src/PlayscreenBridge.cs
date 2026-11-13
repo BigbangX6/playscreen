@@ -16,8 +16,15 @@ namespace Playscreen.Bridge
 
         private readonly EventHub events = new EventHub();
         private readonly SessionState session = new SessionState();
+        private readonly MemoryTrim memory = new MemoryTrim();
         private readonly LauncherMonitor launchers;
         private ApiServer server;
+        /// <summary>
+        /// Connexions aux stores gardées en vie : revérifiées toutes les 6 heures (Epic renouvelle
+        /// alors son jeton ; sans cela, il expire après quelques semaines sans Playscreen).
+        /// Pas pendant une partie (navigateur intégré = mémoire prise au jeu).
+        /// </summary>
+        private System.Threading.Timer keepAlive;
 
         public override Guid Id { get; } = Guid.Parse("5c2a9f3e-7b1d-4e6a-9c48-2f1e0d7b3a61");
 
@@ -36,6 +43,14 @@ namespace Playscreen.Bridge
                 server.Start();
                 logger.Info($"Playscreen API listening on port {server.Port}");
                 sync.RefreshConnections();
+                keepAlive = new System.Threading.Timer(_ =>
+                {
+                    if (session.Current == null)
+                    {
+                        logger.Info("Playscreen: keeping store connections alive");
+                        sync.RefreshConnections();
+                    }
+                }, null, TimeSpan.FromHours(6), TimeSpan.FromHours(6));
                 new PlayniteInternals(PlayniteApi).DisableUpdateChecks();
                 SystemVolume.Watch(events);
             }
@@ -76,12 +91,14 @@ namespace Playscreen.Bridge
         public override void OnGameStarted(OnGameStartedEventArgs args)
         {
             session.Started(args.Game.Id);
+            memory.GameStarted();
             events.Publish("game.started", new { gameId = args.Game.Id });
         }
 
         public override void OnGameStopped(OnGameStoppedEventArgs args)
         {
             session.Stopped(args.Game.Id);
+            memory.GameStopped();
             SessionHistory.Record(args.Game.Id, args.ElapsedSeconds);
             LauncherWindows.MinimizeAfterGame(Stores.FromPluginId(args.Game.PluginId));
             events.Publish("game.stopped", new { gameId = args.Game.Id, sessionSeconds = args.ElapsedSeconds });

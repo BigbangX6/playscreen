@@ -49,8 +49,11 @@ def launch(game, events, label):
     time.sleep(2)
     via_pad = most_recent(game["id"])
     if via_pad:
-        # Accueil : focus sur la première tuile (dernier jeu joué) → sa page → « Jouer ».
-        banc.pad("a wait:1500 a")
+        # Une fenêtre de launcher qui démarre peut voler le premier plan : Playscreen d'abord.
+        if not banc.playscreen_in_front():
+            banc.open_playscreen()
+        # Accueil : focus sur la première tuile (dernier jeu joué), A = « Jouer ».
+        banc.pad("a")
     else:
         banc.api("POST", f"/games/{game['id']}/start")
     banc.check(f"{label} : lancement demandé ({'manette' if via_pad else 'API'})",
