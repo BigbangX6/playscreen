@@ -84,8 +84,13 @@ def one_round(game, n, events):
     banc.check(f"{label} : autres launchers fermés", not still, f"avant {sorted(before)}, encore ouverts {sorted(still)}")
     if store in STORES_WITH_LAUNCHER:
         banc.check(f"{label} : launcher du jeu gardé", store in banc.launchers_running())
+    # Le moteur vide la mémoire de Playscreen 20 s après le démarrage : mesure ensuite.
+    time.sleep(max(0, 30 - (time.time() - t0)))
     mem = banc.memory()
-    banc.check(f"{label} : mémoire Playscreen en jeu (Mo, privée)", True, mem["total_privee_mo"])
+    occupied = sum(g["travail_mo"] for g in mem.values() if isinstance(g, dict))
+    banc.check(f"{label} : mémoire occupée par Playscreen en jeu < 400 Mo", occupied < 400,
+               f"{occupied} Mo occupés ({mem['total_privee_mo']} Mo privés) : " +
+               ", ".join(f"{k} {v['travail_mo']}" for k, v in mem.items() if isinstance(v, dict)))
     banc.screenshot(f"en_jeu_{n}")
 
     for i in range(2):

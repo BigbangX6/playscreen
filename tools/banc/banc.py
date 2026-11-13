@@ -28,7 +28,9 @@ import win32process
 from PIL import ImageGrab
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DIST = os.path.join(ROOT, "dist", "Playscreen")
+# Version installée (Program Files) si elle existe, sinon le paquet de développement.
+INSTALLED = os.path.join(os.environ.get("ProgramW6432", r"C:\Program Files"), "Playscreen")
+DIST = INSTALLED if os.path.exists(os.path.join(INSTALLED, "Playscreen.exe")) else os.path.join(ROOT, "dist", "Playscreen")
 DATA = os.path.join(os.environ["LOCALAPPDATA"], "Playscreen")
 REPORTS = os.path.join(os.path.dirname(__file__), "rapports")
 PAD_URL = "http://127.0.0.1:47901/"
@@ -404,3 +406,23 @@ def game_in_front(install_dir):
     except Exception:
         return False
     return bool(install_dir) and exe.startswith(install_dir.rstrip("\\").lower() + "\\")
+
+
+def cursor():
+    return win32gui.GetCursorPos()
+
+
+def stick_mouse_to(x, y, tolerance=15, tries=150):
+    """Mode souris de la sentinelle : pousse le stick gauche jusqu'à amener le curseur en (x, y)."""
+    for _ in range(tries):
+        cx, cy = cursor()
+        dx, dy = x - cx, y - cy
+        if abs(dx) <= tolerance and abs(dy) <= tolerance:
+            return True
+        dist = max(abs(dx), abs(dy))
+        # Pousser fort de loin, doucement de près (la sentinelle accélère avec l'inclinaison).
+        strength = 1.0 if dist > 300 else 0.6 if dist > 80 else 0.45
+        ms = 250 if dist > 300 else 120 if dist > 80 else 90
+        sx, sy = dx / dist * strength, -dy / dist * strength  # stick : y vers le haut
+        pad(f"lstick:{sx:.2f},{sy:.2f},{ms}")
+    return False

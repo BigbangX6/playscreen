@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -231,7 +231,31 @@ namespace Playscreen.Bridge.Api
             {
                 logger.Error(e, $"Playscreen: login check for {store.Id} failed");
             }
+            // Steam déconnecté : on reprend la session du programme Steam de ce PC, puis on revérifie.
+            if (store.Id == "steam" && value == false && SteamSession.TryImport(api))
+            {
+                RefreshConnectionOnce(store, plugin, ref value);
+            }
             connected[store.Id] = value;
+        }
+
+        private void RefreshConnectionOnce(Stores.StoreInfo store, LibraryPlugin plugin, ref bool? value)
+        {
+            try
+            {
+                var settings = plugin.GetSettings(false);
+                var property = settings?.GetType().GetProperty("IsUserLoggedIn");
+                var check = Task.Run(() => (bool)property.GetValue(settings));
+                if (check.Wait(LoginCheckTimeout))
+                {
+                    value = check.Result;
+                    logger.Info($"Playscreen: {store.Id} connected after session import: {value}");
+                }
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, $"Playscreen: login re-check for {store.Id} failed");
+            }
         }
 
         private static bool? IsLauncherInstalled(Stores.StoreInfo store, LibraryPlugin plugin)

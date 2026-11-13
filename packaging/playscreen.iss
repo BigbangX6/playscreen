@@ -59,6 +59,11 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 Source: "outils\installer-launcher.ps1"; DestDir: "{app}\outils"; Flags: ignoreversion
 Source: "LICENCES.txt"; DestDir: "{app}"; Flags: ignoreversion
 
+[Dirs]
+; Playnite y écrit au démarrage (optimisation .NET) ; sans ce droit, « --shutdown » (mise à
+; jour, désinstallation) plantait dans Program Files (vu le 13 novembre 2026).
+Name: "{app}\Playnite\JITProfiles"; Permissions: users-modify
+
 [Icons]
 Name: "{autoprograms}\Playscreen"; Filename: "{app}\Sentinelle\playscreen-sentinel.exe"; Parameters: "--open"; IconFilename: "{app}\Playscreen.exe"; Comment: "Ouvre Playscreen (ensuite : Select + Y à la manette)"
 Name: "{autodesktop}\Playscreen"; Filename: "{app}\Sentinelle\playscreen-sentinel.exe"; Parameters: "--open"; IconFilename: "{app}\Playscreen.exe"; Tasks: desktopicon
@@ -116,8 +121,13 @@ begin
 end;
 
 function InitializeSetup: Boolean;
+var
+  Code: Integer;
 begin
   Result := True;
+  // Playscreen ouvert (plein écran, toujours devant) cacherait l'installateur (vu le
+  // 13 novembre 2026 pendant une mise à jour) : on le ferme d'abord.
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM Playscreen.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
   if not DotNetInstalled then
   begin
     MsgBox('Playscreen a besoin de .NET Framework 4.6.2 ou plus récent (inclus dans Windows 10 et 11 à jour).' + #13#10 +

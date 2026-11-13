@@ -481,6 +481,10 @@ export function App() {
   const login = (store: Store, alternative: boolean) => {
     if (!client) return;
     setDialog({ kind: "login", storeId: store.id, alternative, failed: false });
+    // La fenêtre de connexion du store passe devant : la manette y devient une souris, puis
+    // redevient une manette au retour sur Playscreen (comme pour les installations).
+    awayWatchers.current[`login-${store.id}`]?.();
+    awayWatchers.current[`login-${store.id}`] = mouseWhileAway();
     client.login(store.id, { alternative }).catch((error) => {
       // 409 : une fenêtre de connexion est déjà ouverte, on continue de l'attendre.
       if (error instanceof ApiError && error.status === 409) return;
