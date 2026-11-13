@@ -7,3 +7,4 @@ dist/
 ui/src-tauri/gen/
 dist-demo/
 tools/banc/rapports/
+__pycache__/
