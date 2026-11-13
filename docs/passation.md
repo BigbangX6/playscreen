@@ -10,47 +10,70 @@
 
 ---
 
-## Reprise (dernière mise à jour : nuit du 6 au 7 octobre 2026) — **commence ici**
+## Reprise (dernière mise à jour : nuit du 13 au 14 novembre 2026) — **commence ici**
 
-Les sections 0, 0 bis et 0 ter racontent les sessions précédentes ; la plus récente est
-la fin du § 0 ter (« Fin d'après-midi » et « Soir du 6 octobre »).
+Objectif en cours : **première version (v0.1.0) avec installateur**, que la personne testera
+sur son PC Shadow branché à la télé (voir aussi la mémoire « Objectifs release v1 »).
+L'ancien état (octobre) est raconté aux § 0, 0 bis et 0 ter.
 
-**État au moment de l'arrêt du PC**
-- Branche `claude/busy-carson-3amj4g` à jour et poussée (dernier commit : « Installation :
-  souris à chaque passage du launcher… »), contrôle automatique vert.
-- `dist\Playscreen` contient les dernières versions : `Playscreen.exe` (interface
-  autonome), `Sentinelle\playscreen-sentinel.exe` (+ `SDL2.dll`), passerelle déployée
-  dans le moteur. La sentinelle ne démarre **pas** avec Windows (accord de la personne
-  attendu) : la lancer à la main (`dist\Playscreen\Sentinelle\playscreen-sentinel.exe`),
-  puis **Select + Y** lance le moteur et Playscreen. **Select + X** : souris manette.
-- Travail du 6 octobre : design fusionné, points 13 à 20 (`interface-moteur.md` § 5),
-  retours du soir (§ 6), applications hors launcher (`docs/hors-launcher.md`). Tout a été
-  testé avec la manette virtuelle sauf la souris pendant une désinstallation.
+**Fait les 13 et 14 novembre (commits sur `claude/busy-carson-3amj4g`, tous poussés)**
+- Sentinelle économe : 16 ms / 50 ms / 500 ms selon l'activité, mode efficacité Windows au
+  repos. Mesuré : 0,1 % d'un cœur et 3 Mo sans manette, contre 1 % et 22 Mo avant.
+- Ajouter un jeu hors launcher à la manette : écran « Ajouter un jeu » avec les suggestions
+  du bureau et du menu Démarrer, un explorateur de fichiers, renommer et retirer
+  (`bridge/src/Api/FileBrowser.cs`, `CustomApps.cs`).
+- Installateur Inno Setup : `packaging/playscreen.iss` et `packaging/build-installer.ps1`.
+  Le fichier produit est `dist\Playscreen-Setup-0.1.0.exe`. L'installateur règle les droits
+  sur le dossier Epic (F24), ajoute une règle de pare-feu (F19) et crée la tâche planifiée
+  « Installer un launcher » (F31 résolu). Il met en place le démarrage avec Windows, qui
+  lance **seulement la sentinelle** ; Playscreen s'ouvre par Select + Y. Le guide est dans
+  `docs/guide-installation.md`.
+- Mémoire en jeu : Playscreen n'occupe plus que 75 à 255 Mo pendant une partie
+  (`MemoryTrim.cs`, WebView2 en mémoire basse quand Playscreen n'est pas devant).
+- Connexions : vérification toutes les 6 h. Steam se reconnecte seul à partir de la
+  session du programme Steam (`SteamSession.cs`, accord de la personne du 13/11). Battle.net
+  est vérifié toutes les 20 min (commit c3d7ca9) : la session de son site expire après
+  ~30 min sans visite, puis Battle.net redemande le mot de passe (renouvellement silencieux
+  essayé : il mène à la page du mot de passe). L'efficacité de ce maintien est **à
+  confirmer** (connexion faite le 14/11 à 00 h 07).
+- Banc de test `tools/banc` (manette virtuelle, scénarios de lancement et d'ajout). Les
+  rapports sont dans `tools/banc/rapports`, non versionnés.
 
-**Outils de test (dossier temporaire de la session, à recréer si perdu)** : manette
-virtuelle Xbox par ViGEmBus + Python 3.12 (`%LOCALAPPDATA%\Programs\Python\Python312`)
-et `vgamepad` ; un petit serveur (port 47901) qui reçoit des suites de boutons (`a`,
-`up`, `sely`, `selx`, `lstick:x,y,durée`…) ; captures d'écran « DPI-aware » (écran
-1920 × 1080) ; appels de l'API avec le jeton de `%LOCALAPPDATA%\Playscreen\engine.json`
-(un POST demande un corps, même vide). `cargo` : `%USERPROFILE%\.cargoin` à ajouter au
-`PATH` du terminal. Redéployer la passerelle : `Playnite.DesktopApp.exe --shutdown`, copier
-`bridgein\Release
-et462\*` dans `dist\Playscreen\Playnite\Extensions\Playscreen_Bridge`,
-relancer `start-engine.cmd`. Playnite est un programme **32 bits** (pas de
-`GetWindowLongPtr`).
+**Tests** (version installée) : Fall Guys 54/54, Shattered Pixel Dungeon 74/74, Among Us +
+Warcraft Rumble 81/81, OpenTTD + Unrailed 78/78. Installer puis désinstaller TrackMania
+(Steam) à la souris-manette fonctionne. Mise à jour par-dessus l'ancienne version :
+réussie, et Playnite s'arrête proprement (correction JITProfiles).
 
-**Reste à faire / en attente**
-- Retours de test de la personne (vraie manette GameSir en modes Switch, PS4, Xbox).
-- Démarrage automatique de la sentinelle avec Windows : **demander l'accord**.
-- Installer un launcher depuis Playscreen : l'UAC sur le bureau sécurisé bloque la manette
-  (F31) ; piste : tâche planifiée « administrateur » créée par l'installateur (D9).
-- Xbox : installation sans clic ; trophées Epic (connexion SuccessStory) ; Battle.net :
-  page Boutique directe ; F30 (fenêtre d'installation Steam dessinée dans la fenêtre
-  principale : maintenant compensé par « pas de téléchargement 15 s après le retour »).
-- Vu une fois, pas reproduit : une fenêtre d'impression de Windows sur Playscreen en
-  ouvrant Discord à la manette.
-- Côté design (autre session) : cacher les jeux `hidden`, écran « Ajouter une
-  application », vignette sans jaquette, mention de Select + X.
+**État à l'arrêt du PC**
+- Une version installée se trouve dans `C:\Program Files\Playscreen`, construite à 21 h 03
+  le 13/11. La passerelle installée **n'a pas** le maintien Battle.net : il n'est que dans
+  `dist\Playscreen`. Reconstruire l'installateur avant la release.
+- `dist\Playscreen\Playscreen.exe` a été remplacé par la version de 21 h 03. La version de
+  18 h 53 n'avait pas la souris dans les fenêtres de connexion, ce qui explique pourquoi la
+  personne n'a pas pu se connecter à la manette.
+- Le fichier `%LOCALAPPDATA%\Playscreen
+o-power` est présent : le moteur refuse alors
+  veille et arrêt pendant les tests.
+- Le blocage auto de Claude Code a refusé les commits à partir du 14/11 vers 0 h. La
+  personne a fait le commit elle-même avec `! git ...`.
+
+**Reste à faire**
+1. Vérifier que Battle.net reste connecté plus de 30 min avec le maintien toutes les 20 min.
+2. Souris-manette dans une fenêtre de connexion : à confirmer à la prochaine connexion.
+   Attention, « Changer de compte » **déconnecte** le compte actuel : les extensions effacent
+   leurs cookies avant d'ouvrir la page.
+3. Test sur un Windows neuf : la personne active « Bac à sable Windows » et redémarre, puis
+   on lance `tools/banc/sandbox/playscreen-sandbox.wsb` et on lit `resultats/rapport.txt`.
+4. Pendant les tests Fall Guys, Epic a ouvert dans Chrome une page « Demande de permission ».
+   C'est une autorisation de compte : à la personne de décider. Ce type de page hors de
+   Playscreen sera gênant sur la télé.
+5. Shattered PD : un échec isolé de « Quitter » (retour sur la fenêtre « Playscreen –
+   navigateur »), non reproduit en 9 tours.
+6. Refaire les tests d'installation et de désinstallation Epic et Battle.net. Vérifier le
+   contrôle automatique (CI). Reconstruire l'installateur. Publier la release GitHub v0.1.0
+   avec le guide : `gh` n'est pas installé, il faudra la personne ou un jeton.
+7. Installateur non signé : SmartScreen préviendra au premier lancement, à expliquer dans
+   le guide.
 
 ## 0. Reprise rapide (fin de la session Windows du 5 octobre 2026)
 
@@ -525,7 +548,7 @@ PC : Windows 11 Pro, Node 24.21, .NET SDK 10.0.102, pas de Rust. Puce Intel Iris
   chaque changement. Repères relevés en fermant et relançant chaque launcher :
   - **Steam** : prêt quand `HKCU\Software\Valve\Steam\ActiveProcess` a `ActiveUser` ≠ 0 et
     un `pid` de steam.exe (connexion automatique comprise : 16 à 25 s) ; mise à jour :
-    `logsootstrap_log.txt`, « Downloaded new manifest » / « Found pending update » depuis
+    `logsbootstrap_log.txt`, « Downloaded new manifest » / « Found pending update » depuis
     le dernier « Startup - » (messages en anglais, le reste est traduit).
   - **Epic** : `EpicGamesLauncher.log` (heures en UTC), « Stage of update started » = se met à
     jour, « Waiting for next version update » = prêt (≈ 1 s après le démarrage). Epic se
