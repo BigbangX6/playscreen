@@ -339,3 +339,68 @@ def restart_playscreen():
     wait_until(lambda: not running("playscreen.exe"), 10)
     time.sleep(1)
     return open_playscreen()
+
+
+# ——— Launchers ———
+
+LAUNCHER_EXES = {
+    "steam": r"C:\Program Files (x86)\Steam\steam.exe",
+    "epic": r"C:\Program Files (x86)\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe",
+    "battlenet": r"C:\Program Files (x86)\Battle.net\Battle.net.exe",
+}
+
+
+def kill(*names):
+    wanted = {n.lower() for n in names}
+    for p in psutil.process_iter(["name"]):
+        if (p.info["name"] or "").lower() in wanted:
+            try:
+                p.kill()
+            except Exception:
+                pass
+
+
+def close_launcher(store):
+    if store == "steam" and running("steam.exe"):
+        subprocess.Popen([LAUNCHER_EXES["steam"], "-shutdown"])
+        if not wait_until(lambda: not running("steam.exe"), 40):
+            kill("steam.exe", "steamwebhelper.exe")
+    elif store == "epic":
+        kill("EpicGamesLauncher.exe", "EpicWebHelper.exe")
+    elif store == "battlenet":
+        kill("Battle.net.exe")
+    return wait_until(lambda: store not in launchers_running(), 20)
+
+
+def start_launcher(store, settle=25):
+    """Démarre le launcher (réduit si possible) et lui laisse le temps d'être prêt."""
+    if store in launchers_running():
+        return True
+    args = {"steam": ["-silent"], "epic": ["-silent"], "battlenet": []}[store]
+    subprocess.Popen([LAUNCHER_EXES[store]] + args)
+    ok = wait_until(lambda: store in launchers_running(), 30)
+    time.sleep(settle)
+    return ok
+
+
+def game_processes(install_dir):
+    """Processus dont l'exécutable est dans le dossier du jeu."""
+    if not install_dir:
+        return []
+    prefix = install_dir.rstrip("\\").lower() + "\\"
+    found = []
+    for p in psutil.process_iter(["exe", "name"]):
+        exe = (p.info["exe"] or "").lower()
+        if exe.startswith(prefix):
+            found.append(p.info["name"])
+    return found
+
+
+def game_in_front(install_dir):
+    hwnd = win32gui.GetForegroundWindow()
+    try:
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        exe = psutil.Process(pid).exe().lower()
+    except Exception:
+        return False
+    return bool(install_dir) and exe.startswith(install_dir.rstrip("\\").lower() + "\\")

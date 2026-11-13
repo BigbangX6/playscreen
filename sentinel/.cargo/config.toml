@@ -1,0 +1,4 @@
+# Bibliotheque C de Microsoft liee dans l'executable (VCRUNTIME140.dll est absente d'un
+# Windows neuf) : la sentinelle demarre sans rien installer d'autre.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

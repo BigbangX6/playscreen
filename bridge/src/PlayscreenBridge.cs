@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Playnite.SDK;
 using Playnite.SDK.Events;
 using Playnite.SDK.Plugins;
@@ -36,6 +36,7 @@ namespace Playscreen.Bridge
                 server.Start();
                 logger.Info($"Playscreen API listening on port {server.Port}");
                 sync.RefreshConnections();
+                new PlayniteInternals(PlayniteApi).DisableUpdateChecks();
                 SystemVolume.Watch(events);
             }
             catch (Exception e)

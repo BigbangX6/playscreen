@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -103,6 +103,33 @@ namespace Playscreen.Bridge.Api
             {
                 logger.Error(e, "Playscreen: Playnite metadata download failed");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Mises à jour de Playnite et de ses extensions : seulement à la main. Playscreen fige
+        /// leurs versions (une mise à jour de SuccessStory a déjà cassé les trophées Steam), et
+        /// Playnite, installé dans Program Files, ne pourrait pas s'y écrire sans droits admin.
+        /// Réglage gardé par Playnite (config.json) : il vaut aussi pour les démarrages suivants.
+        /// </summary>
+        public void DisableUpdateChecks()
+        {
+            try
+            {
+                var appSettings = Property(MainModel, "AppSettings");
+                foreach (var name in new[] { "CheckForProgramUpdates", "CheckForAddonUpdates" })
+                {
+                    var property = appSettings?.GetType().GetProperty(name);
+                    if (property != null && property.PropertyType.IsEnum)
+                    {
+                        // UpdateCheckFrequency.OnlyManually
+                        property.SetValue(appSettings, Enum.ToObject(property.PropertyType, 3));
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                logger.Warn($"Playscreen: cannot disable update checks: {e.Message}");
             }
         }
 

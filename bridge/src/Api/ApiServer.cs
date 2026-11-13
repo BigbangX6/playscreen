@@ -480,6 +480,13 @@ namespace Playscreen.Bridge.Api
             {
                 return Json(400, new { error = "unknown action" });
             }
+            // Banc de test (tools/banc) : un mauvais bouton ne doit jamais éteindre le PC de test.
+            var guard = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Playscreen", "no-power");
+            if (File.Exists(guard))
+            {
+                logger.Warn($"Playscreen: power action {action} refused ({guard} exists)");
+                return Json(409, new { error = "power disabled (tests)" });
+            }
             Task.Delay(500).ContinueWith(_ => SystemInfo.Power(action));
             return new Reply(202);
         }

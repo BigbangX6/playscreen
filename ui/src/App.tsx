@@ -115,6 +115,8 @@ export function App() {
   const [launchers, setLaunchers] = useState<Partial<Record<StoreId, LauncherState>>>({});
   const [syncing, setSyncing] = useState<StoreId[]>([]);
   const [session, setSession] = useState<Session | null>(null);
+  /** Jeu démarré dont la fenêtre n'est pas encore passée devant : l'écran « démarre » reste. */
+  const [awaitingWindow, setAwaitingWindow] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: "home" });
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -235,12 +237,33 @@ export function App() {
     return handle ? focusLauncherWindow(handle) : resumeGame(game);
   };
 
+  /**
+   * Au démarrage d'un jeu, Playscreen (au premier plan) lui cède la place. La fenêtre du jeu
+   * peut mettre plusieurs secondes à s'ouvrir (Among Us, jeux Unity) : on réessaie chaque
+   * seconde, une minute au plus, tant que Playscreen est devant et que la partie continue.
+   * Ensuite seulement, le menu rapide est prêt pour le retour (D10).
+   */
+  const yieldToGame = async (game: Game) => {
+    setAwaitingWindow(game.id);
+    for (let attempt = 0; attempt < 60; attempt++) {
+      if (sessionRef.current?.gameId !== game.id) break;
+      // Quelque chose d'autre est passé devant (le jeu lui-même, son launcher) : c'est fini.
+      if (!document.hasFocus() && attempt > 0) break;
+      if (await bringGameForward(game)) break;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    setAwaitingWindow((id) => (id === game.id ? null : id));
+    if (sessionRef.current?.gameId === game.id) setDialog((d) => d ?? { kind: "quick" });
+  };
+
   // Retour sur Playscreen pendant une partie (Select + Start, D10) : menu rapide d'abord.
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  const awaitingRef = useRef(awaitingWindow);
+  awaitingRef.current = awaitingWindow;
   useEffect(() => {
     const onFocus = () => {
-      if (sessionRef.current?.phase === "running") setDialog((d) => d ?? { kind: "quick" });
+      if (sessionRef.current?.phase === "running" && awaitingRef.current !== sessionRef.current.gameId) setDialog((d) => d ?? { kind: "quick" });
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
@@ -302,13 +325,14 @@ export function App() {
         }
         break;
       case "game.started": {
-        setSession((s) => ({ gameId: event.data.gameId, phase: "running", since: s?.since ?? Date.now(), hidden: false }));
-        // Ce que le joueur verra en revenant sur Playscreen pendant la partie (D10).
-        setDialog({ kind: "quick" });
+        const started = { gameId: event.data.gameId, phase: "running" as const, since: sessionRef.current?.since ?? Date.now(), hidden: false };
+        sessionRef.current = started;
+        setSession(started);
         // Windows empêche le jeu (lancé en arrière-plan par son launcher) de passer devant
         // Playscreen : c'est Playscreen, au premier plan, qui lui cède la place.
         const game = gamesRef.current?.find((g) => g.id === event.data.gameId);
-        if (game) void bringGameForward(game);
+        if (game) void yieldToGame(game);
+        else setDialog({ kind: "quick" });
         break;
       }
       case "game.window":
@@ -576,7 +600,7 @@ export function App() {
 
   const sessionGame = session ? games?.find((g) => g.id === session.gameId) ?? null : null;
   const runningName = session?.phase === "running" ? sessionGame?.name ?? null : null;
-  const showLaunching = session?.phase === "starting" && !session.hidden && sessionGame;
+  const showLaunching = (session?.phase === "starting" || (session && awaitingWindow === session.gameId)) && !session.hidden && sessionGame;
   const dialogGame = dialog && "gameId" in dialog ? games?.find((g) => g.id === dialog.gameId) : undefined;
   const loginStore = dialog?.kind === "login" ? stores?.find((s) => s.id === dialog.storeId) : undefined;
   const overlayOpen = Boolean(dialog || showLaunching || !client);

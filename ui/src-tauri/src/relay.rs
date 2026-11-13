@@ -68,14 +68,58 @@ fn launcher(id: &str) -> Option<(&'static str, &'static str)> {
     })
 }
 
-/// Installe un launcher avec winget, sans fenêtre (Windows demande son autorisation) ; en cas
+/// Tâche planifiée créée par l'installateur de Playscreen : installe un launcher avec les
+/// droits administrateur, sans fenêtre d'autorisation (F31). Voir packaging/outils.
+const INSTALL_TASK: &str = r"Playscreen\Installer un launcher";
+
+/// Demande l'installation à la tâche planifiée et attend son résultat (10 minutes au plus).
+/// None si la tâche n'existe pas (Playscreen pas installé par son installateur).
+fn install_with_task(id: &str) -> Option<bool> {
+    let dir = std::path::PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join("Playscreen");
+    let result = dir.join("launcher-result.txt");
+    let _ = std::fs::remove_file(&result);
+    std::fs::write(dir.join("launcher-request.txt"), id).ok()?;
+    let mut command = std::process::Command::new("schtasks");
+    command.args(["/run", "/tn", INSTALL_TASK]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    if !command.status().map(|s| s.success()).unwrap_or(false) {
+        let _ = std::fs::remove_file(dir.join("launcher-request.txt"));
+        return None;
+    }
+    for _ in 0..600 {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        if let Ok(text) = std::fs::read_to_string(&result) {
+            return Some(text.trim().trim_start_matches('\u{feff}') == "ok");
+        }
+    }
+    Some(false)
+}
+
+/// Installe un launcher : par la tâche planifiée de Playscreen si elle existe (aucune
+/// autorisation à valider), sinon avec winget (Windows demande son autorisation) ; en cas
 /// d'échec (winget absent, autorisation refusée), ouvre sa page officielle.
 fn install(id: &str) -> bool {
     let Some((package, page)) = launcher(id) else {
         return false;
     };
     let source = if package.starts_with("9") { "msstore" } else { "winget" };
+    let id = id.to_string();
     std::thread::spawn(move || {
+        if source == "winget" {
+            match install_with_task(&id) {
+                Some(true) => {
+                    eprintln!("[relais] {id} installé par la tâche planifiée");
+                    return;
+                }
+                Some(false) => eprintln!("[relais] {id} : échec de la tâche planifiée"),
+                None => eprintln!("[relais] tâche planifiée absente : winget direct"),
+            }
+        }
         let mut command = std::process::Command::new("winget");
         command.args(["install", "--id", package, "--exact", "--source", source, "--silent"])
             .args(["--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"]);

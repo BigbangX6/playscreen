@@ -112,7 +112,9 @@ New-Item -ItemType Directory -Force -Path (Join-Path $defaultsDir "library") | O
 # Sans accélération graphique, dans tous les modes : avec, les fenêtres de Playnite restent
 # transparentes sur certains écrans virtuels (Parsec). --forcesoftrender ne suffit pas :
 # Playnite ne le transmet pas quand il redémarre en plein écran.
-[IO.File]::WriteAllText((Join-Path $defaultsDir "config.json"), '{ "DisableHwAcceleration": true }')
+# Mises à jour de Playnite et des extensions : seulement à la main (3 = OnlyManually) ; leurs
+# versions sont figées par ce script (la passerelle l'impose aussi aux installations existantes).
+[IO.File]::WriteAllText((Join-Path $defaultsDir "config.json"), '{ "DisableHwAcceleration": true, "CheckForProgramUpdates": 3, "CheckForAddonUpdates": 3 }')
 # Réglages lus dans le code des extensions (*LibrarySettingsViewModel.cs) : « connecter le
 # compte » et « importer les jeux non installés » sont désactivés par défaut. Les réglages
 # absents gardent leur valeur par défaut. Version : évite les migrations de réglages.

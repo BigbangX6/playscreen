@@ -41,6 +41,10 @@ const WM_TRAY: u32 = WM_APP + 1;
 const MENU_QUIT: usize = 1;
 /// Message envoyé par `--mouse` / `--mouse-off` (ou par Playscreen) : wparam 1 = entrer, 0 = sortir.
 const WM_MOUSE_MODE: u32 = WM_APP + 2;
+/// Message envoyé par `--open` d'une seconde sentinelle : ouvrir ou ramener Playscreen.
+const WM_OPEN: u32 = WM_APP + 3;
+/// Message envoyé par `--quit` : arrêt propre.
+const WM_QUIT_REQUEST: u32 = WM_APP + 4;
 const CLASS_NAME: &str = "PlayscreenSentinel";
 
 const READY_TITLE: &str = "Playscreen est prêt";
@@ -267,6 +271,19 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
             });
             0
         }
+        WM_OPEN => {
+            STATE.with(|s| {
+                if let Some(state) = s.borrow().as_ref() {
+                    actions::launch_or_focus(&state.config);
+                }
+            });
+            0
+        }
+        WM_QUIT_REQUEST => {
+            actions::log("Arrêt demandé (--quit)");
+            PostQuitMessage(0);
+            0
+        }
         WM_TRAY => {
             let event = (lparam & 0xFFFF) as u32;
             if event == WM_RBUTTONUP || event == WM_CONTEXTMENU {
@@ -455,6 +472,34 @@ fn key(code: u16, up: bool) -> INPUT {
             ki: KEYBDINPUT { wVk: code, wScan: 0, dwFlags: if up { KEYEVENTF_KEYUP } else { 0 }, time: 0, dwExtraInfo: 0 },
         },
     }
+}
+
+fn running_sentinel() -> HWND {
+    let class_name = wide(CLASS_NAME);
+    // SAFETY : chaîne terminée par un zéro.
+    unsafe { FindWindowW(class_name.as_ptr(), null()) }
+}
+
+pub fn already_running() -> bool {
+    !running_sentinel().is_null()
+}
+
+pub fn send_open() -> bool {
+    let hwnd = running_sentinel();
+    // Celle qui tourne doit pouvoir passer Playscreen au premier plan : on lui en donne le droit.
+    // SAFETY : message simple sans pointeur.
+    unsafe {
+        let mut process_id = 0u32;
+        windows_sys::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(hwnd, &mut process_id);
+        windows_sys::Win32::UI::WindowsAndMessaging::AllowSetForegroundWindow(process_id);
+        !hwnd.is_null() && PostMessageW(hwnd, WM_OPEN, 0, 0) != 0
+    }
+}
+
+pub fn send_quit() -> bool {
+    let hwnd = running_sentinel();
+    // SAFETY : message simple sans pointeur.
+    !hwnd.is_null() && unsafe { PostMessageW(hwnd, WM_QUIT_REQUEST, 0, 0) != 0 }
 }
 
 /// `--mouse` / `--mouse-off` : prévient la sentinelle déjà lancée. Faux si elle ne tourne pas.

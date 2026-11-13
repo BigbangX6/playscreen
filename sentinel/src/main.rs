@@ -58,6 +58,24 @@ fn main() {
     if std::env::args().any(|arg| arg == "--mouse-off") {
         std::process::exit(if tray::send_mouse_mode(false) { 0 } else { 1 });
     }
+    // `--quit` : arrête proprement la sentinelle qui tourne (barre des tâches rétablie) ;
+    // utilisé par la désinstallation.
+    if std::env::args().any(|arg| arg == "--quit") {
+        std::process::exit(if tray::send_quit() { 0 } else { 1 });
+    }
+    // `--open` (raccourci « Playscreen » du menu Démarrer) : ouvre Playscreen, et garde la
+    // sentinelle en marche pour Select + Y.
+    let open = std::env::args().any(|arg| arg == "--open");
+    // Une seule sentinelle : si elle tourne déjà, on lui transmet la demande et on s'arrête.
+    if tray::already_running() {
+        if open {
+            tray::send_open();
+        }
+        return;
+    }
+    if open {
+        actions::launch_or_focus(&config);
+    }
     tray::run(config);
 }
 
