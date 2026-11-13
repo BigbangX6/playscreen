@@ -3,7 +3,8 @@
 // réglables depuis le panneau de démo (F2) pour voir chaque situation.
 
 import { ApiError, type EngineClient } from "../../../api/client.ts";
-import type { AppCandidate, EngineEvent, EventMap, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophyItem, TrophySummary, Volume } from "../../../api/types.ts";
+import { fakeListing } from "../../../api/fake-files.ts";
+import type { AppCandidate, FileListing, EngineEvent, EventMap, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophyItem, TrophySummary, Volume } from "../../../api/types.ts";
 import { demoGames, demoImage, demoStores } from "./library.ts";
 
 export interface DemoSettings {
@@ -363,8 +364,9 @@ class DemoEngine implements EngineClient {
     return null;
   }
 
-  async setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean }): Promise<Game> {
+  async setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean; name?: string }): Promise<Game> {
     const game = { ...(await this.game(gameId)), ...options };
+    this.gameMap.set(gameId, game);
     this.emit("game.updated", game);
     return game;
   }
@@ -376,14 +378,22 @@ class DemoEngine implements EngineClient {
   async appCandidates(): Promise<AppCandidate[]> {
     this.ensureOnline();
     return [
-      { name: "Minecraft Launcher", path: "C:\XboxGames\Minecraft Launcher\Minecraft.exe", arguments: "", added: false },
-      { name: "RetroArch", path: "C:\RetroArch\retroarch.exe", arguments: "", added: false },
+      { name: "Minecraft Launcher", path: "C:\\XboxGames\\Minecraft Launcher\\Minecraft.exe", arguments: "", added: false, source: "desktop" },
+      { name: "RetroArch", path: "C:\\Games\\RetroArch\\retroarch.exe", arguments: "", added: false, source: "startmenu" },
     ];
+  }
+
+  async listFiles(path?: string | null): Promise<FileListing> {
+    this.ensureOnline();
+    const added = new Set([...this.gameMap.values()].filter((g) => g.store === "other").map((g) => (g as Game & { path?: string }).path ?? ""));
+    const listing = fakeListing(path, added);
+    if (!listing) throw new ApiError(404, "folder not found");
+    return listing;
   }
 
   async addApp(app: { name: string; path: string; arguments?: string }): Promise<Game> {
     this.ensureOnline();
-    const game: Game = { id: `app-${Date.now()}`, name: app.name, store: "other", installed: true, playtimeSeconds: 0, added: new Date().toISOString() };
+    const game: Game & { path?: string } = { id: `app-${Date.now()}`, name: app.name, store: "other", installed: true, playtimeSeconds: 0, added: new Date().toISOString(), path: app.path };
     this.gameMap.set(game.id, game);
     this.emit("library.updated", { added: [game.id], updated: [], removed: [] });
     return { ...game };

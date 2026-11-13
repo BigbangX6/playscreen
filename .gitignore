@@ -6,3 +6,4 @@ dist/
 *.user
 ui/src-tauri/gen/
 dist-demo/
+tools/banc/rapports/

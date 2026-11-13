@@ -793,3 +793,29 @@ input.search-field::placeholder {
 .wcard-btn {
   justify-self: start;
 }
+
+/* ——— Ajouter un jeu (AddGame.tsx) ——— */
+.add-tabs {
+  display: flex;
+  gap: calc(var(--cq) * 0.8);
+  margin-bottom: calc(var(--cq) * 0.6);
+}
+
+.add-tabs .chip-active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.add-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cq) * 0.5);
+}
+
+.add-icon {
+  display: inline-block;
+  width: calc(var(--cq) * 1.6);
+  color: var(--text-sub);
+  text-align: center;
+}

@@ -10,8 +10,9 @@ import { DEMO, useEngine } from "./engine.ts";
 import { formatPlaytime } from "./format.ts";
 import { useNavAction } from "./input/navigation.ts";
 import { Overlay } from "./components/Overlay.tsx";
+import { AddGame } from "./screens/AddGame.tsx";
 import { Browser } from "./screens/Browser.tsx";
-import { GamePage, GameSettingsPage, TrophyDetailPage } from "./screens/GamePages.tsx";
+import { GamePage, GameSettingsPage, RenameGamePage, TrophyDetailPage } from "./screens/GamePages.tsx";
 import { LauncherPage, LaunchersPage, Welcome } from "./screens/Launchers.tsx";
 import { prefs, setPrefs } from "./prefs.ts";
 import { Home, type HomeFocus } from "./screens/Home.tsx";
@@ -36,6 +37,8 @@ type Screen =
   | { name: "welcome" }
   | { name: "trophies"; gameId: string; from: Screen }
   | { name: "game-settings"; gameId: string; from: Screen }
+  | { name: "rename"; gameId: string; from: Screen }
+  | { name: "add-game"; from: Screen }
   | { name: "settings"; section: SettingsSection }
   | { name: "page"; page: "search" | "trophees" | "notifications" | "music"; from: Screen }
   | { name: "web"; window: BrowserWindow; from: Screen };
@@ -625,6 +628,41 @@ export function App() {
         onNavigate={navigate}
         onUninstall={(g) => setDialog({ kind: "uninstall", gameId: g.id })}
         onNotify={(title, message) => notify("info", title, message)}
+        onRename={(g) => setScreen({ name: "rename", gameId: g.id, from: screen })}
+        onRemove={(g) => {
+          view.removeApp(g.id).then(
+            () => {
+              notify("info", `${g.name} retiré de la bibliothèque`, "Le programme lui-même n'est pas supprimé.");
+              setScreen({ name: "library" });
+            },
+            () => notify("error", "Impossible de le retirer", "Quitte-le d'abord s'il est ouvert."),
+          );
+        }}
+        onBack={() => back(screen.from)}
+      />
+    );
+  } else if (screen.name === "rename") {
+    current = (
+      <RenameGamePage
+        game={games?.find((g) => g.id === screen.gameId) ?? null}
+        onRename={(g, name) => {
+          view.setGameOptions(g.id, { name }).then(
+            () => back(screen.from),
+            () => notify("error", "Impossible de renommer ce jeu"),
+          );
+        }}
+        onBack={() => back(screen.from)}
+      />
+    );
+  } else if (screen.name === "add-game") {
+    current = (
+      <AddGame
+        client={view}
+        onAdded={(game) => {
+          notify("info", `${game.name} ajouté`, "Sa jaquette arrive dans quelques secondes.");
+          setFocusedId(game.id);
+          setScreen({ name: "game", gameId: game.id, from: { name: "library" } });
+        }}
         onBack={() => back(screen.from)}
       />
     );
@@ -690,6 +728,7 @@ export function App() {
         }}
         onRetry={() => void loadGames()}
         onOpenStores={() => setScreen({ name: "launchers", from: { name: "library" } })}
+        onAddGame={() => setScreen({ name: "add-game", from: { name: "library" } })}
         onBack={() => back()}
       />
     );

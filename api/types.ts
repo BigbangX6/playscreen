@@ -119,6 +119,29 @@ export interface AppCandidate {
   arguments: string;
   /** Déjà dans la bibliothèque. */
   added: boolean;
+  /** Où il a été trouvé. */
+  source?: "startmenu" | "desktop";
+}
+
+/** Élément de l'explorateur de fichiers (GET /files). */
+export interface FileEntry {
+  name: string;
+  path: string;
+  /** place : raccourci de la racine (Bureau, Téléchargements, dossier de jeux). */
+  kind: "place" | "drive" | "folder" | "file";
+  /** Taille, place libre, cible d'un raccourci. */
+  detail?: string | null;
+  /** Fichier déjà dans la bibliothèque. */
+  added: boolean;
+}
+
+/** Contenu d'un dossier : seulement les dossiers et les fichiers qu'on peut lancer. */
+export interface FileListing {
+  /** null à la racine (lieux utiles et disques). */
+  path: string | null;
+  /** null à la racine et pour un disque (B ramène à la racine). */
+  parent: string | null;
+  entries: FileEntry[];
 }
 
 /** Un trophée d'un jeu (GET /trophies/{gameId}). */

@@ -1,6 +1,6 @@
 // Client de l'API Playscreen, partagé par `psc`, les tests et (plus tard) l'interface.
 
-import type { AppCandidate, EngineEvent, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume, TrophyItem } from "./types.ts";
+import type { AppCandidate, FileListing, EngineEvent, EventType, Game, LauncherSetting, MediaCommand, PowerAction, Session, Status, Store, StoreId, SystemInfo, TrophySummary, Volume, TrophyItem } from "./types.ts";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -47,12 +47,14 @@ export interface EngineClient {
   /** Trophées d'un jeu (nom, description, date, rareté) ; null s'il n'en a pas. */
   trophyDetails(gameId: string): Promise<TrophyItem[] | null>;
   /** Favori, caché ; renvoie le jeu à jour (suite : game.updated). */
-  setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean }): Promise<Game>;
+  setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean; name?: string }): Promise<Game>;
   /** Vérifier les fichiers dans le launcher (Steam, Epic ; 409 ailleurs). */
   verifyGame(gameId: string): Promise<void>;
-  /** Applications hors launcher proposées à l'ajout (menu Démarrer, sans les outils de Windows). */
+  /** Applications hors launcher proposées à l'ajout (Bureau, menu Démarrer, sans les outils de Windows). */
   appCandidates(): Promise<AppCandidate[]>;
-  /** Ajoute une application hors launcher (store « other »), avec son icône. */
+  /** Explorateur de fichiers : racine (lieux, disques) sans chemin, sinon le dossier. */
+  listFiles(path?: string | null): Promise<FileListing>;
+  /** Ajoute un jeu hors launcher (store « other ») : .exe, .lnk, .url, .bat, .cmd ; jaquette cherchée ensuite. */
   addApp(app: { name: string; path: string; arguments?: string }): Promise<Game>;
   /** Retire de la bibliothèque une application hors launcher (409 pour un jeu de store ou en cours). */
   removeApp(gameId: string): Promise<void>;
@@ -206,11 +208,12 @@ export class PlayscreenClient implements EngineClient {
     }
   }
 
-  /** Favori, caché : Playnite les garde. Renvoie le jeu à jour. */
-  async setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean }): Promise<Game> {
+  /** Favori, caché, nouveau nom : Playnite les garde. Renvoie le jeu à jour. */
+  async setGameOptions(gameId: string, options: { favorite?: boolean; hidden?: boolean; name?: string }): Promise<Game> {
     const query = new URLSearchParams();
     if (options.favorite !== undefined) query.set("favorite", String(options.favorite));
     if (options.hidden !== undefined) query.set("hidden", String(options.hidden));
+    if (options.name !== undefined) query.set("name", options.name);
     const response = await this.request("POST", `/games/${encodeURIComponent(gameId)}/options?${query}`);
     return (await response.json()) as Game;
   }
@@ -222,6 +225,10 @@ export class PlayscreenClient implements EngineClient {
 
   appCandidates() {
     return this.get<AppCandidate[]>("/apps/candidates");
+  }
+
+  listFiles(path?: string | null) {
+    return this.get<FileListing>(path ? `/files?${new URLSearchParams({ path })}` : "/files");
   }
 
   async addApp(app: { name: string; path: string; arguments?: string }): Promise<Game> {

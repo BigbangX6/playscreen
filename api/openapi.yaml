@@ -111,7 +111,7 @@ paths:
         "409": { description: Jeu d'un store, ou en cours }
   /apps/candidates:
     get:
-      summary: Applications proposées à l'ajout (raccourcis du menu Démarrer vers un .exe, sans les outils de Windows)
+      summary: Applications proposées à l'ajout (raccourcis du Bureau et du menu Démarrer vers un .exe, sans les outils de Windows)
       responses:
         "200":
           description: OK
@@ -120,9 +120,11 @@ paths:
               schema: { type: array, items: { $ref: "#/components/schemas/AppCandidate" } }
   /apps:
     post:
-      summary: Ajoute une application hors launcher (store « other »), installée, avec l'icône de l'exécutable
+      summary: >-
+        Ajoute une application hors launcher (store « other »), installée, avec l'icône de
+        l'exécutable ; jaquette cherchée ensuite par le nom (événement game.updated)
       parameters:
-        - { name: path, in: query, required: true, schema: { type: string }, description: Chemin d'un .exe existant }
+        - { name: path, in: query, required: true, schema: { type: string }, description: "Chemin d'un .exe, .lnk (sa cible), .url (son adresse), .bat ou .cmd existant" }
         - { name: name, in: query, schema: { type: string } }
         - { name: arguments, in: query, schema: { type: string } }
       responses:
@@ -131,7 +133,19 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Game" }
-        "400": { description: Pas un .exe existant }
+        "400": { description: Fichier absent, pas lançable, ou raccourci vers rien }
+  /files:
+    get:
+      summary: Explorateur pour choisir un jeu à la manette (dossiers et fichiers lançables seulement)
+      parameters:
+        - { name: path, in: query, schema: { type: string }, description: "Dossier ; absent = racine (lieux utiles et disques)" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FileListing" }
+        "404": { description: Dossier introuvable }
   /games/{gameId}/start:
     post:
       summary: Lance le jeu
@@ -306,18 +320,19 @@ paths:
         "409": { description: Installé, ou téléchargement en cours }
   /games/{gameId}/options:
     post:
-      summary: Favori, caché (Playnite les garde) ; renvoie le jeu (événement game.updated)
+      summary: Favori, caché, nouveau nom (Playnite les garde) ; renvoie le jeu (événement game.updated)
       parameters:
         - { $ref: "#/components/parameters/GameId" }
         - { name: favorite, in: query, schema: { type: boolean } }
         - { name: hidden, in: query, schema: { type: boolean } }
+        - { name: name, in: query, schema: { type: string } }
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Game" }
-        "400": { description: Ni favorite ni hidden }
+        "400": { description: Ni favorite, ni hidden, ni name }
         "404": { description: Jeu inconnu }
   /games/{gameId}/verify:
     post:
@@ -415,6 +430,23 @@ components:
         path: { type: string }
         arguments: { type: string }
         added: { type: boolean, description: Déjà dans la bibliothèque }
+        source: { type: string, enum: [startmenu, desktop] }
+    FileEntry:
+      type: object
+      required: [name, path, kind, added]
+      properties:
+        name: { type: string }
+        path: { type: string }
+        kind: { type: string, enum: [place, drive, folder, file], description: "place : raccourci de la racine (Bureau, Téléchargements, dossier de jeux)" }
+        detail: { type: string, nullable: true, description: "Taille, place libre, cible d'un raccourci" }
+        added: { type: boolean, description: Fichier déjà dans la bibliothèque }
+    FileListing:
+      type: object
+      required: [path, parent, entries]
+      properties:
+        path: { type: string, nullable: true, description: null à la racine }
+        parent: { type: string, nullable: true, description: "null à la racine et pour un disque (retour à la racine)" }
+        entries: { type: array, items: { $ref: "#/components/schemas/FileEntry" } }
     Volume:
       type: object
       required: [level, muted]

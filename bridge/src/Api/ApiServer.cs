@@ -122,6 +122,11 @@ namespace Playscreen.Bridge.Api
                 })),
                 // Applications hors launcher (docs/hors-launcher.md).
                 new Route("GET", @"^/apps/candidates$", _ => Json(200, CustomApps.Candidates(api))),
+                new Route("GET", @"^/files$", ctx =>
+                {
+                    var listing = FileBrowser.List(api, ctx.Request.QueryString["path"]);
+                    return listing == null ? Json(404, new { error = "folder not found" }) : Json(200, listing);
+                }),
                 new Route("POST", @"^/apps$", ctx => AddApp(ctx.Request.QueryString)),
                 new Route("DELETE", @"^/games/([^/]+)$", ctx => WithGame(ctx, game =>
                 {
@@ -226,7 +231,7 @@ namespace Playscreen.Bridge.Api
                 // Demande préalable du navigateur (en-tête Authorization) : pas de jeton à ce stade.
                 if (request.HttpMethod == "OPTIONS")
                 {
-                    response.Headers["Access-Control-Allow-Methods"] = "GET, POST";
+                    response.Headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE";
                     response.Headers["Access-Control-Allow-Headers"] = "Authorization";
                     response.Headers["Access-Control-Max-Age"] = "600";
                     Send(response, new Reply(204));
@@ -347,13 +352,30 @@ namespace Playscreen.Bridge.Api
         private Reply AddApp(System.Collections.Specialized.NameValueCollection query)
         {
             var path = query["path"];
-            if (string.IsNullOrEmpty(path) || !path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+            if (string.IsNullOrEmpty(path) || !FileBrowser.IsLaunchable(path) || !File.Exists(path))
             {
-                return Json(400, new { error = "existing .exe path required" });
+                return Json(400, new { error = "existing .exe, .lnk, .url, .bat or .cmd path required" });
             }
             Playnite.SDK.Models.Game game = null;
             api.MainView.UIDispatcher.Invoke(() => game = CustomApps.Add(api, query["name"], path, query["arguments"]));
+            if (game == null)
+            {
+                return Json(400, new { error = "shortcut target not found" });
+            }
             events.Publish("library.updated", new { added = new[] { game.Id.ToString() }, updated = new string[0], removed = new string[0] });
+            // Jaquette et image de fond cherchées par le nom (IGDB), en arrière-plan.
+            var added = game;
+            Task.Run(() =>
+            {
+                if (new PlayniteInternals(api).DownloadMetadata(new List<Playnite.SDK.Models.Game> { added }))
+                {
+                    var fresh = api.Database.Games.Get(added.Id);
+                    if (fresh != null)
+                    {
+                        events.Publish("game.updated", GameDto.From(fresh, api));
+                    }
+                }
+            });
             return Json(201, GameDto.From(game, api));
         }
 
@@ -362,14 +384,19 @@ namespace Playscreen.Bridge.Api
         {
             bool? favorite = bool.TryParse(query["favorite"], out var f) ? f : (bool?)null;
             bool? hidden = bool.TryParse(query["hidden"], out var h) ? h : (bool?)null;
-            if (favorite == null && hidden == null)
+            var name = query["name"]?.Trim();
+            if (favorite == null && hidden == null && string.IsNullOrEmpty(name))
             {
-                return Json(400, new { error = "favorite or hidden required" });
+                return Json(400, new { error = "favorite, hidden or name required" });
             }
             api.MainView.UIDispatcher.Invoke(() =>
             {
                 game.Favorite = favorite ?? game.Favorite;
                 game.Hidden = hidden ?? game.Hidden;
+                if (!string.IsNullOrEmpty(name))
+                {
+                    game.Name = name;
+                }
                 api.Database.Games.Update(game);
             });
             var dto = GameDto.From(game, api);

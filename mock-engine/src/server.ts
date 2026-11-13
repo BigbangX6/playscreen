@@ -17,6 +17,7 @@ import {
   type Volume,
 } from "../../api/types.ts";
 import { fixtureGames, fixtureStores } from "./fixtures.ts";
+import { fakeListing } from "../../api/fake-files.ts";
 
 export interface MockEngineOptions {
   token: string;
@@ -208,19 +209,25 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
       withGame(id!, (game) => {
         const favorite = query.get("favorite");
         const hidden = query.get("hidden");
-        if (favorite === null && hidden === null) return json(400, { error: "favorite or hidden required" });
+        const name = query.get("name")?.trim();
+        if (favorite === null && hidden === null && !name) return json(400, { error: "favorite, hidden or name required" });
         if (favorite !== null) game.favorite = favorite === "true";
         if (hidden !== null) game.hidden = hidden === "true";
+        if (name) game.name = name;
         emit("game.updated", { ...game });
         return json(200, game);
       }),
     ),
     route("GET", /^\/apps\/candidates$/, () =>
-      json(200, [{ name: "RetroArch", path: "C:\RetroArch\retroarch.exe", arguments: "", added: false }]),
+      json(200, [{ name: "RetroArch", path: "C:\\Games\\RetroArch\\retroarch.exe", arguments: "", added: false, source: "startmenu" }]),
     ),
+    route("GET", /^\/files$/, (_, query) => {
+      const listing = fakeListing(query.get("path"));
+      return listing ? json(200, listing) : json(404, { error: "folder not found" });
+    }),
     route("POST", /^\/apps$/, (_, query) => {
       const path = query.get("path") ?? "";
-      if (!path.toLowerCase().endsWith(".exe")) return json(400, { error: "existing .exe path required" });
+      if (!/\.(exe|lnk|url|bat|cmd)$/i.test(path)) return json(400, { error: "existing .exe, .lnk, .url, .bat or .cmd path required" });
       const game = { id: `app-${games.size + 1}`, name: query.get("name") || "Application", store: "other" as const, installed: true, playtimeSeconds: 0 };
       games.set(game.id, game as never);
       emit("library.updated", { added: [game.id], updated: [], removed: [] });
@@ -348,7 +355,7 @@ export async function startMockEngine(options: MockEngineOptions): Promise<MockE
     // Demande préalable du navigateur (en-tête Authorization) : pas de jeton à ce stade.
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
-        "Access-Control-Allow-Methods": "GET, POST",
+        "Access-Control-Allow-Methods": "GET, POST, DELETE",
         "Access-Control-Allow-Headers": "Authorization",
         "Access-Control-Max-Age": "600",
       });

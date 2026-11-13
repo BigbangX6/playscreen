@@ -190,6 +190,22 @@ describe("faux moteur", () => {
     const [storeGame] = await client.games({ store: "steam" });
     await assert.rejects(() => client.removeApp(storeGame!.id), (e) => e instanceof ApiError && e.status === 409);
   });
+  it("parcourt les dossiers pour choisir un jeu, puis le renomme", async () => {
+    const root = await client.listFiles();
+    assert.equal(root.path, null);
+    const drive = root.entries.find((e) => e.kind === "drive")!;
+    const disk = await client.listFiles(drive.path);
+    assert.equal(disk.parent, null);
+    const folder = disk.entries.find((e) => e.kind === "folder")!;
+    const inside = await client.listFiles(folder.path);
+    assert.equal(inside.parent, disk.path);
+    await assert.rejects(() => client.listFiles("Z:\\nulle-part"), (e) => e instanceof ApiError && e.status === 404);
+    const app = await client.addApp({ name: "Jeu", path: "C:\\Games\\Celeste\\Celeste.exe" });
+    const renamed = await client.setGameOptions(app.id, { name: "Celeste" });
+    assert.equal(renamed.name, "Celeste");
+    await assert.rejects(() => client.addApp({ name: "x", path: "C:\\notes.txt" }), (e) => e instanceof ApiError && e.status === 400);
+    await client.removeApp(app.id);
+  });
   it("règle un launcher seulement s'il est fermé", async () => {
     await assert.rejects(() => client.applyLauncherSetting("steam.bigPictureOverlay"), (e) => e instanceof ApiError && e.status === 409);
     await client.applyLauncherSetting("battlenet.gameLaunch");

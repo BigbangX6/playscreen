@@ -718,3 +718,18 @@
     opacity: 0;
   }
 }
+
+/* Dernière tuile de la bibliothèque : « Ajouter un jeu » hors launcher. */
+.tile-add .tile-cover {
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: calc(var(--unit) * 0.3) dashed rgba(255, 255, 255, 0.22);
+  box-shadow: none;
+}
+
+.tile-add-plus {
+  font-size: calc(var(--unit) * 9);
+  font-weight: 300;
+  color: var(--text-muted);
+}

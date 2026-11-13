@@ -105,7 +105,9 @@ export function GamePage(props: GameProps) {
     if (game.lastPlayed)
       line.push(`Joué ${formatRelativeDate(game.lastPlayed).toLowerCase()}${props.lastSession ? `, ${formatPlaytime(props.lastSession)}` : ""}`);
     line.push(game.playtimeSeconds > 0 ? `${formatPlaytime(game.playtimeSeconds)} au total` : "Jamais joué");
-    line.push(game.installed ? `${formatBytes(game.installSizeBytes)} installés` : `${formatBytes(game.installSizeBytes)} à télécharger`);
+    // Taille inconnue d'un jeu installé (souvent hors launcher) : rien plutôt que « Taille inconnue ».
+    if (!game.installed) line.push(`${formatBytes(game.installSizeBytes)} à télécharger`);
+    else if (game.installSizeBytes) line.push(`${formatBytes(game.installSizeBytes)} installés`);
   }
 
   const primary = running
@@ -172,7 +174,8 @@ export function GamePage(props: GameProps) {
             {primary.icon && <span>{primary.icon}</span>}
             {primary.label}
           </button>
-          {game.installed && !running && (
+          {/* Hors launcher : « Retirer de la bibliothèque » est dans les paramètres du jeu. */}
+          {game.installed && !running && game.store !== "other" && (
             <button className="rb" data-focusable onClick={() => props.onUninstall(game)} onFocus={() => setFocusLabel("Désinstaller")}>
               Désinstaller
             </button>
@@ -314,10 +317,13 @@ interface SettingsProps {
   onNavigate(route: Route): void;
   onUninstall(game: Game): void;
   onNotify(title: string, message?: string): void;
+  /** Jeu hors launcher : le renommer, le retirer de la bibliothèque. */
+  onRename(game: Game): void;
+  onRemove(game: Game): void;
   onBack(): void;
 }
 
-export function GameSettingsPage({ game, onNavigate, onUninstall, onNotify, onBack }: SettingsProps) {
+export function GameSettingsPage({ game, onNavigate, onUninstall, onNotify, onRename, onRemove, onBack }: SettingsProps) {
   useSystem();
   if (!game) {
     return (
@@ -355,7 +361,11 @@ export function GameSettingsPage({ game, onNavigate, onUninstall, onNotify, onBa
   }
   if (properties) rows.push({ label: `Propriétés dans ${store}`, sub: "· options de lancement, langue, versions", value: "Ouvrir ›", run: () => onNavigate(properties) });
   if (workshop) rows.push({ label: "Workshop", sub: "· mods et contenus de la communauté", value: "Ouvrir ›", run: () => onNavigate(workshop) });
-  if (game.installed) {
+  if (game.store === "other") {
+    rows.push({ label: "Renommer", sub: "· la jaquette ne change pas", value: "›", run: () => onRename(game) });
+    if (game.installDirectory) rows.push({ label: "Emplacement", value: <span className="srow-dim">{game.installDirectory}</span> });
+    rows.push({ label: "Retirer de la bibliothèque", sub: "· le programme reste sur le PC", value: "›", run: () => onRemove(game), danger: true });
+  } else if (game.installed) {
     if (game.installDirectory) rows.push({ label: "Emplacement", value: <span className="srow-dim">{game.installDirectory}</span> });
     rows.push({ label: "Taille", value: formatBytes(game.installSizeBytes) });
     rows.push({ label: "Désinstaller", sub: "· libère la place ; réinstallable depuis la bibliothèque", value: "›", run: () => onUninstall(game), danger: true });
@@ -379,6 +389,36 @@ export function GameSettingsPage({ game, onNavigate, onUninstall, onNotify, onBa
           <span>{row.value}</span>
         </button>
       ))}
+    </Page>
+  );
+}
+
+// ——— Renommer un jeu hors launcher ———
+
+export function RenameGamePage({ game, onRename, onBack }: { game: Game | null; onRename(game: Game, name: string): void; onBack(): void }) {
+  const [name, setName] = useState(game?.name ?? "");
+  const field = useRef<HTMLInputElement>(null);
+  const save = useRef<HTMLButtonElement>(null);
+  // Entrée (Start sur le clavier manette) : on referme le clavier et on va sur « Valider ».
+  useNavAction((action) => {
+    if (document.activeElement !== field.current || action !== "confirm") return false;
+    save.current?.focus();
+    return true;
+  });
+  if (!game) {
+    return (
+      <Page title="Renommer" onBack={onBack} hints={[["B", "Retour"]]}>
+        <p className="page-note">Ce jeu n'est plus dans la bibliothèque.</p>
+      </Page>
+    );
+  }
+  return (
+    <Page title="Renommer" subtitle={game.name} onBack={onBack} hints={[["A", "Choisir"], ["B", "Retour"]]}>
+      <input ref={field} className="search-field" data-focusable value={name} onChange={(e) => setName(e.target.value)} />
+      <button ref={save} className="srow" data-focusable disabled={!name.trim()} onClick={() => onRename(game, name.trim())}>
+        <span>Valider « {name.trim()} »</span>
+        <span>›</span>
+      </button>
     </Page>
   );
 }

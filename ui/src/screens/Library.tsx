@@ -34,6 +34,8 @@ interface Props {
   onOpen(game: Game): void;
   onRetry(): void;
   onOpenStores(): void;
+  /** « Ajouter un jeu » hors launcher (dernière tuile de « Tous » et « Autre »). */
+  onAddGame(): void;
   onBack(): void;
 }
 
@@ -162,6 +164,9 @@ export function Library(props: Props) {
         <button className="btn btn-primary" data-focusable onClick={props.onOpenStores}>
           Connecter un store
         </button>
+        <button className="btn" data-focusable onClick={props.onAddGame}>
+          Ajouter un jeu sans launcher
+        </button>
       </StateView>
     );
   } else if (visible.length === 0) {
@@ -187,6 +192,14 @@ export function Library(props: Props) {
             onFocus={(g) => props.onFocusGame(g.id)}
           />
         ))}
+        {(filter === "all" || filter === "other") && (
+          <button className="tile tile-add" data-focusable data-game-id="add-game" onClick={props.onAddGame}>
+            <div className="tile-cover">
+              <span className="tile-add-plus">+</span>
+            </div>
+            <span className="tile-name">Ajouter un jeu</span>
+          </button>
+        )}
       </div>
     );
   }
