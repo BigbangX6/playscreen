@@ -26,6 +26,9 @@ namespace Playscreen.Bridge
         /// </summary>
         private System.Threading.Timer keepAlive;
 
+        /// <summary>Session Battle.net gardée active (elle expire après ~30 min sans visite).</summary>
+        private System.Threading.Timer battleNetAlive;
+
         public override Guid Id { get; } = Guid.Parse("5c2a9f3e-7b1d-4e6a-9c48-2f1e0d7b3a61");
 
         public PlayscreenBridge(IPlayniteAPI api) : base(api)
@@ -51,6 +54,8 @@ namespace Playscreen.Bridge
                         sync.RefreshConnections();
                     }
                 }, null, TimeSpan.FromHours(6), TimeSpan.FromHours(6));
+                battleNetAlive = new System.Threading.Timer(_ => sync.KeepBattleNetAlive(),
+                    null, TimeSpan.FromMinutes(20), TimeSpan.FromMinutes(20));
                 new PlayniteInternals(PlayniteApi).DisableUpdateChecks();
                 SystemVolume.Watch(events);
             }

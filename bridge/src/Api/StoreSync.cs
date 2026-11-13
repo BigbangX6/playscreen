@@ -86,6 +86,27 @@ namespace Playscreen.Bridge.Api
             }
         }
 
+        /// <summary>
+        /// Battle.net : la session du site de compte expire après ~30 minutes sans visite, et
+        /// Battle.net redemande alors le mot de passe. Une vérification régulière (toutes les
+        /// 20 minutes, appelée par la passerelle) la garde active tant que le PC est allumé.
+        /// Seulement si Battle.net est connecté : sinon il n'y a rien à garder.
+        /// </summary>
+        public void KeepBattleNetAlive()
+        {
+            var store = Stores.All.FirstOrDefault(s => s.Id == "battlenet");
+            var plugin = store == null ? null : FindPlugin(store);
+            if (plugin == null || !connected.TryGetValue(store.Id, out var value) || value != true)
+            {
+                return;
+            }
+            RefreshConnection(store, plugin);
+            if (connected.TryGetValue(store.Id, out var now) && now != true)
+            {
+                events.Publish("store.updated", Describe(store));
+            }
+        }
+
         private void Run(Stores.StoreInfo store, LibraryPlugin plugin)
         {
             events.Publish("sync.started", new { storeId = store.Id });
