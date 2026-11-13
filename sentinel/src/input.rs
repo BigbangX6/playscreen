@@ -13,6 +13,10 @@ pub trait GamepadSource {
     /// que celles-là.
     #[cfg_attr(not(windows), allow(dead_code))]
     fn xinput_present(&self) -> bool;
+
+    /// Nombre de manettes branchées (toutes méthodes de lecture réunies).
+    #[cfg_attr(not(windows), allow(dead_code))]
+    fn pad_count(&self) -> usize;
 }
 
 #[cfg(windows)]
@@ -25,7 +29,42 @@ pub use null::NullSource as DefaultSource;
 mod windows_source {
     use super::GamepadSource;
     use crate::mouse::PadState;
+    use std::sync::atomic::{AtomicU8, Ordering};
+    use std::sync::Mutex;
+    use std::time::{Duration, Instant};
     use windows_sys::Win32::UI::Input::XboxController::{XInputGetState, XINPUT_STATE, XUSER_MAX_COUNT};
+
+    /// Emplacements XInput occupés (un bit par emplacement). Lire un emplacement vide coûte
+    /// cher à Windows (recherche de périphérique) : on ne lit à chaque tour que les occupés,
+    /// et les vides toutes les 2 secondes.
+    static CONNECTED: AtomicU8 = AtomicU8::new(0);
+    static LAST_SCAN: Mutex<Option<Instant>> = Mutex::new(None);
+    const SCAN_EVERY: Duration = Duration::from_secs(2);
+
+    fn slots_to_read() -> u8 {
+        let mut last = LAST_SCAN.lock().unwrap_or_else(|e| e.into_inner());
+        if last.is_none_or(|t| t.elapsed() >= SCAN_EVERY) {
+            *last = Some(Instant::now());
+            0b1111
+        } else {
+            CONNECTED.load(Ordering::Relaxed)
+        }
+    }
+
+    /// Lit un emplacement et met à jour la liste des occupés.
+    fn read_slot(slot: u32) -> Option<XINPUT_STATE> {
+        // SAFETY : structure C sans pointeur, valide une fois remplie de zéros.
+        let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
+        // 0 = ERROR_SUCCESS ; sinon manette absente sur cet emplacement.
+        let ok = unsafe { XInputGetState(slot, &mut state) } == 0;
+        if ok {
+            CONNECTED.fetch_or(1 << slot, Ordering::Relaxed);
+            Some(state)
+        } else {
+            CONNECTED.fetch_and(!(1 << slot), Ordering::Relaxed);
+            None
+        }
+    }
 
     pub enum Source {
         Sdl(crate::sdl::Shared),
@@ -45,32 +84,31 @@ mod windows_source {
         pub fn describe(&self) -> String {
             match self {
                 Source::Sdl(shared) => format!("SDL, {} manette(s)", shared.count()),
-                Source::XInput => format!("XInput, {} manette(s)", xinput_count()),
+                Source::XInput => {
+                    xinput_pad();
+                    format!("XInput, {} manette(s)", xinput_count())
+                }
             }
         }
     }
 
+    /// Manettes XInput connues (mis à jour par les lectures, au plus 2 secondes de retard).
     fn xinput_count() -> usize {
-        (0..XUSER_MAX_COUNT)
-            .filter(|&slot| {
-                // SAFETY : structure C sans pointeur, valide une fois remplie de zéros.
-                let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
-                unsafe { XInputGetState(slot, &mut state) == 0 }
-            })
-            .count()
+        CONNECTED.load(Ordering::Relaxed).count_ones() as usize
     }
 
     /// Toutes les manettes XInput réunies (boutons, gâchettes) ; sticks de celle qu'on bouge.
     fn xinput_pad() -> PadState {
         let mut pad = PadState::default();
         let mut sticks_taken = false;
+        let slots = slots_to_read();
         for slot in 0..XUSER_MAX_COUNT {
-            // SAFETY : structure C sans pointeur, valide une fois remplie de zéros.
-            let mut state: XINPUT_STATE = unsafe { std::mem::zeroed() };
-            // 0 = ERROR_SUCCESS ; sinon manette absente sur ce slot.
-            if unsafe { XInputGetState(slot, &mut state) } != 0 {
+            if slots & (1 << slot) == 0 {
                 continue;
             }
+            let Some(state) = read_slot(slot) else {
+                continue;
+            };
             let g = state.Gamepad;
             pad.buttons |= g.wButtons;
             // Sticks de la première manette qu'on bouge (une autre peut être posée à côté).
@@ -117,6 +155,13 @@ mod windows_source {
         fn xinput_present(&self) -> bool {
             xinput_count() > 0
         }
+
+        fn pad_count(&self) -> usize {
+            match self {
+                Source::Sdl(shared) => shared.count().max(xinput_count()),
+                Source::XInput => xinput_count(),
+            }
+        }
     }
 }
 
@@ -135,6 +180,10 @@ mod null {
 
         fn xinput_present(&self) -> bool {
             false
+        }
+
+        fn pad_count(&self) -> usize {
+            0
         }
     }
 }

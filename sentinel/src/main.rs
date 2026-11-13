@@ -21,10 +21,26 @@ mod touch_keyboard;
 #[cfg(windows)]
 mod tray;
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-/// ~60 Hz : assez réactif, coût CPU négligeable.
-pub const POLL_INTERVAL: Duration = Duration::from_millis(16);
+/// ~60 Hz : quand Playscreen est ouvert, ou en mode souris (curseur fluide).
+pub const POLL_ACTIVE: Duration = Duration::from_millis(16);
+/// Veille (Playscreen fermé) : 20 lectures par seconde suffisent pour Select + Y.
+pub const POLL_IDLE: Duration = Duration::from_millis(50);
+/// Veille sans aucune manette branchée : on regarde seulement si une arrive.
+pub const POLL_NO_PAD: Duration = Duration::from_millis(500);
+
+/// Rythme de lecture courant (millisecondes), partagé avec le fil de SDL.
+static POLL_MS: AtomicU64 = AtomicU64::new(16);
+
+pub fn poll_interval() -> Duration {
+    Duration::from_millis(POLL_MS.load(Ordering::Relaxed))
+}
+
+pub fn set_poll_interval(interval: Duration) {
+    POLL_MS.store(interval.as_millis() as u64, Ordering::Relaxed);
+}
 
 #[cfg(windows)]
 fn main() {
@@ -61,6 +77,6 @@ fn main() {
         if detector.update(source.pad().buttons, Instant::now()) {
             actions::launch_or_focus(&config);
         }
-        std::thread::sleep(POLL_INTERVAL);
+        std::thread::sleep(POLL_IDLE);
     }
 }

@@ -1,6 +1,7 @@
 //! Sentinelle sous Windows : fenêtre cachée, icône dans la zone de notification (menu
-//! « Quitter »), notification au démarrage, et lecture de la manette ~60 fois par seconde
-//! grâce à un minuteur de la boucle de messages. En mode souris (relais), la manette pilote
+//! « Quitter »), notification au démarrage, et lecture de la manette grâce à un minuteur de
+//! la boucle de messages : ~60 fois par seconde quand Playscreen est ouvert ou en mode
+//! souris, 20 fois en veille, 2 fois sans manette (mode « efficacité » de Windows en veille). En mode souris (relais), la manette pilote
 //! aussi la souris de Windows, jusqu'au prochain Select + Start.
 
 use std::cell::RefCell;
@@ -32,7 +33,7 @@ use crate::mouse::{Key, MouseMapper, MouseStep};
 use crate::nav::{NavKey, NavMapper};
 use crate::taskbar::Taskbar;
 use crate::touch_keyboard;
-use crate::POLL_INTERVAL;
+use crate::{poll_interval, set_poll_interval, POLL_ACTIVE, POLL_IDLE, POLL_NO_PAD};
 
 const TIMER_ID: usize = 1;
 const TRAY_ID: u32 = 1;
@@ -52,7 +53,13 @@ struct State {
     /// Select + X : souris manette forcée ou coupée.
     mouse_toggle: ChordDetector,
     taskbar: Taskbar,
-    ticks: u32,
+    /// Playscreen ouvert (vérifié environ une fois par seconde).
+    playscreen_open: bool,
+    last_taskbar: Instant,
+    last_keyboard: Instant,
+    /// Manettes branchées (vérifié deux fois par seconde).
+    pads: usize,
+    last_pads: Instant,
     /// Manette → touches pour Playscreen au premier plan ; None si Playscreen n'est pas devant.
     nav: Option<(NavMapper, Instant)>,
     /// Mode télécommande (YouTube TV) : les mêmes touches, pour la fenêtre au premier plan.
@@ -80,7 +87,11 @@ pub fn run(config: Config) {
             shortcut,
             mouse_toggle: ChordDetector::new(SELECT_X, Duration::ZERO),
             taskbar: Taskbar::new(),
-            ticks: 0,
+            playscreen_open: false,
+            last_taskbar: Instant::now() - Duration::from_secs(10),
+            last_keyboard: Instant::now(),
+            pads: 1,
+            last_pads: Instant::now() - Duration::from_secs(10),
             nav: None,
             remote: false,
             keyboard_open: false,
@@ -129,7 +140,7 @@ pub fn run(config: Config) {
         Shell_NotifyIconW(NIM_ADD, &icon);
         actions::log(&format!("Prête ({description}). {} pour ouvrir Playscreen.", shortcut.label));
 
-        SetTimer(hwnd, TIMER_ID, POLL_INTERVAL.as_millis() as u32, None);
+        SetTimer(hwnd, TIMER_ID, poll_interval().as_millis() as u32, None);
 
         let mut msg: MSG = std::mem::zeroed();
         while GetMessageW(&mut msg, null_mut(), 0, 0) > 0 {
@@ -153,14 +164,25 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                 if let Some(state) = s.borrow_mut().as_mut() {
                     let now = Instant::now();
                     // Barre des tâches : vérifiée environ une fois par seconde.
-                    state.ticks = state.ticks.wrapping_add(1);
-                    if state.ticks.is_multiple_of(60) {
-                        let open = actions::playscreen_open(&state.config);
-                        state.taskbar.update(open);
+                    if now.duration_since(state.last_taskbar) >= Duration::from_secs(1) {
+                        state.last_taskbar = now;
+                        state.playscreen_open = actions::playscreen_open(&state.config);
+                        state.taskbar.update(state.playscreen_open);
                     }
+                    if now.duration_since(state.last_pads) >= Duration::from_millis(500) {
+                        state.last_pads = now;
+                        state.pads = state.source.pad_count();
+                    }
+                    adjust_rhythm(hwnd, state);
                     let pad = state.source.pad();
-                    // Clavier : vérifié environ 4 fois par seconde.
-                    if state.ticks.is_multiple_of(15) {
+                    // Clavier : vérifié environ 4 fois par seconde, seulement quand la manette
+                    // pilote quelque chose (la vérification lance un fil et COM : trop cher
+                    // pour la veille).
+                    let driving = state.playscreen_open || state.mouse.is_some() || state.remote;
+                    if !driving {
+                        state.keyboard_open = false;
+                    } else if now.duration_since(state.last_keyboard) >= Duration::from_millis(250) {
+                        state.last_keyboard = now;
                         let was_open = state.keyboard_open;
                         // Le clavier ne lit lui-même que les manettes XInput ; avec une manette
                         // Switch ou PS4, on garde la souris pour cliquer sur ses touches.
@@ -254,6 +276,59 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
         }
         _ => DefWindowProcW(hwnd, message, wparam, lparam),
     }
+}
+
+/// Rythme de lecture selon la situation, et mode « efficacité » de Windows en veille :
+/// la sentinelle tourne en permanence, elle doit se faire oublier quand on ne joue pas.
+unsafe fn adjust_rhythm(hwnd: HWND, state: &State) {
+    let active = state.playscreen_open || state.mouse.is_some() || state.remote || state.keyboard_open;
+    let wanted = if active {
+        POLL_ACTIVE
+    } else if state.pads == 0 {
+        POLL_NO_PAD
+    } else {
+        POLL_IDLE
+    };
+    if wanted == poll_interval() {
+        return;
+    }
+    let was_active = poll_interval() == POLL_ACTIVE;
+    set_poll_interval(wanted);
+    // Même identifiant : remplace le minuteur existant.
+    SetTimer(hwnd, TIMER_ID, wanted.as_millis() as u32, None);
+    if was_active != active {
+        efficiency_mode(!active);
+    }
+}
+
+/// Mode « efficacité » (EcoQoS) : Windows fait tourner la sentinelle sur les cœurs économes,
+/// à basse fréquence. Retiré dès que Playscreen s'ouvre (souris et menus fluides).
+fn efficiency_mode(on: bool) {
+    use windows_sys::Win32::System::Threading::{
+        GetCurrentProcess, ProcessPowerThrottling, SetProcessInformation, SetProcessWorkingSetSize,
+        PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+        PROCESS_POWER_THROTTLING_STATE,
+    };
+    let throttling = PROCESS_POWER_THROTTLING_STATE {
+        Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+        ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+        StateMask: if on { PROCESS_POWER_THROTTLING_EXECUTION_SPEED } else { 0 },
+    };
+    // SAFETY : structure documentée, passée avec sa taille exacte ; pseudo-handle du processus.
+    unsafe {
+        let process = GetCurrentProcess();
+        SetProcessInformation(
+            process,
+            ProcessPowerThrottling,
+            &throttling as *const _ as *const core::ffi::c_void,
+            std::mem::size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
+        );
+        if on {
+            // Rend à Windows la mémoire qui ne sert plus (pages reprises au besoin).
+            SetProcessWorkingSetSize(process, usize::MAX, usize::MAX);
+        }
+    }
+    actions::log(if on { "Veille : lecture ralentie, mode efficacité" } else { "Playscreen ouvert : lecture rapide" });
 }
 
 unsafe fn show_menu(hwnd: HWND) {

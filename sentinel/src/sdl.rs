@@ -153,13 +153,14 @@ fn load() -> Option<Api> {
 fn run(api: Api, shared: Shared) {
     // (contrôleur ouvert, identifiant d'instance SDL)
     let mut open: Vec<(*mut c_void, i32)> = Vec::new();
-    let mut tick = 0u32;
+    let mut last_scan: Option<std::time::Instant> = None;
     loop {
         // SAFETY : fonctions SDL appelées depuis le seul fil qui utilise SDL.
         unsafe {
             (api.pump)();
             // Manettes branchées ou débranchées : vérifié deux fois par seconde.
-            if tick.is_multiple_of(30) {
+            if last_scan.is_none_or(|t| t.elapsed() >= std::time::Duration::from_millis(500)) {
+                last_scan = Some(std::time::Instant::now());
                 open.retain(|&(c, _)| {
                     let attached = (api.get_attached)(c) != 0;
                     if !attached {
@@ -212,7 +213,6 @@ fn run(api: Api, shared: Shared) {
                 *state = (pad, open.len());
             }
         }
-        tick = tick.wrapping_add(1);
-        std::thread::sleep(crate::POLL_INTERVAL);
+        std::thread::sleep(crate::poll_interval());
     }
 }
