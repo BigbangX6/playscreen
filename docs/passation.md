@@ -74,8 +74,7 @@ réussie, et Playnite s'arrête proprement (correction JITProfiles).
 **État du PC**
 - Nouvelle version installée dans Program Files le 16/11 vers 0 h 30 (français), installée par
   la personne. Playscreen fermé ; seule la sentinelle tourne.
-- %LOCALAPPDATA%\Playscreen
-o-power présent : le moteur refuse veille et arrêt (tests).
+- %LOCALAPPDATA%\Playscreen\no-power présent : le moteur refuse veille et arrêt (tests).
 
 **Reste à faire**
 1. Tests à la manette par la personne (prévus le 16/11) : bases, Select + X et bulle, installer et
