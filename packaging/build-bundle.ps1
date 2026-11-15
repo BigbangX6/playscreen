@@ -114,7 +114,9 @@ New-Item -ItemType Directory -Force -Path (Join-Path $defaultsDir "library") | O
 # Playnite ne le transmet pas quand il redémarre en plein écran.
 # Mises à jour de Playnite et des extensions : seulement à la main (3 = OnlyManually) ; leurs
 # versions sont figées par ce script (la passerelle l'impose aussi aux installations existantes).
-[IO.File]::WriteAllText((Join-Path $defaultsDir "config.json"), '{ "DisableHwAcceleration": true, "CheckForProgramUpdates": 3, "CheckForAddonUpdates": 3 }')
+# Pas d'avertissement « Playnite exécuté en administrateur » : il s'affichait par-dessus
+# Playscreen au premier démarrage dans Windows Sandbox (compte administrateur, 15/11/2026).
+[IO.File]::WriteAllText((Join-Path $defaultsDir "config.json"), '{ "DisableHwAcceleration": true, "CheckForProgramUpdates": 3, "CheckForAddonUpdates": 3, "ShowElevatedRightsWarning": false }')
 # Réglages lus dans le code des extensions (*LibrarySettingsViewModel.cs) : « connecter le
 # compte » et « importer les jeux non installés » sont désactivés par défaut. Les réglages
 # absents gardent leur valeur par défaut. Version : évite les migrations de réglages.

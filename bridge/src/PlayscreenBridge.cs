@@ -46,6 +46,7 @@ namespace Playscreen.Bridge
                 server.Start();
                 logger.Info($"Playscreen API listening on port {server.Port}");
                 sync.RefreshConnections();
+                System.Threading.Tasks.Task.Run(() => Api.SteamSettings.EnableControllerOverlay());
                 keepAlive = new System.Threading.Timer(_ =>
                 {
                     if (session.Current == null)
