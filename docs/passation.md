@@ -34,8 +34,9 @@ L'ancien état (octobre) est raconté aux § 0, 0 bis et 0 ter.
   session du programme Steam (`SteamSession.cs`, accord de la personne du 13/11). Battle.net
   est vérifié toutes les 20 min (commit c3d7ca9) : la session de son site expire après
   ~30 min sans visite, puis Battle.net redemande le mot de passe (renouvellement silencieux
-  essayé : il mène à la page du mot de passe). L'efficacité de ce maintien est **à
-  confirmer** (connexion faite le 14/11 à 00 h 07).
+  essayé : il mène à la page du mot de passe). Premier essai concluant : toujours connecté
+  47 min après la connexion (00 h 07 → 00 h 54, le 14/11) ; à confirmer sur une plus longue durée
+  (plusieurs heures).
 - Banc de test `tools/banc` (manette virtuelle, scénarios de lancement et d'ajout). Les
   rapports sont dans `tools/banc/rapports`, non versionnés.
 
