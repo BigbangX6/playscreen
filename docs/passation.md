@@ -10,7 +10,7 @@
 
 ---
 
-## Reprise (dernière mise à jour : nuit du 13 au 14 novembre 2026) — **commence ici**
+## Reprise (dernière mise à jour : nuit du 15 au 16 novembre 2026) — **commence ici**
 
 Objectif en cours : **première version (v0.1.0) avec installateur**, que la personne testera
 sur son PC Shadow branché à la télé (voir aussi la mémoire « Objectifs release v1 »).
@@ -45,41 +45,43 @@ Warcraft Rumble 81/81, OpenTTD + Unrailed 78/78. Installer puis désinstaller Tr
 (Steam) à la souris-manette fonctionne. Mise à jour par-dessus l'ancienne version :
 réussie, et Playnite s'arrête proprement (correction JITProfiles).
 
-**État à l'arrêt du PC**
-- Une version installée se trouve dans `C:\Program Files\Playscreen`, construite à 21 h 03
-  le 13/11. La passerelle installée **n'a pas** le maintien Battle.net : il n'est que dans
-  `dist\Playscreen`. Reconstruire l'installateur avant la release.
-- `dist\Playscreen\Playscreen.exe` a été remplacé par la version de 21 h 03. La version de
-  18 h 53 n'avait pas la souris dans les fenêtres de connexion, ce qui explique pourquoi la
-  personne n'a pas pu se connecter à la manette.
-- Le fichier `%LOCALAPPDATA%\Playscreen
-o-power` est présent : le moteur refuse alors
-  veille et arrêt pendant les tests.
-- Le blocage auto de Claude Code a refusé les commits à partir du 14/11 vers 0 h. La
-  personne a fait le commit elle-même avec `! git ...`.
+**Fait les 15 et 16 novembre** (tout est poussé)
+- Test sur Windows neuf (`tools/banc/sandbox/playscreen-sandbox.wsb`) : 31/31. Bug grave
+  corrigé au passage : « forcer à quitter » une appli ajoutée depuis System32 fermait tout
+  System32 (`GameProcesses.cs` : dossiers partagés ignorés, processus essentiels protégés).
+- Parcours de première installation rejoué à la souris (`parcours.wsb`, boîte aux lettres
+  `commande.ps1` pour lancer des commandes dans la Sandbox) et repensé : installateur sombre
+  aux couleurs de Playscreen (`packaging/images`), 2 écrans, Xbox ajouté, message « branche
+  ta manette, Select + Y » ; nouveau logo partout (`ui/src-tauri/icons`, icône de la
+  sentinelle lue dans Playscreen.exe).
+- Launchers juste installés reconnus (`LauncherFiles.cs` ; Steam inscrit dans HKCU comme à
+  son premier lancement). Installer un launcher depuis Playscreen : installateur officiel
+  téléchargé directement, winget en secours (`installer-launcher.ps1`).
+- Menu manette de Steam en jeu activé tout seul (`SteamSettings.cs`, D11).
+- Bulle d'aide du mode souris (`sentinel/src/hint.rs`) ; pages de navigateur ouvertes
+  pendant Playscreen mises devant, en mode souris (`browser_watch.rs`, F29).
+- « Quitter Playscreen » (menu rapide, Paramètres › Alimentation, croix de la fenêtre) :
+  moteur arrêté, seule la sentinelle reste.
+
+**État du PC**
+- La version installée (`C:\Program Files\Playscreen`) date du 15/11 vers 21 h 20 : elle n'a
+  pas les changements du soir. Mettre à jour avec `dist\Playscreen-Setup-0.1.0.exe` (un clic
+  UAC). La sentinelle qui tourne est celle de `dist\Playscreen\Sentinelle`.
+- `%LOCALAPPDATA%\Playscreen\no-power` présent : le moteur refuse veille et arrêt (tests).
+- Le blocage auto de Claude Code refuse parfois commit ou push ; la personne peut lancer
+  `! git ...` elle-même.
+- Windows Sandbox : pas d'Epic possible (VBScript absent, pas de Windows Update) ; il plante
+  si on se connecte ou se déconnecte de Parsec pendant un test.
 
 **Reste à faire**
-1. Vérifier que Battle.net reste connecté plus de 30 min avec le maintien toutes les 20 min.
-2. Souris-manette dans une fenêtre de connexion : à confirmer à la prochaine connexion.
-   Attention, « Changer de compte » **déconnecte** le compte actuel : les extensions effacent
-   leurs cookies avant d'ouvrir la page.
-3. ✅ Test sur un Windows neuf (15/11, commit 98a424f) : 31/31 après corrections. Le test a
-   trouvé un bug grave : quitter de force une application ajoutée depuis System32 fermait tout
-   System32. **La version installée sur ce PC (Program Files) a encore ce bug** : la mettre à
-   jour avec `dist\Playscreen-Setup-0.1.0.exe` (un clic UAC). Lancer le test :
-   `tools/banc/sandbox/playscreen-sandbox.wsb`, puis lire `resultats/rapport.txt`. Le Windows
-   jetable plante si on se connecte ou se déconnecte de Parsec pendant le test. Pour le fermer,
-   il faut confirmer la boîte « Voulez-vous vraiment fermer ».
-4. Pendant les tests Fall Guys, Epic a ouvert dans Chrome une page « Demande de permission ».
-   C'est une autorisation de compte : à la personne de décider. Ce type de page hors de
-   Playscreen sera gênant sur la télé.
-5. Shattered PD : un échec isolé de « Quitter » (retour sur la fenêtre « Playscreen –
-   navigateur »), non reproduit en 9 tours.
-6. Refaire les tests d'installation et de désinstallation Epic et Battle.net. Vérifier le
-   contrôle automatique (CI). Reconstruire l'installateur. Publier la release GitHub v0.1.0
-   avec le guide : `gh` n'est pas installé, il faudra la personne ou un jeton.
-7. Installateur non signé : SmartScreen préviendra au premier lancement, à expliquer dans
-   le guide.
+1. Mettre à jour la version installée sur ce PC, puis vérifier à la manette : connexion
+   (souris + Y pour le clavier, bulle d'aide), page Chrome d'Epic, Quitter Playscreen.
+2. Battle.net : confirmer que le maintien toutes les 20 min tient plusieurs heures.
+3. Tests d'installation et de désinstallation Epic et Battle.net depuis Playscreen sur ce PC.
+4. Xbox depuis l'installateur : jamais testé (Store absent de la Sandbox).
+5. Shattered PD : échec isolé de « Quitter », non reproduit.
+6. Release GitHub v0.1.0 avec l'installateur et le guide (`gh` absent : la personne ou un
+   jeton). Installateur non signé : expliquer SmartScreen dans le guide.
 
 ## 0. Reprise rapide (fin de la session Windows du 5 octobre 2026)
 
