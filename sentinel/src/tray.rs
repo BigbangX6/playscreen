@@ -210,6 +210,7 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                             mapper.step(pad, 0.0);
                             state.mouse = Some((mapper, now));
                             state.remote = false;
+                            crate::hint::show();
                             actions::log("Souris manette forcée (Select + X)");
                         }
                         state.nav = None;
@@ -259,6 +260,7 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                     match wparam {
                         1 => {
                             state.mouse = Some((MouseMapper::new(), Instant::now()));
+                            crate::hint::show();
                             actions::log("Mode souris activé");
                         }
                         2 => {
