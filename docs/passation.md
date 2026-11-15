@@ -63,8 +63,13 @@ o-power` est présent : le moteur refuse alors
 2. Souris-manette dans une fenêtre de connexion : à confirmer à la prochaine connexion.
    Attention, « Changer de compte » **déconnecte** le compte actuel : les extensions effacent
    leurs cookies avant d'ouvrir la page.
-3. Test sur un Windows neuf : la personne active « Bac à sable Windows » et redémarre, puis
-   on lance `tools/banc/sandbox/playscreen-sandbox.wsb` et on lit `resultats/rapport.txt`.
+3. ✅ Test sur un Windows neuf (15/11, commit 98a424f) : 31/31 après corrections. Le test a
+   trouvé un bug grave : quitter de force une application ajoutée depuis System32 fermait tout
+   System32. **La version installée sur ce PC (Program Files) a encore ce bug** : la mettre à
+   jour avec `dist\Playscreen-Setup-0.1.0.exe` (un clic UAC). Lancer le test :
+   `tools/banc/sandbox/playscreen-sandbox.wsb`, puis lire `resultats/rapport.txt`. Le Windows
+   jetable plante si on se connecte ou se déconnecte de Parsec pendant le test. Pour le fermer,
+   il faut confirmer la boîte « Voulez-vous vraiment fermer ».
 4. Pendant les tests Fall Guys, Epic a ouvert dans Chrome une page « Demande de permission ».
    C'est une autorisation de compte : à la personne de décider. Ce type de page hors de
    Playscreen sera gênant sur la télé.
