@@ -6,6 +6,8 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod actions;
+#[cfg(windows)]
+mod browser_watch;
 mod chord;
 #[cfg(windows)]
 mod hint;

@@ -72,6 +72,8 @@ struct State {
     keyboard_open: bool,
     /// Mode souris actif : suivi des boutons et heure du pas précédent.
     mouse: Option<(MouseMapper, Instant)>,
+    /// Pages ouvertes dans le navigateur pendant Playscreen (browser_watch.rs).
+    browsers: crate::browser_watch::BrowserWatch,
 }
 
 thread_local! {
@@ -100,6 +102,7 @@ pub fn run(config: Config) {
             remote: false,
             keyboard_open: false,
             mouse: None,
+            browsers: Default::default(),
         })
     });
 
@@ -172,6 +175,28 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                         state.last_taskbar = now;
                         state.playscreen_open = actions::playscreen_open(&state.config);
                         state.taskbar.update(state.playscreen_open);
+                        // Nouvelle page de navigateur (ex. « Demande de permission » d'Epic) :
+                        // devant, en mode souris ; refermée : la manette redevient une manette.
+                        let watch = state.playscreen_open && state.pads > 0;
+                        let busy = state.mouse.is_some() && state.browsers.active.is_none();
+                        match state.browsers.update(watch, busy) {
+                            crate::browser_watch::Change::Opened => {
+                                let mut mapper = MouseMapper::new();
+                                mapper.step(state.source.pad(), 0.0);
+                                state.mouse = Some((mapper, now));
+                                state.remote = false;
+                                state.nav = None;
+                                crate::hint::show();
+                                actions::log("Page de navigateur ouverte : mode souris");
+                            }
+                            crate::browser_watch::Change::Closed => {
+                                if let Some((mut mapper, _)) = state.mouse.take() {
+                                    send_mouse(&mapper.release_all());
+                                }
+                                actions::log("Page de navigateur fermée : manette normale");
+                            }
+                            crate::browser_watch::Change::None => {}
+                        }
                     }
                     if now.duration_since(state.last_pads) >= Duration::from_millis(500) {
                         state.last_pads = now;
@@ -203,6 +228,7 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                     if state.mouse_toggle.update(pad.buttons, now) {
                         if let Some((mut mapper, _)) = state.mouse.take() {
                             send_mouse(&mapper.release_all());
+                            state.browsers.forget();
                             actions::log("Souris manette coupée (Select + X)");
                         } else {
                             let mut mapper = MouseMapper::new();
@@ -220,6 +246,7 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                             send_mouse(&mapper.release_all());
                             actions::log(&format!("Mode souris terminé ({})", state.shortcut.label));
                         }
+                        state.browsers.forget();
                         state.remote = false;
                         actions::launch_or_focus(&state.config);
                     } else if state.keyboard_open {
@@ -257,6 +284,7 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                     }
                     state.remote = false;
                     state.nav = None;
+                    state.browsers.forget();
                     match wparam {
                         1 => {
                             state.mouse = Some((MouseMapper::new(), Instant::now()));
