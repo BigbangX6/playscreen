@@ -68,6 +68,32 @@ fn engine_info() -> Result<serde_json::Value, String> {
     serde_json::from_str(&text).map_err(|e| e.to_string())
 }
 
+/// Fichier de la langue choisie (« fr » ou « en ») : écrit par l'installateur ou les
+/// Paramètres, lu aussi par la sentinelle.
+fn language_file() -> Option<PathBuf> {
+    Some(PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join("Playscreen").join("language"))
+}
+
+/// Langue choisie, ou rien (l'interface prend alors celle de Windows).
+#[tauri::command]
+fn app_language() -> Option<String> {
+    let text = std::fs::read_to_string(language_file()?).ok()?;
+    let value = text.trim().trim_start_matches('\u{feff}').to_ascii_lowercase();
+    matches!(value.as_str(), "fr" | "en").then_some(value)
+}
+
+#[tauri::command]
+fn set_app_language(language: String) -> Result<(), String> {
+    if !matches!(language.as_str(), "fr" | "en") {
+        return Err("langue inconnue".into());
+    }
+    let file = language_file().ok_or("LOCALAPPDATA introuvable")?;
+    if let Some(dir) = file.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(file, language).map_err(|e| e.to_string())
+}
+
 /// « Bureau Windows » : ferme Playscreen (le moteur est arrêté par l'interface). Seule la
 /// sentinelle reste ; le méta-raccourci relance tout.
 #[tauri::command]
@@ -114,7 +140,7 @@ fn sentinel_running() -> bool {
 fn main() {
     tauri::Builder::default()
         .manage(browser::BrowserState::default())
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, set_mouse_mode, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running, set_memory_low])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, set_mouse_mode, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running, set_memory_low, app_language, set_app_language])
         // Croix de la fenêtre (barre des tâches, Alt + F4) : comme « Quitter Playscreen », le
         // moteur est arrêté aussi (sinon il restait en mémoire). L'interface s'en charge
         // (événement playscreen-close) ; si elle ne répond pas, on ferme au bout de 6 s.

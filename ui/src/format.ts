@@ -1,5 +1,6 @@
 // Mise en forme des données pour l'affichage (temps de jeu, tailles, dates, stores).
 
+import { language, locale } from "./i18n/index.ts";
 import type { Game } from "../../api/types.ts";
 
 export type StoreKey = Game["store"];
@@ -31,14 +32,14 @@ export function formatPlaytime(seconds: number): string {
 
 export function formatBytes(bytes: number | null | undefined): string {
   if (!bytes) return "Taille inconnue";
-  const units = ["o", "Ko", "Mo", "Go", "To"];
+  const units = language() === "en" ? ["B", "KB", "MB", "GB", "TB"] : ["o", "Ko", "Mo", "Go", "To"];
   let value = bytes;
   let unit = 0;
   while (value >= 1024 && unit < units.length - 1) {
     value /= 1024;
     unit++;
   }
-  return `${value.toLocaleString("fr-FR", { maximumFractionDigits: value < 10 ? 1 : 0 })} ${units[unit]}`;
+  return `${value.toLocaleString(locale(), { maximumFractionDigits: value < 10 ? 1 : 0 })} ${units[unit]}`;
 }
 
 export function formatRelativeDate(iso: string | null | undefined): string {
@@ -47,7 +48,7 @@ export function formatRelativeDate(iso: string | null | undefined): string {
   if (days <= 0) return "Aujourd'hui";
   if (days === 1) return "Hier";
   if (days < 30) return `Il y a ${days} jours`;
-  return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  return new Date(iso).toLocaleDateString(locale(), { day: "numeric", month: "long", year: "numeric" });
 }
 
 export function formatDuration(seconds: number): string {

@@ -2,6 +2,7 @@
 // ses réglages. Même langage que l'accueil : grande image, titre, une ligne d'infos, puis
 // des choix.
 
+import { locale } from "../i18n/index.ts";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { EngineClient } from "../../../api/client.ts";
 import type { Game } from "../../../api/types.ts";
@@ -301,7 +302,7 @@ export function TrophyDetailPage({ game, onBack }: { game: Game | null; onBack()
             </span>
             <span className="trophy-meta">
               {t.unlockedAt ? `Obtenu ${formatRelativeDate(t.unlockedAt).toLowerCase()}` : "À obtenir"}
-              {t.rarity !== null && <small>{t.rarity.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} % des joueurs</small>}
+              {t.rarity !== null && <small>{t.rarity.toLocaleString(locale(), { maximumFractionDigits: 1 })} % des joueurs</small>}
             </span>
           </button>
         );

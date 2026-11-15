@@ -49,10 +49,14 @@ WizardStyle=modern dark hidebevels includetitlebar
 WizardBackColor=#0b0f1a
 WizardBackImageFile=images\fond.png
 WizardImageFile=images\cote-164.png,images\cote-246.png,images\cote-328.png
+; Choix de la langue au début, pré-réglé sur celle de Windows.
+ShowLanguageDialog=yes
+LanguageDetectionMethod=uilanguage
 WizardSmallImageFile=images\logo-55.png,images\logo-69.png,images\logo-83.png,images\logo-110.png,images\logo-138.png
 
 [Languages]
 Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
+Name: "en"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
 fr.SetupWindowTitle=Installer Playscreen
@@ -67,18 +71,58 @@ fr.FinishedLabelNoIcons=Branche ta manette.%n%nEnsuite, appuie sur Select + Y po
 fr.FinishedLabel=Branche ta manette.%n%nEnsuite, appuie sur Select + Y pour ouvrir Playscreen, à tout moment : plus besoin de clavier ni de souris.
 fr.ClickFinish=
 fr.ButtonFinish=&Terminer
+en.SetupWindowTitle=Install Playscreen
+en.WizardSelectTasks=Where are your games?
+en.SelectTasksDesc=Playscreen installs the launchers you check.
+en.SelectTasksLabel2=Check the launchers where your games are. You can add more later, with the controller.
+en.ButtonInstall=&Install
+en.WizardInstalling=Installing
+en.InstallingLabel=Playscreen is installing, with the chosen launchers. It takes one to three minutes.
+en.FinishedHeadingLabel=Your console is ready
+en.FinishedLabelNoIcons=Plug in your controller.%n%nThen press Select + Y to open Playscreen, any time: no more keyboard or mouse needed.
+en.FinishedLabel=Plug in your controller.%n%nThen press Select + Y to open Playscreen, any time: no more keyboard or mouse needed.
+en.ClickFinish=
+en.ButtonFinish=&Finish
 
 [CustomMessages]
 fr.Launchers=Launchers
 fr.Options=Options
+fr.TaskXbox=Xbox et Game Pass (le Microsoft Store peut s'ouvrir : clique sur « Installer »)
+fr.TaskBattlenet=Battle.net (son installateur s'ouvre : clique sur « Continuer »)
+fr.TaskAutostart=Rappel au démarrage de Windows : Select + Y ouvre Playscreen (recommandé)
+fr.TaskDesktop=Icône sur le Bureau
+fr.RunOpen=Ouvrir Playscreen maintenant
+fr.NeedDotNet=Playscreen a besoin de .NET Framework 4.6.2 ou plus récent (inclus dans Windows 10 et 11 à jour).%nFais les mises à jour de Windows, puis relance cette installation.
+fr.StatusWebView2=Installation de Microsoft Edge WebView2 (affichage de Playscreen)…
+fr.StatusSteam=Installation de Steam…
+fr.StatusVbscript=Ajout d'un composant de Windows nécessaire à Epic Games…
+fr.StatusEpic=Installation d'Epic Games…
+fr.StatusXbox=Installation de l'appli Xbox…
+fr.StatusBattlenet=Installation de Battle.net (sa fenêtre va s'ouvrir)…
+fr.DeleteData=Supprimer aussi tes données Playscreen (bibliothèque, connexions aux stores, réglages) ?%nChoisis « Non » si tu comptes réinstaller Playscreen.
+en.Launchers=Launchers
+en.Options=Options
+en.TaskXbox=Xbox and Game Pass (the Microsoft Store may open: click “Install”)
+en.TaskBattlenet=Battle.net (its installer opens: click “Continue”)
+en.TaskAutostart=Reminder when Windows starts: Select + Y opens Playscreen (recommended)
+en.TaskDesktop=Desktop icon
+en.RunOpen=Open Playscreen now
+en.NeedDotNet=Playscreen needs .NET Framework 4.6.2 or later (included in up-to-date Windows 10 and 11).%nRun Windows Update, then start this installation again.
+en.StatusWebView2=Installing Microsoft Edge WebView2 (Playscreen's display)…
+en.StatusSteam=Installing Steam…
+en.StatusVbscript=Adding a Windows component needed by Epic Games…
+en.StatusEpic=Installing Epic Games…
+en.StatusXbox=Installing the Xbox app…
+en.StatusBattlenet=Installing Battle.net (its window will open)…
+en.DeleteData=Also delete your Playscreen data (library, store sign-ins, settings)?%nChoose “No” if you plan to reinstall Playscreen.
 
 [Tasks]
 Name: "steam"; Description: "Steam"; GroupDescription: "{cm:Launchers}"; Check: not SteamInstalled
 Name: "epic"; Description: "Epic Games"; GroupDescription: "{cm:Launchers}"; Check: not EpicInstalled
-Name: "xbox"; Description: "Xbox et Game Pass (le Microsoft Store peut s'ouvrir : clique sur « Installer »)"; GroupDescription: "{cm:Launchers}"; Flags: unchecked; Check: not XboxInstalled
-Name: "battlenet"; Description: "Battle.net (son installateur s'ouvre : clique sur « Continuer »)"; GroupDescription: "{cm:Launchers}"; Flags: unchecked; Check: not BattlenetInstalled
-Name: "autostart"; Description: "Rappel au démarrage de Windows : Select + Y ouvre Playscreen (recommandé)"; GroupDescription: "{cm:Options}"
-Name: "desktopicon"; Description: "Icône sur le Bureau"; GroupDescription: "{cm:Options}"
+Name: "xbox"; Description: "{cm:TaskXbox}"; GroupDescription: "{cm:Launchers}"; Flags: unchecked; Check: not XboxInstalled
+Name: "battlenet"; Description: "{cm:TaskBattlenet}"; GroupDescription: "{cm:Launchers}"; Flags: unchecked; Check: not BattlenetInstalled
+Name: "autostart"; Description: "{cm:TaskAutostart}"; GroupDescription: "{cm:Options}"
+Name: "desktopicon"; Description: "{cm:TaskDesktop}"; GroupDescription: "{cm:Options}"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -99,7 +143,7 @@ Name: "{autodesktop}\Playscreen"; Filename: "{app}\Sentinelle\playscreen-sentine
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Playscreen"; ValueData: """{app}\Sentinelle\playscreen-sentinel.exe"""; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
-Filename: "{app}\Sentinelle\playscreen-sentinel.exe"; Parameters: "--open"; Description: "Ouvrir Playscreen maintenant"; Flags: postinstall nowait skipifsilent runasoriginaluser
+Filename: "{app}\Sentinelle\playscreen-sentinel.exe"; Parameters: "--open"; Description: "{cm:RunOpen}"; Flags: postinstall nowait skipifsilent runasoriginaluser
 
 [UninstallRun]
 Filename: "{app}\Sentinelle\playscreen-sentinel.exe"; Parameters: "--quit"; Flags: runhidden; RunOnceId: "QuitSentinel"
@@ -176,8 +220,7 @@ begin
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM Playscreen.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
   if not DotNetInstalled then
   begin
-    SuppressibleMsgBox('Playscreen a besoin de .NET Framework 4.6.2 ou plus récent (inclus dans Windows 10 et 11 à jour).' + #13#10 +
-      'Fais les mises à jour de Windows, puis relance cette installation.', mbError, MB_OK, IDOK);
+    SuppressibleMsgBox(CustomMessage('NeedDotNet'), mbError, MB_OK, IDOK);
     Result := False;
   end;
 end;
@@ -228,7 +271,7 @@ var
   Setup: String;
 begin
   if WebView2Installed then exit;
-  WizardForm.StatusLabel.Caption := 'Installation de Microsoft Edge WebView2 (affichage de Playscreen)…';
+  WizardForm.StatusLabel.Caption := CustomMessage('StatusWebView2');
   Setup := Download('https://go.microsoft.com/fwlink/p/?LinkId=2124703', 'MicrosoftEdgeWebview2Setup.exe');
   if Setup <> '' then RunAndWait(Setup, '/silent /install');
 end;
@@ -240,7 +283,7 @@ var
 begin
   if WizardIsTaskSelected('steam') then
   begin
-    WizardForm.StatusLabel.Caption := 'Installation de Steam…';
+    WizardForm.StatusLabel.Caption := CustomMessage('StatusSteam');
     Setup := Download('https://cdn.fastly.steamstatic.com/client/installer/SteamSetup.exe', 'SteamSetup.exe');
     if (Setup <> '') and RunAndWait(Setup, '/S') and not RegValueExists(HKCU, 'Software\Valve\Steam', 'SteamPath') then
     begin
@@ -258,16 +301,16 @@ begin
     // (absent de Windows Sandbox : erreur 2738, vu le 15 novembre 2026). On l'ajoute s'il manque.
     if not FileExists(ExpandConstant('{sys}\vbscript.dll')) then
     begin
-      WizardForm.StatusLabel.Caption := 'Ajout d''un composant de Windows nécessaire à Epic Games…';
+      WizardForm.StatusLabel.Caption := CustomMessage('StatusVbscript');
       RunAndWait(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), '-NoProfile -Command "Add-WindowsCapability -Online -Name VBSCRIPT~~~~"');
     end;
-    WizardForm.StatusLabel.Caption := 'Installation d''Epic Games…';
+    WizardForm.StatusLabel.Caption := CustomMessage('StatusEpic');
     Setup := Download('https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncherInstaller.msi', 'EpicGamesLauncherInstaller.msi');
     if Setup <> '' then RunAndWait(ExpandConstant('{sys}\msiexec.exe'), '/i "' + Setup + '" /qn /norestart');
   end;
   if WizardIsTaskSelected('xbox') then
   begin
-    WizardForm.StatusLabel.Caption := 'Installation de l''appli Xbox…';
+    WizardForm.StatusLabel.Caption := CustomMessage('StatusXbox');
     // Microsoft Store : par winget s'il est là, sinon la page de l'appli Xbox s'ouvre dans le Store.
     if not (ExecAsOriginalUser('winget.exe', 'install --id 9MV0B5HZVK9Z --source msstore --silent --accept-package-agreements --accept-source-agreements --disable-interactivity',
       '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0)) then
@@ -278,7 +321,7 @@ begin
   end;
   if WizardIsTaskSelected('battlenet') then
   begin
-    WizardForm.StatusLabel.Caption := 'Installation de Battle.net (sa fenêtre va s''ouvrir)…';
+    WizardForm.StatusLabel.Caption := CustomMessage('StatusBattlenet');
     Setup := Download('https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe', 'Battle.net-Setup.exe');
     // Son installateur a sa propre fenêtre et lance Battle.net à la fin : on n'attend pas.
     if Setup <> '' then ExecAsOriginalUser(Setup, '--lang=frFR', '', SW_SHOW, ewNoWait, Code);
@@ -330,6 +373,9 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
+    // Langue choisie au début : Playscreen et la sentinelle la reprennent.
+    ForceDirectories(ExpandConstant('{localappdata}\Playscreen'));
+    SaveStringToFile(ExpandConstant('{localappdata}\Playscreen\language'), ActiveLanguage, False);
     InstallWebView2;
     ConfigureSystem;
     InstallLaunchers;
@@ -345,8 +391,7 @@ begin
     Data := ExpandConstant('{localappdata}\Playscreen');
     // Suppressible : en désinstallation silencieuse, réponse par défaut « Non » (vu en Sandbox
     // le 15 novembre 2026 : la question bloquait /VERYSILENT /SUPPRESSMSGBOXES).
-    if DirExists(Data) and (SuppressibleMsgBox('Supprimer aussi tes données Playscreen (bibliothèque, connexions aux stores, réglages) ?' + #13#10 +
-      'Choisis « Non » si tu comptes réinstaller Playscreen.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES) then
+    if DirExists(Data) and (SuppressibleMsgBox(CustomMessage('DeleteData'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES) then
       DelTree(Data, True, True, True);
   end;
 end;

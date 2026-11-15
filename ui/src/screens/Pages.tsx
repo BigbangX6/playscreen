@@ -1,6 +1,7 @@
 // Pages simples des espaces (première version) : Rechercher, Trophées, Notifications.
 // Même mise en page que les Paramètres : titre en haut à gauche, lignes en dessous.
 
+import { locale } from "../i18n/index.ts";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Game } from "../../../api/types.ts";
 import { PadHints, type Pad } from "../components/PadHints.tsx";
@@ -162,7 +163,7 @@ export function NotificationsPage({ entries, onBack }: { entries: NotificationEn
           <span>
             {entry.title} {entry.message && <small>· {entry.message}</small>}
           </span>
-          <span className="srow-time">{new Date(entry.at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+          <span className="srow-time">{new Date(entry.at).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" })}</span>
         </button>
       ))}
     </Page>

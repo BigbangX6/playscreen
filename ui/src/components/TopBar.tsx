@@ -1,5 +1,6 @@
 // Barre du haut : titre de l'écran, jeu en cours, heure et batterie (consoles portables).
 
+import { locale } from "../i18n/index.ts";
 import { useEffect, useState } from "react";
 
 interface Battery {
@@ -35,7 +36,7 @@ export function useBattery(): Battery | null {
 }
 
 function useClock(): string {
-  const format = () => new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const format = () => new Date().toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
   const [time, setTime] = useState(format);
   useEffect(() => {
     const timer = setInterval(() => setTime(format()), 10_000);

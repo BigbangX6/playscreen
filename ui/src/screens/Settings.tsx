@@ -1,6 +1,7 @@
 // Paramètres : la liste à gauche, le contenu à droite. On ne refait que les réglages
 // courants ; la dernière ligne ouvre les vrais Paramètres Windows par le relais.
 
+import { changeLanguage, language } from "../i18n/index.ts";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Game, Store, Volume } from "../../../api/types.ts";
 import { PadHints, type Pad } from "../components/PadHints.tsx";
@@ -142,6 +143,12 @@ export function Settings(props: Props) {
       rows = [
         { label: "Ouvrir Playscreen, revenir d'une page", sub: "· dès l'appui", value: "Select + Y" },
         { label: "Disposition des boutons", value: "Xbox" },
+        {
+          label: "Langue",
+          sub: "· Language",
+          value: language() === "en" ? "English ›" : "Français ›",
+          run: () => void changeLanguage(language() === "en" ? "fr" : "en"),
+        },
       ];
       break;
   }

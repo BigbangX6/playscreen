@@ -142,8 +142,13 @@ pub fn run(config: Config) {
 
         let mut icon = icon_data(hwnd);
         icon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_INFO;
-        copy_wide(&mut icon.szInfoTitle, READY_TITLE);
-        copy_wide(&mut icon.szInfo, &format!("Appuie sur {} pour ouvrir Playscreen.", shortcut.label));
+        copy_wide(&mut icon.szInfoTitle, crate::lang::pick(READY_TITLE, "Playscreen is ready"));
+        let ready = if crate::lang::english() {
+            format!("Press {} to open Playscreen.", shortcut.label)
+        } else {
+            format!("Appuie sur {} pour ouvrir Playscreen.", shortcut.label)
+        };
+        copy_wide(&mut icon.szInfo, &ready);
         icon.dwInfoFlags = NIIF_INFO;
         Shell_NotifyIconW(NIM_ADD, &icon);
         actions::log(&format!("Prête ({description}). {} pour ouvrir Playscreen.", shortcut.label));
@@ -381,7 +386,7 @@ fn efficiency_mode(on: bool) {
 
 unsafe fn show_menu(hwnd: HWND) {
     let menu = CreatePopupMenu();
-    let label = wide("Quitter la sentinelle");
+    let label = wide(crate::lang::pick("Quitter la sentinelle", "Quit the sentinel"));
     AppendMenuW(menu, MF_STRING, MENU_QUIT, label.as_ptr());
     let mut cursor = POINT { x: 0, y: 0 };
     GetCursorPos(&mut cursor);
@@ -422,7 +427,7 @@ unsafe fn icon_data(hwnd: HWND) -> NOTIFYICONDATAW {
     data.uCallbackMessage = WM_TRAY;
     let logo = TRAY_ICON.with(|i| i.get());
     data.hIcon = if logo.is_null() { LoadIconW(null_mut(), IDI_APPLICATION) } else { logo };
-    copy_wide(&mut data.szTip, "Playscreen : la manette ouvre Playscreen");
+    copy_wide(&mut data.szTip, crate::lang::pick("Playscreen : la manette ouvre Playscreen", "Playscreen: the controller opens Playscreen"));
     data
 }
 

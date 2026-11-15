@@ -2,6 +2,7 @@
 // espaces en haut à gauche. Sur une icône (sans appuyer), la scène devient l'aperçu de
 // l'espace ; la page (souvent web) ne s'ouvre qu'avec A.
 
+import { locale } from "../i18n/index.ts";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { EngineClient } from "../../../api/client.ts";
 import type { Game } from "../../../api/types.ts";
@@ -101,7 +102,7 @@ function playedLabel(iso: string): string {
   if (days <= 0) return "Joué aujourd'hui";
   if (days === 1) return "Joué hier";
   if (days < 30) return `Joué il y a ${days} jours`;
-  return `Joué le ${new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
+  return `Joué le ${new Date(iso).toLocaleDateString(locale(), { day: "numeric", month: "long" })}`;
 }
 
 function ratio(progress: Progress | null | undefined): number | null {
@@ -123,7 +124,7 @@ function Battery() {
 }
 
 function Clock() {
-  const format = () => new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const format = () => new Date().toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
   const [time, setTime] = useState(format);
   useEffect(() => {
     const timer = setInterval(() => setTime(format()), 10_000);
@@ -274,7 +275,7 @@ function previewFor(space: SpaceId, sys: SystemSnapshot): Preview {
       const last = sys.lastTrophy;
       return {
         eyebrow: "Trophées",
-        title: sys.trophiesUnlocked !== null ? `${sys.trophiesUnlocked.toLocaleString("fr-FR")} trophées` : "Trophées",
+        title: sys.trophiesUnlocked !== null ? `${sys.trophiesUnlocked.toLocaleString(locale())} trophées` : "Trophées",
         text: last
           ? `Dernier obtenu : « ${last.name} » dans ${last.game}, ${last.when}.`
           : "Tes succès Steam, Epic, Xbox et Battle.net réunis, et tes statistiques de jeu.",

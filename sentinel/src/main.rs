@@ -12,6 +12,8 @@ mod chord;
 #[cfg(windows)]
 mod hint;
 mod input;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod lang;
 // Utilisés par la boucle Windows (tray.rs) ; hors Windows, seulement par les tests.
 #[cfg_attr(not(windows), allow(dead_code))]
 mod mouse;

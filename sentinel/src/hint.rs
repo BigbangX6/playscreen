@@ -48,14 +48,14 @@ mod imp {
     const PAD_X: u32 = rgb(0x3a, 0x83, 0xf1);
     const PAD_Y: u32 = rgb(0xf2, 0xc2, 0x30);
 
-    /// (lettre, fond, couleur de la lettre, action), en deux lignes de trois.
-    const KEYS: [(&str, u32, u32, &str); 6] = [
-        ("L", TEXT, DARK, "Déplacer"),
-        ("A", PAD_A, DARK, "Cliquer"),
-        ("X", PAD_X, TEXT, "Clic droit"),
-        ("R", TEXT, DARK, "Défiler"),
-        ("Y", PAD_Y, DARK, "Clavier"),
-        ("B", PAD_B, DARK, "Échap"),
+    /// (lettre, fond, couleur de la lettre, action en français, en anglais), deux lignes de trois.
+    const KEYS: [(&str, u32, u32, &str, &str); 6] = [
+        ("L", TEXT, DARK, "Déplacer", "Move"),
+        ("A", PAD_A, DARK, "Cliquer", "Click"),
+        ("X", PAD_X, TEXT, "Clic droit", "Right-click"),
+        ("R", TEXT, DARK, "Défiler", "Scroll"),
+        ("Y", PAD_Y, DARK, "Clavier", "Keyboard"),
+        ("B", PAD_B, DARK, "Échap", "Escape"),
     ];
 
     thread_local! {
@@ -181,9 +181,11 @@ mod imp {
 
         let old = SelectObject(hdc, title);
         SetTextColor(hdc, TEXT);
-        text(hdc, "Souris manette", RECT { left: px(26.0), top: px(16.0), right: px(520.0), bottom: px(52.0) }, DT_LEFT);
+        let english = crate::lang::english();
+        text(hdc, if english { "Controller mouse" } else { "Souris manette" }, RECT { left: px(26.0), top: px(16.0), right: px(520.0), bottom: px(52.0) }, DT_LEFT);
 
-        for (index, (letter, fill, ink, action)) in KEYS.iter().enumerate() {
+        for (index, (letter, fill, ink, action_fr, action_en)) in KEYS.iter().enumerate() {
+            let action = if english { action_en } else { action_fr };
             let (column, row) = ((index % 3) as f32, (index / 3) as f32);
             let x = 26.0 + column * 170.0;
             let y = 66.0 + row * 46.0;
@@ -206,7 +208,12 @@ mod imp {
         SelectObject(hdc, small);
         SetTextColor(hdc, MUTED);
         all = RECT { left: px(26.0), top: px(156.0), right: px(520.0), bottom: px(184.0) };
-        text(hdc, "Select + Y : revenir à Playscreen   ·   Select + X : arrêter la souris", all, DT_LEFT);
+        let footer = if english {
+            "Select + Y: back to Playscreen   ·   Select + X: stop the mouse"
+        } else {
+            "Select + Y : revenir à Playscreen   ·   Select + X : arrêter la souris"
+        };
+        text(hdc, footer, all, DT_LEFT);
 
         SelectObject(hdc, old);
         for f in [title, label, glyph, small] {

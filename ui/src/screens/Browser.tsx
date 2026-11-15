@@ -4,6 +4,7 @@
 // souris (sentinelle) ; Select + Y revient. Ailleurs (démo, navigateur de développement) :
 // page simulée.
 
+import { locale } from "../i18n/index.ts";
 import { useEffect, useRef, useState } from "react";
 import { browserHide, browserOpen, inShell } from "../shell.ts";
 import { Icon } from "../components/Icons.tsx";
@@ -26,7 +27,7 @@ interface Props {
 const BLOCKS = 4;
 
 function useClock(): string {
-  const format = () => new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const format = () => new Date().toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
   const [time, setTime] = useState(format);
   useEffect(() => {
     const timer = setInterval(() => setTime(format()), 10_000);
