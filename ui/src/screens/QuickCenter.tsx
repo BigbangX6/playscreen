@@ -346,7 +346,7 @@ export function QuickCenter(props: Props) {
             Redémarrer
           </button>
           <button className="pill2" data-focusable onClick={() => props.onPower("desktop")}>
-            Bureau Windows
+            Quitter Playscreen
           </button>
         </div>
       </div>

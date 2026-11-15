@@ -83,7 +83,7 @@ En vrai, sur le PC Windows : `dist\Playscreen\start-engine.cmd` à la place de
 
 Détail, priorités et où brancher : [`docs/interface-moteur.md`](../docs/interface-moteur.md).
 Fait dans la nuit du 5 au 6 octobre (voir `docs/passation.md` § 0 bis) : alimentation,
-« Bureau Windows », musique, disques, luminosité, sortie audio, réseau, batterie de la
+« Quitter Playscreen », musique, disques, luminosité, sortie audio, réseau, batterie de la
 manette, trophées, dernière partie, clavier manette (page Rechercher), relais avec souris
 virtuelle. Le PC passe par `src/engine-system.ts` (lecture de `GET /system` toutes les 3 s).
 

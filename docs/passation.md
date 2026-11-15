@@ -171,7 +171,7 @@ Retours de la personne après son test, et ce qui en est sorti :
   partie → fenêtres du launcher réduites.
 - **Barre des tâches** masquée tant que Playscreen est ouvert (sentinelle), rétablie à sa
   fermeture, même forcée.
-- **« Bureau Windows »** : arrête Playnite (`POST /system/quit`) et ferme Playscreen ;
+- **« Quitter Playscreen »** (ex « Bureau Windows » ; aussi la croix de la fenêtre et Paramètres › Alimentation) : arrête Playnite (`POST /system/quit`) et ferme Playscreen ;
   Select + Y relance le moteur puis Playscreen. Réglages de la sentinelle :
   `%LOCALAPPDATA%\Playscreen\sentinel.cfg` (`exe=`, `engine=`, `shortcut=`). La version
   autonome de l'interface : `npm --prefix ui run tauri build -- --no-bundle`, copiée dans

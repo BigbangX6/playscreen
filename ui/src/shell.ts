@@ -25,7 +25,14 @@ export async function resumeGame(game: Game): Promise<boolean> {
   return invoke<boolean>("focus_game", { installDirectory: game.installDirectory });
 }
 
-/** « Bureau Windows » : ferme Playscreen. Faux hors de Tauri. */
+/** Croix de la fenêtre : la coque Tauri envoie playscreen-close au lieu de fermer tout de suite. */
+export async function onWindowClose(handler: () => void): Promise<void> {
+  if (!IN_TAURI) return;
+  const { listen } = await import("@tauri-apps/api/event");
+  await listen("playscreen-close", handler);
+}
+
+/** « Quitter Playscreen » : ferme Playscreen. Faux hors de Tauri. */
 export async function quitApp(): Promise<boolean> {
   if (!IN_TAURI) return false;
   const { invoke } = await import("@tauri-apps/api/core");

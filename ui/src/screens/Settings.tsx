@@ -134,6 +134,7 @@ export function Settings(props: Props) {
         { label: "Mettre en veille", value: "›", run: () => props.onPower("sleep") },
         { label: "Éteindre", value: "›", run: () => props.onPower("shutdown") },
         { label: "Redémarrer", value: "›", run: () => props.onPower("restart") },
+        { label: "Quitter Playscreen", value: "Select + Y pour revenir ›", run: () => props.onPower("desktop") },
         windows("Options d'alimentation"),
       ];
       break;

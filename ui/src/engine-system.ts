@@ -5,7 +5,7 @@
 import type { EngineClient } from "../../api/client.ts";
 import type { Game, SystemInfo, TrophySummary } from "../../api/types.ts";
 import { formatRelativeDate } from "./format.ts";
-import { quitApp } from "./shell.ts";
+import { onWindowClose, quitApp } from "./shell.ts";
 import type { GameOptions, PowerAction, SystemBridge, SystemSnapshot } from "./system.ts";
 
 /** Assez souvent pour suivre la musique, sans charger le moteur. */
@@ -55,6 +55,8 @@ export function withTrophies(state: SystemSnapshot, summary: TrophySummary): Sys
 }
 
 export function createEngineSystem(client: EngineClient): SystemBridge {
+  // Croix de la fenêtre (Alt + F4, barre des tâches) : même chose que « Quitter Playscreen ».
+  void onWindowClose(() => quitAll(client));
   let state = EMPTY;
   let trophies: TrophySummary | null = null;
   let trophiesReadAt = 0;
@@ -175,10 +177,19 @@ export function createEngineSystem(client: EngineClient): SystemBridge {
       changed();
     },
     power(action: PowerAction) {
-      // « Bureau Windows » : moteur arrêté, Playscreen fermé ; seule la sentinelle reste et le
-      // méta-raccourci relance tout.
-      if (action === "desktop") void client.quit().finally(() => void quitApp());
+      // « Quitter Playscreen » : moteur arrêté, Playscreen fermé ; seule la sentinelle reste et
+      // le méta-raccourci relance tout.
+      if (action === "desktop") quitAll(client);
       else act(() => client.power(action));
     },
   };
+}
+
+let quitting = false;
+
+/** Arrête le moteur puis ferme Playscreen (bouton du menu rapide ou croix de la fenêtre). */
+function quitAll(client: EngineClient) {
+  if (quitting) return;
+  quitting = true;
+  void client.quit().finally(() => void quitApp());
 }

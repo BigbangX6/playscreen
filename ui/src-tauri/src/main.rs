@@ -115,6 +115,21 @@ fn main() {
     tauri::Builder::default()
         .manage(browser::BrowserState::default())
         .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, set_mouse_mode, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running, set_memory_low])
+        // Croix de la fenêtre (barre des tâches, Alt + F4) : comme « Quitter Playscreen », le
+        // moteur est arrêté aussi (sinon il restait en mémoire). L'interface s'en charge
+        // (événement playscreen-close) ; si elle ne répond pas, on ferme au bout de 6 s.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                use tauri::{Emitter, Manager};
+                api.prevent_close();
+                let _ = window.emit("playscreen-close", ());
+                let app = window.app_handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(6));
+                    app.exit(0);
+                });
+            }
+        })
         .run(tauri::generate_context!())
         .expect("échec du démarrage de l'interface Playscreen");
 }

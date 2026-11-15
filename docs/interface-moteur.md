@@ -51,7 +51,7 @@ La liste à jour est aussi dans `ui/README.md`, section « Pas encore possible �
 
 | # | Besoin | Écran | Piste | Champs attendus (`system.ts`) |
 |---|---|---|---|---|
-| 1 | **Alimentation** : veille, éteindre, redémarrer, « Bureau Windows » (cacher Playscreen, il reste en mémoire) | Centre rapide, Paramètres › Alimentation | `SetSuspendState`, `shutdown /s /t 0`, `shutdown /r /t 0` ; cacher la fenêtre Tauri | `power(action)` |
+| 1 | **Alimentation** : veille, éteindre, redémarrer, « Quitter Playscreen » (moteur arrêté, Playscreen fermé ; la croix de la fenêtre fait pareil) | Centre rapide, Paramètres › Alimentation | `SetSuspendState`, `shutdown /s /t 0`, `shutdown /r /t 0` ; cacher la fenêtre Tauri | `power(action)` |
 | 2 | **Musique en cours** : titre, artiste, lecture / pause, précédent / suivant | Centre rapide (« En fond »), aperçu Musique | Commandes multimédias de Windows (`GlobalSystemMediaTransportControlsSessionManager`) : marche pour Spotify comme pour une page web | `music`, `musicToggle`, `musicPrevious`, `musicNext` |
 | 3 | **Espace disque** par lecteur, place prise par les jeux | Paramètres › Stockage, aperçu Paramètres ; avant une installation (F23) | `DriveInfo` | `disks` |
 | 4 | **Luminosité** si l'écran la permet | Centre rapide (bouton → réglage) | Écran intégré (consoles portables) : WMI `WmiMonitorBrightnessMethods` ; écran externe : DDC/CI, souvent absent. `null` si non réglable | `brightness`, `setBrightness` |
