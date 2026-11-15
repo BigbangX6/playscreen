@@ -128,6 +128,11 @@ namespace Playscreen.Bridge.Api
                 {
                     using (var process = Process.GetProcessById((int)processId))
                     {
+                        if (GameProcesses.IsProtected(process))
+                        {
+                            // Fenêtre suivie par erreur sur un programme de Windows : jamais fermé de force.
+                            return false;
+                        }
                         process.Kill();
                         return true;
                     }

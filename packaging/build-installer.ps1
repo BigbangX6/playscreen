@@ -44,10 +44,20 @@ $bundleArgs = @{ PlayniteZip = $PlayniteZip; Output = $staging }
 if ($SkipApps) { $bundleArgs.SkipApps = $true }
 & (Join-Path $PSScriptRoot "build-bundle.ps1") @bundleArgs
 if ($SkipApps) {
-    # Interface et sentinelle déjà compilées : on reprend celles du paquet de développement.
-    $dev = Join-Path $root "dist\Playscreen"
-    Copy-Item (Join-Path $dev "Playscreen.exe") $staging -Force
-    Copy-Item (Join-Path $dev "Sentinelle") $staging -Recurse -Force
+    # Interface et sentinelle déjà compilées : on reprend les dernières compilations, jamais
+    # le paquet de développement dist\Playscreen, qui peut contenir de vieilles versions (vu le
+    # 15 novembre 2026 : une sentinelle qui dépendait de VCRUNTIME140.dll, absente d'un Windows neuf).
+    Copy-Item (Join-Path $root "ui\src-tauri\target\release\playscreen-ui.exe") (Join-Path $staging "Playscreen.exe") -Force
+    $sentinelDir = Join-Path $staging "Sentinelle"
+    New-Item -ItemType Directory -Force -Path $sentinelDir | Out-Null
+    Copy-Item (Join-Path $root "sentinel\target\release\playscreen-sentinel.exe"), (Join-Path $root "sentinel\target\release\SDL2.dll") $sentinelDir -Force
+}
+# Garde-fou : la sentinelle et l'interface ne doivent dépendre d'aucune bibliothèque Visual C++
+# (absente d'un Windows neuf).
+foreach ($exe in "Playscreen.exe", "Sentinelle\playscreen-sentinel.exe") {
+    if (Select-String -Path (Join-Path $staging $exe) -Pattern "VCRUNTIME140.dll" -SimpleMatch -Quiet) {
+        throw "$exe dépend de VCRUNTIME140.dll : recompiler (CRT statique)"
+    }
 }
 foreach ($required in "Playscreen.exe", "Sentinelle\playscreen-sentinel.exe", "Sentinelle\SDL2.dll", "start-engine.cmd", "Playnite\Playnite.DesktopApp.exe") {
     if (-not (Test-Path (Join-Path $staging $required))) { throw "Manque dans le paquet : $required" }

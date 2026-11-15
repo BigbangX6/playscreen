@@ -79,6 +79,9 @@ Filename: "{app}\Sentinelle\playscreen-sentinel.exe"; Parameters: "--open"; Desc
 Filename: "{app}\Sentinelle\playscreen-sentinel.exe"; Parameters: "--quit"; Flags: runhidden; RunOnceId: "QuitSentinel"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM Playscreen.exe"; Flags: runhidden; RunOnceId: "KillUi"
 Filename: "{app}\Playnite\Playnite.DesktopApp.exe"; Parameters: "--shutdown"; Flags: runhidden; RunOnceId: "StopEngine"
+; --shutdown rend la main tout de suite : on attend que le moteur ait fini (fichiers encore
+; utilisés sinon, le dossier Playnite restait ; vu en Sandbox le 15 novembre 2026).
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -Command ""Wait-Process -Name Playnite.DesktopApp -Timeout 20 -ErrorAction SilentlyContinue; Stop-Process -Name Playnite.DesktopApp,Playnite.BrowserProcess -Force -ErrorAction SilentlyContinue; Start-Sleep 2"""; Flags: runhidden; RunOnceId: "WaitEngine"
 Filename: "{sys}\schtasks.exe"; Parameters: "/delete /tn ""Playscreen\Installer un launcher"" /f"; Flags: runhidden; RunOnceId: "DeleteTask"
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Playscreen - connexion aux stores"""; Flags: runhidden; RunOnceId: "DeleteFirewall"
 
@@ -130,8 +133,8 @@ begin
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM Playscreen.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
   if not DotNetInstalled then
   begin
-    MsgBox('Playscreen a besoin de .NET Framework 4.6.2 ou plus récent (inclus dans Windows 10 et 11 à jour).' + #13#10 +
-      'Fais les mises à jour de Windows, puis relance cette installation.', mbError, MB_OK);
+    SuppressibleMsgBox('Playscreen a besoin de .NET Framework 4.6.2 ou plus récent (inclus dans Windows 10 et 11 à jour).' + #13#10 +
+      'Fais les mises à jour de Windows, puis relance cette installation.', mbError, MB_OK, IDOK);
     Result := False;
   end;
 end;
@@ -261,8 +264,10 @@ begin
   if CurUninstallStep = usPostUninstall then
   begin
     Data := ExpandConstant('{localappdata}\Playscreen');
-    if DirExists(Data) and (MsgBox('Supprimer aussi tes données Playscreen (bibliothèque, connexions aux stores, réglages) ?' + #13#10 +
-      'Choisis « Non » si tu comptes réinstaller Playscreen.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
+    // Suppressible : en désinstallation silencieuse, réponse par défaut « Non » (vu en Sandbox
+    // le 15 novembre 2026 : la question bloquait /VERYSILENT /SUPPRESSMSGBOXES).
+    if DirExists(Data) and (SuppressibleMsgBox('Supprimer aussi tes données Playscreen (bibliothèque, connexions aux stores, réglages) ?' + #13#10 +
+      'Choisis « Non » si tu comptes réinstaller Playscreen.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES) then
       DelTree(Data, True, True, True);
   end;
 end;

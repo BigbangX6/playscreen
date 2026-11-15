@@ -60,7 +60,7 @@ Check "démarrage avec Windows = sentinelle" ($run -like "*playscreen-sentinel.e
 Check "raccourci du menu Démarrer" (Test-Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Playscreen.lnk")
 $task = Get-ScheduledTask -TaskPath "\Playscreen\" -TaskName "Installer un launcher" -ErrorAction SilentlyContinue
 Check "tâche planifiée « Installer un launcher »" $task "$($task.Principal.UserId), $($task.Principal.RunLevel)"
-$rule = netsh advfirewall firewall show rule name="Playscreen - connexion aux stores"
+$rule = netsh advfirewall firewall show rule name="Playscreen - connexion aux stores" verbose
 Check "règle de pare-feu" ($rule -match "Playnite.BrowserProcess")
 $acl = icacls "C:\Program Files\Epic Games"
 Check "droit d'écriture dossier de jeux Epic" ($acl -match [regex]::Escape($env:USERNAME)) ($acl -join " ")
@@ -88,12 +88,14 @@ if ($ready) {
     Check "4 stores connus du moteur" ($stores.Count -eq 4) (($stores | ForEach-Object { "$($_.id):plugin=$($_.pluginInstalled)" }) -join ", ")
     $files = Invoke-RestMethod "$base/files" -Headers $headers
     Check "explorateur de fichiers" ($files.entries.Count -gt 0) (($files.entries | ForEach-Object name) -join ", ")
-    $added = Invoke-RestMethod -Method Post "$base/apps?name=Bloc-notes&path=C:\Windows\System32\notepad.exe" -Headers $headers
+    # Table des caractères : présente partout, sans droits administrateur. Un POST demande un corps, même vide.
+    $added = Invoke-RestMethod -Method Post "$base/apps?name=Table%20des%20caracteres&path=C:\Windows\System32\charmap.exe" -Headers $headers -Body ""
     Check "ajout d'un jeu hors launcher" ($added.store -eq "other") $added.name
-    Invoke-RestMethod -Method Post "$base/games/$($added.id)/start" -Headers $headers | Out-Null
-    Check "lancement du jeu hors launcher" (WaitFor 30 { Get-Process notepad -ErrorAction SilentlyContinue })
+    Invoke-RestMethod -Method Post "$base/games/$($added.id)/start" -Headers $headers -Body "" | Out-Null
+    Check "lancement du jeu hors launcher" (WaitFor 30 { Get-Process charmap -ErrorAction SilentlyContinue })
     Start-Sleep 5
-    Invoke-RestMethod -Method Post "$base/games/$($added.id)/stop?force=true" -Headers $headers | Out-Null
+    Invoke-RestMethod -Method Post "$base/games/$($added.id)/stop?force=true" -Headers $headers -Body "" | Out-Null
+    Check "jeu hors launcher quitté" (WaitFor 15 { -not (Get-Process charmap -ErrorAction SilentlyContinue) })
     Start-Sleep 3
     $mem = Get-Process Playscreen, Playnite.DesktopApp, playscreen-sentinel, msedgewebview2, Playnite.BrowserProcess -ErrorAction SilentlyContinue |
         Group-Object Name | ForEach-Object { "$($_.Name)=$([int](($_.Group | Measure-Object PrivateMemorySize64 -Sum).Sum / 1MB)) Mo" }
@@ -109,7 +111,7 @@ Check "programme supprimé" (-not (Test-Path (Join-Path $app "Playnite")))
 Check "plus rien ne tourne" (-not (Get-Process Playscreen, playscreen-sentinel, Playnite.DesktopApp -ErrorAction SilentlyContinue))
 Check "démarrage avec Windows retiré" (-not (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -ErrorAction SilentlyContinue).Playscreen)
 Check "tâche planifiée retirée" (-not (Get-ScheduledTask -TaskPath "\Playscreen\" -ErrorAction SilentlyContinue))
-Check "règle de pare-feu retirée" (-not ((netsh advfirewall firewall show rule name="Playscreen - connexion aux stores") -match "Playnite"))
+Check "règle de pare-feu retirée" (-not ((netsh advfirewall firewall show rule name="Playscreen - connexion aux stores" verbose) -match "Playnite"))
 Check "données gardées" (Test-Path "$env:LOCALAPPDATA\Playscreen\Playnite")
 Shot "apres-desinstallation"
 
