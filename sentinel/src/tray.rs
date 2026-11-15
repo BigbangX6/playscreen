@@ -83,6 +83,7 @@ thread_local! {
 
 pub fn run(config: Config) {
     let shortcut = Shortcut::parse(config.shortcut.as_deref());
+    load_tray_icon(config.playscreen_exe.as_deref());
     let source = DefaultSource::new();
     let description = source.describe();
     STATE.with(|s| {
@@ -394,13 +395,33 @@ unsafe fn show_menu(hwnd: HWND) {
     }
 }
 
+thread_local! {
+    /// Logo de Playscreen pour l'icône près de l'horloge (null : icône générique de Windows).
+    static TRAY_ICON: std::cell::Cell<windows_sys::Win32::UI::WindowsAndMessaging::HICON> =
+        const { std::cell::Cell::new(null_mut()) };
+}
+
+/// Le logo est lu dans Playscreen.exe (à côté de la sentinelle) : un seul exemplaire de l'icône.
+fn load_tray_icon(exe: Option<&std::path::Path>) {
+    let Some(exe) = exe else { return };
+    let path: Vec<u16> = exe.as_os_str().to_string_lossy().encode_utf16().chain(std::iter::once(0)).collect();
+    let mut large = null_mut();
+    // SAFETY : chemin terminé par un zéro ; une seule icône demandée, gardée toute la vie du programme.
+    unsafe {
+        if windows_sys::Win32::UI::Shell::ExtractIconExW(path.as_ptr(), 0, &mut large, null_mut(), 1) > 0 && !large.is_null() {
+            TRAY_ICON.with(|i| i.set(large));
+        }
+    }
+}
+
 unsafe fn icon_data(hwnd: HWND) -> NOTIFYICONDATAW {
     let mut data: NOTIFYICONDATAW = std::mem::zeroed();
     data.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
     data.hWnd = hwnd;
     data.uID = TRAY_ID;
     data.uCallbackMessage = WM_TRAY;
-    data.hIcon = LoadIconW(null_mut(), IDI_APPLICATION);
+    let logo = TRAY_ICON.with(|i| i.get());
+    data.hIcon = if logo.is_null() { LoadIconW(null_mut(), IDI_APPLICATION) } else { logo };
     copy_wide(&mut data.szTip, "Playscreen : la manette ouvre Playscreen");
     data
 }

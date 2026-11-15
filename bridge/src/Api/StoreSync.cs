@@ -288,7 +288,23 @@ namespace Playscreen.Bridge.Api
                 {
                     return IsAppxPackageInstalled("Microsoft.GamingApp_");
                 }
-                return plugin?.Client?.IsInstalled;
+                if (plugin?.Client?.IsInstalled == true)
+                {
+                    return true;
+                }
+                // Juste installé, jamais lancé : les extensions ne le voient pas encore (Steam
+                // n'écrit son emplacement dans le registre qu'au premier lancement ; vu en Sandbox
+                // le 15 novembre 2026). On cherche le programme nous-mêmes.
+                var installed = LauncherFiles.IsInstalled(store.Id);
+                if (installed && store.Id == "steam")
+                {
+                    LauncherFiles.RegisterSteam();
+                }
+                if (installed)
+                {
+                    return true;
+                }
+                return plugin?.Client == null ? (bool?)null : false;
             }
             catch (Exception e)
             {

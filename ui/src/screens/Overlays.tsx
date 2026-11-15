@@ -165,7 +165,23 @@ export function UninstallConfirm({ game, onConfirm, onClose }: { game: Game; onC
 
 // ——— Moteur indisponible (démarrage ou redémarrage de Playnite) ———
 
-export function EngineOffline({ firstConnection, error }: { firstConnection: boolean; error?: string }) {
+/** Démarrage normal : pas d'alerte. Au-delà, on rassure, puis on signale un vrai souci. */
+const SLOW_START_S = 25;
+const STUCK_START_S = 120;
+
+export function EngineOffline({ firstConnection, waiting }: { firstConnection: boolean; waiting?: boolean }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const error = !waiting
+    ? undefined
+    : seconds >= STUCK_START_S
+      ? "Le moteur de jeux ne démarre pas. Ferme Playscreen (Start › Quitter Playscreen) puis rouvre-le avec Select + Y."
+      : seconds >= SLOW_START_S
+        ? "Le premier démarrage peut prendre une minute."
+        : undefined;
   return (
     <div className="engine-offline">
       <span className="brand brand-big">

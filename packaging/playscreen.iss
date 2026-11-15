@@ -5,7 +5,7 @@
 ;   - droit d'écrire dans le dossier de jeux par défaut d'Epic (plus d'UAC en installant) ;
 ;   - règle de pare-feu du navigateur de connexion aux stores ;
 ;   - tâche planifiée qui installe un launcher depuis Playscreen sans UAC ;
-;   - installation des launchers choisis (Steam, Epic Games, Battle.net).
+;   - installation des launchers choisis (Steam, Epic Games, Xbox, Battle.net).
 ; Le démarrage avec Windows ne lance que la sentinelle (quelques Mo) : Playscreen et son
 ; moteur ne s'ouvrent qu'avec Select + Y.
 
@@ -35,24 +35,50 @@ SetupIconFile=..\ui\src-tauri\icons\icon.ico
 UninstallDisplayIcon={app}\Playscreen.exe
 Compression=lzma2/max
 SolidCompression=yes
-WizardStyle=modern
 CloseApplications=no
 UsedUserAreasWarning=no
-LicenseFile=LICENCES.txt
+; Deux écrans seulement (choix des launchers, puis fin) : pas de licence à accepter (les
+; mentions des logiciels libres sont dans LICENCES.txt, à côté du programme), pas de choix
+; de dossier, pas de récapitulatif (parcours du 15 novembre 2026).
+DisableWelcomePage=yes
+DisableDirPage=yes
+DisableReadyPage=yes
+DisableFinishedPage=no
+; Aux couleurs de Playscreen : sombre, fond bleu nuit et halo bleu, logo.
+WizardStyle=modern dark hidebevels includetitlebar
+WizardBackColor=#0b0f1a
+WizardBackImageFile=images\fond.png
+WizardImageFile=images\cote-164.png,images\cote-246.png,images\cote-328.png
+WizardSmallImageFile=images\logo-55.png,images\logo-69.png,images\logo-83.png,images\logo-110.png,images\logo-138.png
 
 [Languages]
 Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 
+[Messages]
+fr.SetupWindowTitle=Installer Playscreen
+fr.WizardSelectTasks=Où sont tes jeux ?
+fr.SelectTasksDesc=Playscreen installe les launchers que tu coches.
+fr.SelectTasksLabel2=Coche les launchers où se trouvent tes jeux. Tu pourras en ajouter d'autres plus tard, à la manette.
+fr.ButtonInstall=&Installer
+fr.WizardInstalling=Installation
+fr.InstallingLabel=Playscreen s'installe, avec les launchers choisis. Ça prend une à trois minutes.
+fr.FinishedHeadingLabel=Ta console est prête
+fr.FinishedLabelNoIcons=Branche ta manette.%n%nEnsuite, appuie sur Select + Y pour ouvrir Playscreen, à tout moment : plus besoin de clavier ni de souris.
+fr.FinishedLabel=Branche ta manette.%n%nEnsuite, appuie sur Select + Y pour ouvrir Playscreen, à tout moment : plus besoin de clavier ni de souris.
+fr.ClickFinish=
+fr.ButtonFinish=&Terminer
+
 [CustomMessages]
-fr.Launchers=Launchers de jeux à installer (tu peux le faire plus tard depuis Playscreen) :
-fr.Options=Options :
+fr.Launchers=Launchers
+fr.Options=Options
 
 [Tasks]
 Name: "steam"; Description: "Steam"; GroupDescription: "{cm:Launchers}"; Check: not SteamInstalled
-Name: "epic"; Description: "Epic Games Launcher"; GroupDescription: "{cm:Launchers}"; Check: not EpicInstalled
+Name: "epic"; Description: "Epic Games"; GroupDescription: "{cm:Launchers}"; Check: not EpicInstalled
+Name: "xbox"; Description: "Xbox et Game Pass (le Microsoft Store peut s'ouvrir : clique sur « Installer »)"; GroupDescription: "{cm:Launchers}"; Flags: unchecked; Check: not XboxInstalled
 Name: "battlenet"; Description: "Battle.net (son installateur s'ouvre : clique sur « Continuer »)"; GroupDescription: "{cm:Launchers}"; Flags: unchecked; Check: not BattlenetInstalled
-Name: "autostart"; Description: "Au démarrage de Windows, une notification rappelle que Select + Y ouvre Playscreen (recommandé)"; GroupDescription: "{cm:Options}"
-Name: "desktopicon"; Description: "Raccourci sur le Bureau"; GroupDescription: "{cm:Options}"
+Name: "autostart"; Description: "Rappel au démarrage de Windows : Select + Y ouvre Playscreen (recommandé)"; GroupDescription: "{cm:Options}"
+Name: "desktopicon"; Description: "Icône sur le Bureau"; GroupDescription: "{cm:Options}"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -92,9 +118,26 @@ Type: filesandordirs; Name: "{app}\Playnite"
 const
   WebView2Key = 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
 
+// Le programme suffit : Steam n'écrit son emplacement (HKCU) qu'à son premier lancement.
 function SteamInstalled: Boolean;
 begin
-  Result := RegKeyExists(HKCU, 'Software\Valve\Steam') and FileExists(ExpandConstant('{commonpf32}\Steam\steam.exe'));
+  Result := FileExists(ExpandConstant('{commonpf32}\Steam\steam.exe'));
+end;
+
+// Appli Xbox (Microsoft Store) installée pour cet utilisateur.
+function XboxInstalled: Boolean;
+var
+  Names: TArrayOfString;
+  I: Integer;
+begin
+  Result := False;
+  if RegGetSubkeyNames(HKCU, 'Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages', Names) then
+    for I := 0 to GetArrayLength(Names) - 1 do
+      if Pos('Microsoft.GamingApp_', Names[I]) = 1 then
+      begin
+        Result := True;
+        exit;
+      end;
 end;
 
 function EpicInstalled: Boolean;
@@ -192,20 +235,46 @@ end;
 
 procedure InstallLaunchers;
 var
-  Setup: String;
+  Setup, SteamPath: String;
   Code: Integer;
 begin
   if WizardIsTaskSelected('steam') then
   begin
     WizardForm.StatusLabel.Caption := 'Installation de Steam…';
     Setup := Download('https://cdn.fastly.steamstatic.com/client/installer/SteamSetup.exe', 'SteamSetup.exe');
-    if Setup <> '' then RunAndWait(Setup, '/S');
+    if (Setup <> '') and RunAndWait(Setup, '/S') and not RegValueExists(HKCU, 'Software\Valve\Steam', 'SteamPath') then
+    begin
+      // Ce que Steam écrit à son premier lancement : sans cela, Playscreen (Playnite) ne le
+      // voit pas encore (vu en Sandbox le 15 novembre 2026). Même forme que Steam.
+      SteamPath := Lowercase(ExpandConstant('{commonpf32}\Steam'));
+      StringChangeEx(SteamPath, '\', '/', True);
+      RegWriteStringValue(HKCU, 'Software\Valve\Steam', 'SteamPath', SteamPath);
+      RegWriteStringValue(HKCU, 'Software\Valve\Steam', 'SteamExe', SteamPath + '/steam.exe');
+    end;
   end;
   if WizardIsTaskSelected('epic') then
   begin
-    WizardForm.StatusLabel.Caption := 'Installation d''Epic Games Launcher…';
+    // L'installateur d'Epic a besoin de VBScript, devenu un composant facultatif de Windows
+    // (absent de Windows Sandbox : erreur 2738, vu le 15 novembre 2026). On l'ajoute s'il manque.
+    if not FileExists(ExpandConstant('{sys}\vbscript.dll')) then
+    begin
+      WizardForm.StatusLabel.Caption := 'Ajout d''un composant de Windows nécessaire à Epic Games…';
+      RunAndWait(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), '-NoProfile -Command "Add-WindowsCapability -Online -Name VBSCRIPT~~~~"');
+    end;
+    WizardForm.StatusLabel.Caption := 'Installation d''Epic Games…';
     Setup := Download('https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncherInstaller.msi', 'EpicGamesLauncherInstaller.msi');
     if Setup <> '' then RunAndWait(ExpandConstant('{sys}\msiexec.exe'), '/i "' + Setup + '" /qn /norestart');
+  end;
+  if WizardIsTaskSelected('xbox') then
+  begin
+    WizardForm.StatusLabel.Caption := 'Installation de l''appli Xbox…';
+    // Microsoft Store : par winget s'il est là, sinon la page de l'appli Xbox s'ouvre dans le Store.
+    if not (ExecAsOriginalUser('winget.exe', 'install --id 9MV0B5HZVK9Z --source msstore --silent --accept-package-agreements --accept-source-agreements --disable-interactivity',
+      '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0)) then
+    begin
+      Log2('Xbox : winget impossible (' + IntToStr(Code) + '), page du Store');
+      ShellExecAsOriginalUser('open', 'ms-windows-store://pdp/?ProductId=9MV0B5HZVK9Z', '', '', SW_SHOW, ewNoWait, Code);
+    end;
   end;
   if WizardIsTaskSelected('battlenet') then
   begin
@@ -245,6 +314,16 @@ begin
     'Register-ScheduledTask -TaskPath "\Playscreen\" -TaskName "Installer un launcher" -Action $a -Principal $p -Settings $s -Force | Out-Null' + #13#10,
     False);
   RunAndWait(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), '-NoProfile -ExecutionPolicy Bypass -File "' + Task + '"');
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  // Premier écran (choix des launchers) : le bouton lance directement l'installation.
+  if CurPageID = wpSelectTasks then
+    WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);
+  // Pendant l'installation : seulement les étapes en français, pas les noms de fichiers.
+  if CurPageID = wpInstalling then
+    WizardForm.FilenameLabel.Visible := False;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

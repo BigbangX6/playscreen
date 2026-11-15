@@ -1,0 +1,26 @@
+<Configuration>
+  <!-- Windows neuf et jetable pour tester l'installateur (tools\banc\sandbox\test-sandbox.ps1).
+       Double-clic pour lancer ; tout disparaît à la fermeture de la fenêtre. -->
+  <Networking>Enable</Networking>
+  <MemoryInMB>6144</MemoryInMB>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\Users\BigbangX6\Documents\playscreen\dist</HostFolder>
+      <SandboxFolder>C:\dist</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+    <MappedFolder>
+      <HostFolder>C:\Users\BigbangX6\Documents\playscreen\tools\banc\sandbox</HostFolder>
+      <SandboxFolder>C:\banc</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+    <MappedFolder>
+      <HostFolder>C:\Users\BigbangX6\Documents\playscreen\tools\banc\sandbox\resultats</HostFolder>
+      <SandboxFolder>C:\resultats</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\banc\parcours.ps1</Command>
+  </LogonCommand>
+</Configuration>

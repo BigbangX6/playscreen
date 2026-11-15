@@ -9,3 +9,6 @@ dist-demo/
 tools/banc/rapports/
 __pycache__/
 tools/banc/sandbox/resultats/
+
+# Boîte aux lettres du parcours Sandbox (commandes ponctuelles du PC hôte)
+tools/banc/sandbox/commande.ps1

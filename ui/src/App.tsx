@@ -223,6 +223,9 @@ export function App() {
     }
   }, [client]);
 
+  const loadStoresRef = useRef(loadStores);
+  loadStoresRef.current = loadStores;
+
   // À chaque (re)connexion : le jeton a changé, on relit tout, y compris la partie en cours
   // (l'interface a pu redémarrer pendant qu'un jeu tournait).
   useEffect(() => {
@@ -282,7 +285,12 @@ export function App() {
     const onBlur = () => {
       if (sessionRef.current) void setMemoryLow(true);
     };
-    const onRegain = () => void setMemoryLow(false);
+    const onRegain = () => {
+      void setMemoryLow(false);
+      // Retour sur Playscreen (fenêtre d'installation d'un launcher fermée, connexion faite
+      // dans un launcher…) : état des launchers relu, l'écran est à jour tout de suite.
+      if (!sessionRef.current) void loadStoresRef.current();
+    };
     window.addEventListener("focus", onFocus);
     window.addEventListener("focus", onRegain);
     window.addEventListener("blur", onBlur);
@@ -624,7 +632,7 @@ export function App() {
   // ——— Rendu ———
 
   if (!view) {
-    return <EngineOffline firstConnection error={engine.status === "offline" ? "Le moteur ne répond pas encore." : undefined} />;
+    return <EngineOffline firstConnection waiting={engine.status === "offline"} />;
   }
 
   const sessionGame = session ? games?.find((g) => g.id === session.gameId) ?? null : null;
