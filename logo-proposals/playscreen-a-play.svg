@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Playscreen</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3d8bff"/>
+      <stop offset="0.55" stop-color="#5b74ff"/>
+      <stop offset="1" stop-color="#8b5cff"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.28"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.2" r="0.9">
+      <stop offset="0" stop-color="#9fd0ff" stop-opacity="0.45"/>
+      <stop offset="0.6" stop-color="#9fd0ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#1a1060" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#bg)"/>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#glow)"/>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#gloss)"/>
+  <rect x="17.5" y="17.5" width="221" height="221" rx="54.5" fill="none" stroke="#fff" stroke-opacity="0.22" stroke-width="3"/>
+  <path d="M106 88 L106 168 L176 128 Z" fill="#fff" stroke="#fff" stroke-width="22" stroke-linejoin="round" filter="url(#sh)"/>
+</svg>
