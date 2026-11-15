@@ -63,25 +63,29 @@ réussie, et Playnite s'arrête proprement (correction JITProfiles).
 - « Quitter Playscreen » (menu rapide, Paramètres › Alimentation, croix de la fenêtre) :
   moteur arrêté, seule la sentinelle reste.
 
+**Fait ensuite (16 novembre, nuit)**
+- Français / anglais : choix à l'installation (langue du PC par défaut), fichier
+  %LOCALAPPDATA%\Playscreen\language lu par Playscreen et la sentinelle, Paramètres ›
+  Playscreen › Langue. Interface : dictionnaire ui/src/i18n/en.ts appliqué à l'affichage
+  (un texte absent reste en français). Vérifié en Sandbox en anglais.
+- README bilingue (installation), guides docs/guide-installation.md et docs/install-guide.md ;
+  l'ancien README technique est docs/developpement.md.
+
 **État du PC**
-- La version installée (`C:\Program Files\Playscreen`) date du 15/11 vers 21 h 20 : elle n'a
-  pas les changements du soir. Mettre à jour avec `dist\Playscreen-Setup-0.1.0.exe` (un clic
-  UAC). La sentinelle qui tourne est celle de `dist\Playscreen\Sentinelle`.
-- `%LOCALAPPDATA%\Playscreen\no-power` présent : le moteur refuse veille et arrêt (tests).
-- Le blocage auto de Claude Code refuse parfois commit ou push ; la personne peut lancer
-  `! git ...` elle-même.
-- Windows Sandbox : pas d'Epic possible (VBScript absent, pas de Windows Update) ; il plante
-  si on se connecte ou se déconnecte de Parsec pendant un test.
+- Nouvelle version installée dans Program Files le 16/11 vers 0 h 30 (français), installée par
+  la personne. Playscreen fermé ; seule la sentinelle tourne.
+- %LOCALAPPDATA%\Playscreen
+o-power présent : le moteur refuse veille et arrêt (tests).
 
 **Reste à faire**
-1. Mettre à jour la version installée sur ce PC, puis vérifier à la manette : connexion
-   (souris + Y pour le clavier, bulle d'aide), page Chrome d'Epic, Quitter Playscreen.
+1. Tests à la manette par la personne (prévus le 16/11) : bases, Select + X et bulle, installer et
+   désinstaller un jeu par store (Steam, Epic, Battle.net, Xbox), jouer et Select + Y, langue,
+   Quitter Playscreen.
 2. Battle.net : confirmer que le maintien toutes les 20 min tient plusieurs heures.
-3. Tests d'installation et de désinstallation Epic et Battle.net depuis Playscreen sur ce PC.
-4. Xbox depuis l'installateur : jamais testé (Store absent de la Sandbox).
-5. Shattered PD : échec isolé de « Quitter », non reproduit.
-6. Release GitHub v0.1.0 avec l'installateur et le guide (`gh` absent : la personne ou un
-   jeton). Installateur non signé : expliquer SmartScreen dans le guide.
+3. Xbox depuis l'installateur : jamais testé (Store absent de la Sandbox).
+4. Shattered PD : échec isolé de « Quitter », non reproduit.
+5. Publier : fusionner la branche dans main (le README s'affiche depuis main), puis release
+   GitHub v0.1.0 avec dist\Playscreen-Setup-0.1.0.exe (gh absent : la personne ou un jeton).
 
 ## 0. Reprise rapide (fin de la session Windows du 5 octobre 2026)
 
