@@ -37,6 +37,8 @@ interface Props {
   onResume(): void;
   onClose(): void;
   onQuit(): void;
+  /** Jeu Steam : remet le jeu devant et ouvre le menu en jeu de Steam. */
+  onSteamMenu?(): void;
   onForceQuit(): void;
   onNavigate(route: Route): void;
   /** Ferme une fenêtre web gardée en arrière-plan (libère la mémoire). */
@@ -202,6 +204,11 @@ export function QuickCenter(props: Props) {
               <button className="pill2 qc-resume" data-focusable onClick={props.onResume}>
                 ▶ Reprendre
               </button>
+              {game.store === "steam" && props.onSteamMenu && (
+                <button className="pill2" data-focusable onClick={props.onSteamMenu}>
+                  Menu Steam
+                </button>
+              )}
               <button className="pill2" data-focusable onClick={() => !props.stopping && props.onQuit()}>
                 {props.stopping ? "Fermeture…" : "Quitter le jeu"}
               </button>

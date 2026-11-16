@@ -351,6 +351,7 @@ export const EN: Record<string, string> = {
   "▶ Reprendre": "▶ Resume",
   "Fermeture…": "Closing…",
   "Quitter le jeu": "Quit game",
+  "Menu Steam": "Steam menu",
   "En fond": "In the background",
   "✕ Fermer": "✕ Close",
   "Fermé": "Closed",

@@ -101,6 +101,7 @@
 
 .pills {
   display: flex;
+  flex-wrap: wrap; /* 4 boutons en jeu (Menu Steam) : à la ligne plutôt que coupés */
   gap: calc(var(--cq) * 0.6);
 }
 

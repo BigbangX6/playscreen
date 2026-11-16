@@ -25,6 +25,13 @@ export async function resumeGame(game: Game): Promise<boolean> {
   return invoke<boolean>("focus_game", { installDirectory: game.installDirectory });
 }
 
+/** Ouvre le menu en jeu de Steam (Maj + Tab), le jeu étant remis devant juste avant. */
+export async function openSteamOverlay(): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("steam_overlay");
+}
+
 /** Croix de la fenêtre : la coque Tauri envoie playscreen-close au lieu de fermer tout de suite. */
 export async function onWindowClose(handler: () => void): Promise<void> {
   if (!IN_TAURI) return;

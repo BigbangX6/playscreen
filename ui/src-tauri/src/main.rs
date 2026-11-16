@@ -68,6 +68,40 @@ fn engine_info() -> Result<serde_json::Value, String> {
     serde_json::from_str(&text).map_err(|e| e.to_string())
 }
 
+/// « Menu Steam » (menu en jeu de Playscreen) : le jeu est déjà remis devant par l'interface ;
+/// on envoie Maj + Tab, le raccourci de Steam pour son menu en jeu (overlay). Pratique quand
+/// le bouton Guide est pris par la Xbox Game Bar ou par un PC en streaming.
+#[tauri::command]
+async fn steam_overlay() -> bool {
+    // Laisser au jeu le temps de passer devant (focus) avant d'envoyer les touches ; attente
+    // hors du fil de l'interface.
+    tauri::async_runtime::spawn_blocking(|| {
+        std::thread::sleep(std::time::Duration::from_millis(700));
+        send_shift_tab()
+    })
+    .await
+    .unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn send_shift_tab() -> bool {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VK_SHIFT, VK_TAB,
+    };
+    let key = |vk: u16, up: bool| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: vk, wScan: 0, dwFlags: if up { KEYEVENTF_KEYUP } else { 0 }, time: 0, dwExtraInfo: 0 } },
+    };
+    let inputs = [key(VK_SHIFT, false), key(VK_TAB, false), key(VK_TAB, true), key(VK_SHIFT, true)];
+    // SAFETY : tableau d'entrées valide, taille exacte d'INPUT.
+    unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) == inputs.len() as u32 }
+}
+
+#[cfg(not(windows))]
+fn send_shift_tab() -> bool {
+    false
+}
+
 /// Fichier de la langue choisie (« fr » ou « en ») : écrit par l'installateur ou les
 /// Paramètres, lu aussi par la sentinelle.
 fn language_file() -> Option<PathBuf> {
@@ -140,7 +174,7 @@ fn sentinel_running() -> bool {
 fn main() {
     tauri::Builder::default()
         .manage(browser::BrowserState::default())
-        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, set_mouse_mode, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running, set_memory_low, app_language, set_app_language])
+        .invoke_handler(tauri::generate_handler![engine_info, focus_game, focus_window, quit_app, show_keyboard, hide_keyboard, start_relay, end_relay, set_mouse_mode, browser::browser_open, browser::browser_hide, browser::browser_close, sentinel_running, set_memory_low, app_language, set_app_language, steam_overlay])
         // Croix de la fenêtre (barre des tâches, Alt + F4) : comme « Quitter Playscreen », le
         // moteur est arrêté aussi (sinon il restait en mémoire). L'interface s'en charge
         // (événement playscreen-close) ; si elle ne répond pas, on ferme au bout de 6 s.

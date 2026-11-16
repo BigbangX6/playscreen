@@ -23,7 +23,7 @@ import { QuickCenter, type Download } from "./screens/QuickCenter.tsx";
 import { Relay } from "./screens/Relay.tsx";
 import { Settings } from "./screens/Settings.tsx";
 import { getSite, relayInfo, type BrowserWindow, type RelayTarget, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
-import { browserClose, endRelay, focusLauncherWindow, mouseWhileAway, resumeGame, setMemoryLow, startRelay } from "./shell.ts";
+import { browserClose, endRelay, focusLauncherWindow, mouseWhileAway, openSteamOverlay, resumeGame, setMemoryLow, startRelay } from "./shell.ts";
 import { connectSystem, system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
@@ -225,6 +225,10 @@ export function App() {
 
   const loadStoresRef = useRef(loadStores);
   loadStoresRef.current = loadStores;
+  // Volume relu au retour sur Playscreen : lu trop tôt (moteur en démarrage), il manquait au
+  // centre rapide (vu le 16 novembre 2026).
+  const refreshVolumeRef = useRef(() => undefined as unknown);
+  refreshVolumeRef.current = () => client?.volume().then(setVolume, () => undefined);
 
   // À chaque (re)connexion : le jeton a changé, on relit tout, y compris la partie en cours
   // (l'interface a pu redémarrer pendant qu'un jeu tournait).
@@ -290,6 +294,7 @@ export function App() {
       // Retour sur Playscreen (fenêtre d'installation d'un launcher fermée, connexion faite
       // dans un launcher…) : état des launchers relu, l'écran est à jour tout de suite.
       if (!sessionRef.current) void loadStoresRef.current();
+      void refreshVolumeRef.current();
     };
     window.addEventListener("focus", onFocus);
     window.addEventListener("focus", onRegain);
@@ -883,6 +888,11 @@ export function App() {
           onResume={() => (sessionGame ? resume(sessionGame) : setDialog(null))}
           onClose={() => setDialog(null)}
           onQuit={() => sessionGame && quit(sessionGame, false)}
+          onSteamMenu={() => {
+            if (!sessionGame) return;
+            resume(sessionGame);
+            void openSteamOverlay();
+          }}
           onForceQuit={() => session && setDialog({ kind: "force", gameId: session.gameId })}
           onNavigate={navigate}
           onCloseWindow={closeWindow}
