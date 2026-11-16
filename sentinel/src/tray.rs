@@ -5,6 +5,7 @@
 //! aussi la souris de Windows, jusqu'au prochain Select + Start.
 
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::ptr::{null, null_mut};
 use std::time::{Duration, Instant};
 
@@ -60,7 +61,6 @@ struct State {
     /// Playscreen ouvert (vérifié environ une fois par seconde).
     playscreen_open: bool,
     last_taskbar: Instant,
-    last_keyboard: Instant,
     /// Manettes branchées (vérifié deux fois par seconde).
     pads: usize,
     last_pads: Instant,
@@ -96,7 +96,6 @@ pub fn run(config: Config) {
             taskbar: Taskbar::new(),
             playscreen_open: false,
             last_taskbar: Instant::now() - Duration::from_secs(10),
-            last_keyboard: Instant::now(),
             pads: 1,
             last_pads: Instant::now() - Duration::from_secs(10),
             nav: None,
@@ -199,7 +198,8 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                                 if let Some((mut mapper, _)) = state.mouse.take() {
                                     send_mouse(&mapper.release_all());
                                 }
-                                actions::log("Page de navigateur fermée : manette normale");
+                                crate::hint::hide();
+                            actions::log("Page de navigateur fermée : manette normale");
                             }
                             crate::browser_watch::Change::None => {}
                         }
@@ -210,31 +210,29 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                     }
                     adjust_rhythm(hwnd, state);
                     let pad = state.source.pad();
-                    // Clavier : vérifié environ 4 fois par seconde, seulement quand la manette
-                    // pilote quelque chose (la vérification lance un fil et COM : trop cher
-                    // pour la veille).
+                    // Clavier manette affiché ? Vérifié par un fil à part (KEYBOARD) : la
+                    // vérification passe par COM et prenait parfois près d'une demi-seconde ;
+                    // faite ici, elle bloquait la lecture de la manette et des appuis brefs
+                    // (Select + Y, A, croix) étaient perdus (série de tests du 16/11/2026).
                     let driving = state.playscreen_open || state.mouse.is_some() || state.remote;
-                    if !driving {
-                        state.keyboard_open = false;
-                    } else if now.duration_since(state.last_keyboard) >= Duration::from_millis(250) {
-                        state.last_keyboard = now;
-                        let was_open = state.keyboard_open;
-                        // Le clavier ne lit lui-même que les manettes XInput ; avec une manette
-                        // Switch ou PS4, on garde la souris pour cliquer sur ses touches.
-                        state.keyboard_open = touch_keyboard::is_visible() && state.source.xinput_present();
-                        if was_open && !state.keyboard_open {
-                            // Clavier refermé : un bouton encore enfoncé ne compte pas.
-                            if let Some((mapper, _)) = state.mouse.as_mut() {
-                                *mapper = MouseMapper::new();
-                                mapper.step(pad, 0.0);
-                            }
-                            state.nav = None;
+                    keyboard_watch(driving);
+                    let was_open = state.keyboard_open;
+                    // Le clavier ne lit lui-même que les manettes XInput ; avec une manette
+                    // Switch ou PS4, on garde la souris pour cliquer sur ses touches.
+                    state.keyboard_open = driving && KEYBOARD_VISIBLE.load(Ordering::Relaxed) && state.source.xinput_present();
+                    if was_open && !state.keyboard_open {
+                        // Clavier refermé : un bouton encore enfoncé ne compte pas.
+                        if let Some((mapper, _)) = state.mouse.as_mut() {
+                            *mapper = MouseMapper::new();
+                            mapper.step(pad, 0.0);
                         }
+                        state.nav = None;
                     }
                     if state.mouse_toggle.update(pad.buttons, now) {
                         if let Some((mut mapper, _)) = state.mouse.take() {
                             send_mouse(&mapper.release_all());
                             state.browsers.forget();
+                            crate::hint::hide();
                             actions::log("Souris manette coupée (Select + X)");
                         } else {
                             let mut mapper = MouseMapper::new();
@@ -250,6 +248,7 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                         // Le méta-raccourci termine aussi le mode souris : retour à Playscreen.
                         if let Some((mut mapper, _)) = state.mouse.take() {
                             send_mouse(&mapper.release_all());
+                            crate::hint::hide();
                             actions::log(&format!("Mode souris terminé ({})", state.shortcut.label));
                         }
                         state.browsers.forget();
@@ -273,6 +272,10 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                         });
                         let keys = nav.step(pad, now.duration_since(*last).as_secs_f32());
                         *last = now;
+                        if keys.contains(&NavKey::Y) {
+                            // Trace (série du 16/11) : Y = Rechercher, ouvert parfois par erreur.
+                            actions::log(&format!("Touche Y envoyée à Playscreen (manette : {:#06x})", pad.buttons));
+                        }
                         send_nav(&keys);
                     } else {
                         state.nav = None;
@@ -301,7 +304,10 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
                             state.remote = true;
                             actions::log("Mode télécommande activé");
                         }
-                        _ => actions::log("Manette normale"),
+                        _ => {
+                            crate::hint::hide();
+                            actions::log("Manette normale");
+                        }
                     }
                 }
             });
@@ -333,6 +339,30 @@ unsafe extern "system" fn window_proc(hwnd: HWND, message: u32, wparam: WPARAM, 
 
 /// Rythme de lecture selon la situation, et mode « efficacité » de Windows en veille :
 /// la sentinelle tourne en permanence, elle doit se faire oublier quand on ne joue pas.
+static KEYBOARD_VISIBLE: AtomicBool = AtomicBool::new(false);
+static KEYBOARD_WATCHED: AtomicBool = AtomicBool::new(false);
+static KEYBOARD_THREAD: std::sync::Once = std::sync::Once::new();
+
+/// Surveillance du clavier manette dans son propre fil, environ 4 fois par seconde tant que
+/// la manette pilote quelque chose ; au repos, le fil dort (aucune vérification).
+fn keyboard_watch(on: bool) {
+    KEYBOARD_WATCHED.store(on, Ordering::Relaxed);
+    if !on {
+        KEYBOARD_VISIBLE.store(false, Ordering::Relaxed);
+        return;
+    }
+    KEYBOARD_THREAD.call_once(|| {
+        std::thread::spawn(|| loop {
+            if KEYBOARD_WATCHED.load(Ordering::Relaxed) {
+                KEYBOARD_VISIBLE.store(touch_keyboard::is_visible(), Ordering::Relaxed);
+                std::thread::sleep(Duration::from_millis(250));
+            } else {
+                std::thread::sleep(Duration::from_millis(1000));
+            }
+        });
+    });
+}
+
 unsafe fn adjust_rhythm(hwnd: HWND, state: &State) {
     let active = state.playscreen_open || state.mouse.is_some() || state.remote || state.keyboard_open;
     let wanted = if active {

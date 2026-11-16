@@ -10,8 +10,14 @@
 #[cfg(windows)]
 pub use imp::show;
 
+#[cfg(windows)]
+pub use imp::hide;
+
 #[cfg(not(windows))]
 pub fn show() {}
+
+#[cfg(not(windows))]
+pub fn hide() {}
 
 #[cfg(windows)]
 mod imp {
@@ -157,6 +163,22 @@ mod imp {
             KillTimer(hwnd, TIMER_FADE);
             SetTimer(hwnd, TIMER_HOLD, HOLD_MS, None);
             SetTimer(hwnd, TIMER_RAISE, RAISE_MS, None);
+        }
+    }
+
+    /// Cache la bulle tout de suite (fin du mode souris : retour sur Playscreen).
+    pub fn hide() {
+        let hwnd = WINDOW.with(|w| w.get());
+        if hwnd.is_null() {
+            return;
+        }
+        // SAFETY : fenêtre de ce fil ; minuteurs et image libérés comme à la fin du fondu.
+        unsafe {
+            KillTimer(hwnd, TIMER_HOLD);
+            KillTimer(hwnd, TIMER_FADE);
+            KillTimer(hwnd, TIMER_RAISE);
+            ShowWindow(hwnd, SW_HIDE);
+            release_frame();
         }
     }
 

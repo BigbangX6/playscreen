@@ -530,6 +530,23 @@ export function App() {
   const quit = (game: Game, force: boolean) => {
     if (!client) return;
     setSession((s) => (s ? { ...s, stopping: true } : s));
+    if (!force) {
+      // Certains jeux demandent confirmation (« Quitter ? ») ou ignorent la demande : la
+      // question restait cachée derrière Playscreen (Just Cause 2, série du 16/11/2026). Le
+      // jeu revient devant pour qu'on y réponde à la manette ; au-delà de 20 s, on propose
+      // de forcer la fermeture.
+      const stillRunning = () => sessionRef.current?.gameId === game.id;
+      setTimeout(() => {
+        if (stillRunning()) {
+          setDialog(null);
+          void bringGameForward(game);
+        }
+      }, 2000);
+      setTimeout(() => {
+        if (stillRunning())
+          notify("info", `${game.name} ne s'est pas fermé`, "Réponds à sa question à l'écran, ou Select + Y › « Forcer la fermeture ».");
+      }, 20000);
+    }
     client.stop(game.id, { force }).catch((error) => {
       setSession((s) => (s ? { ...s, stopping: false } : s));
       notify(

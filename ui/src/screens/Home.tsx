@@ -537,7 +537,8 @@ export function Home(props: Props) {
       </div>
     );
     hints = [
-      ["A", destLabel ? `Ouvrir ${destLabel}` : p.open],
+      // Libellés déjà formulés comme une action (« Ouvrir Spotify ») : pas de « Ouvrir » en double.
+      ["A", destLabel ? (/^(Ouvrir|Changer|Activer|Trouver|Acheter|Voir)/.test(destLabel) ? destLabel : `Ouvrir ${destLabel}`) : p.open],
       ...(p.dests.length && !destLabel ? [["down", "Choisir"] satisfies [Pad, ReactNode]] : []),
       ["B", "Revenir aux jeux"],
     ];
