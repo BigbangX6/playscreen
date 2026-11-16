@@ -10,8 +10,8 @@ pub fn focus(install_directory: &str) -> bool {
         OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetWindow, GetWindowTextLengthW, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
-        SetForegroundWindow, ShowWindow, GW_OWNER, SW_RESTORE,
+        EnumChildWindows, EnumWindows, GetWindow, GetWindowTextLengthW, GetWindowThreadProcessId, IsWindowVisible,
+        GW_OWNER,
     };
 
     struct Search {
@@ -47,8 +47,31 @@ pub fn focus(install_directory: &str) -> bool {
                 search.found = hwnd;
                 0 // trouvée : on arrête
             }
+            // Jeu du Microsoft Store (Xbox) : la fenêtre appartient à ApplicationFrameHost, le
+            // jeu est dans une fenêtre enfant (Solitaire, 16/11/2026).
+            Some(path) if path.to_lowercase().ends_with("\\applicationframehost.exe") => {
+                let mut hosts = (search.directory.clone(), false);
+                EnumChildWindows(hwnd, Some(visit_child), &mut hosts as *mut (String, bool) as LPARAM);
+                if hosts.1 {
+                    search.found = hwnd;
+                    0
+                } else {
+                    1
+                }
+            }
             _ => 1,
         }
+    }
+
+    unsafe extern "system" fn visit_child(hwnd: HWND, data: LPARAM) -> BOOL {
+        let hosts = &mut *(data as *mut (String, bool));
+        let mut process_id = 0u32;
+        GetWindowThreadProcessId(hwnd, &mut process_id);
+        if executable_path(process_id).is_some_and(|path| path.to_lowercase().starts_with(&hosts.0)) {
+            hosts.1 = true;
+            return 0;
+        }
+        1
     }
 
     let mut directory = install_directory.trim_end_matches('\\').to_lowercase();
@@ -60,10 +83,7 @@ pub fn focus(install_directory: &str) -> bool {
         if search.found.is_null() {
             return false;
         }
-        if IsIconic(search.found) != 0 {
-            ShowWindow(search.found, SW_RESTORE);
-        }
-        SetForegroundWindow(search.found) != 0
+        bring_to_front(search.found as isize as i64)
     }
 }
 
@@ -77,9 +97,14 @@ pub fn focus(_install_directory: &str) -> bool {
 #[cfg(windows)]
 pub fn bring_to_front(handle: i64) -> bool {
     use windows_sys::Win32::Foundation::HWND;
-    use windows_sys::Win32::UI::WindowsAndMessaging::{IsIconic, IsWindow, SetForegroundWindow, ShowWindow, SW_RESTORE};
+    use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, IsIconic, IsWindow, SetForegroundWindow,
+        ShowWindow, SW_RESTORE,
+    };
     let hwnd = handle as isize as HWND;
-    // SAFETY : IsWindow vérifie que le handle désigne toujours une fenêtre.
+    // SAFETY : IsWindow vérifie que le handle désigne toujours une fenêtre ; rattachement de
+    // la saisie défait juste après.
     unsafe {
         if IsWindow(hwnd) == 0 {
             return false;
@@ -87,7 +112,21 @@ pub fn bring_to_front(handle: i64) -> bool {
         if IsIconic(hwnd) != 0 {
             ShowWindow(hwnd, SW_RESTORE);
         }
-        SetForegroundWindow(hwnd) != 0
+        // Windows refuse parfois SetForegroundWindow seul (fenêtres d'Epic et du Microsoft
+        // Store restées derrière Playscreen, 16/11/2026) : même contournement que la
+        // sentinelle, la saisie rattachée un instant à la fenêtre de devant.
+        let foreground = GetForegroundWindow();
+        let foreground_thread = GetWindowThreadProcessId(foreground, std::ptr::null_mut());
+        let current_thread = GetCurrentThreadId();
+        let attached = foreground_thread != 0
+            && foreground_thread != current_thread
+            && AttachThreadInput(current_thread, foreground_thread, 1) != 0;
+        BringWindowToTop(hwnd);
+        let ok = SetForegroundWindow(hwnd) != 0;
+        if attached {
+            AttachThreadInput(current_thread, foreground_thread, 0);
+        }
+        ok
     }
 }
 

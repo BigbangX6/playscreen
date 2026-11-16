@@ -405,7 +405,28 @@ def game_in_front(install_dir):
         exe = psutil.Process(pid).exe().lower()
     except Exception:
         return False
-    return bool(install_dir) and exe.startswith(install_dir.rstrip("\\").lower() + "\\")
+    if not install_dir:
+        return False
+    prefix = install_dir.rstrip("\\").lower() + "\\"
+    if exe.startswith(prefix):
+        return True
+    # Appli du Microsoft Store : sa fenêtre appartient à ApplicationFrameHost, le jeu est dans
+    # une fenêtre enfant.
+    if exe.endswith("\\applicationframehost.exe"):
+        found = []
+
+        def child(h, _):
+            try:
+                _, cpid = win32process.GetWindowThreadProcessId(h)
+                if psutil.Process(cpid).exe().lower().startswith(prefix):
+                    found.append(h)
+            except Exception:
+                pass
+            return True
+
+        win32gui.EnumChildWindows(hwnd, child, None)
+        return bool(found)
+    return False
 
 
 def cursor():

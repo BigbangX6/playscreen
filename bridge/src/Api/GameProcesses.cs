@@ -148,6 +148,13 @@ namespace Playscreen.Bridge.Api
                         {
                             count++;
                         }
+                        else if (CloseStoreAppFrame(process.Id))
+                        {
+                            // Jeu du Microsoft Store (Xbox) : sa fenêtre appartient à
+                            // ApplicationFrameHost, le processus du jeu n'en a pas à lui
+                            // (Solitaire, 16/11/2026).
+                            count++;
+                        }
                     }
                     catch (Exception e) when (e is InvalidOperationException || e is System.ComponentModel.Win32Exception)
                     {
@@ -156,6 +163,63 @@ namespace Playscreen.Bridge.Api
                 }
             }
             return count;
+        }
+
+        private delegate bool EnumProc(IntPtr hwnd, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumProc callback, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumChildWindows(IntPtr parent, EnumProc callback, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+
+        private const uint WM_CLOSE = 0x0010;
+
+        /// <summary>
+        /// Fenêtre d'ApplicationFrameHost qui contient l'appli du Store (processus processId) :
+        /// fermée comme avec la croix. Faux si aucune.
+        /// </summary>
+        private static bool CloseStoreAppFrame(int processId)
+        {
+            var frames = new List<IntPtr>();
+            foreach (var host in Process.GetProcessesByName("ApplicationFrameHost"))
+            {
+                var hostId = (uint)host.Id;
+                host.Dispose();
+                EnumWindows((hwnd, _) =>
+                {
+                    GetWindowThreadProcessId(hwnd, out var owner);
+                    if (owner == hostId && IsWindowVisible(hwnd))
+                    {
+                        var hostsGame = false;
+                        EnumChildWindows(hwnd, (child, __) =>
+                        {
+                            GetWindowThreadProcessId(child, out var childOwner);
+                            hostsGame |= childOwner == (uint)processId;
+                            return !hostsGame;
+                        }, IntPtr.Zero);
+                        if (hostsGame)
+                        {
+                            frames.Add(hwnd);
+                        }
+                    }
+                    return true;
+                }, IntPtr.Zero);
+            }
+            foreach (var frame in frames)
+            {
+                PostMessage(frame, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+            }
+            return frames.Count > 0;
         }
 
         /// <summary>Chemin de l'exécutable, y compris pour un processus 64 bits ; null si inaccessible.</summary>

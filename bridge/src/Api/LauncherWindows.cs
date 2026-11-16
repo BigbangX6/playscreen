@@ -27,7 +27,13 @@ namespace Playscreen.Bridge.Api
             ["steam"] = new[] { "steam", "steamwebhelper" },
             ["epic"] = new[] { "EpicGamesLauncher" },
             ["battlenet"] = new[] { "Battle.net", "Blizzard Uninstaller" },
+            // Xbox : la page du jeu s'ouvre dans le Microsoft Store (fenêtre d'ApplicationFrameHost,
+            // qui porte aussi les Paramètres et les autres applis : filtrée par titre).
+            ["xbox"] = new[] { "ApplicationFrameHost" },
         };
+
+        /// <summary>Fenêtres d'ApplicationFrameHost qui comptent pour Xbox.</summary>
+        private static readonly HashSet<string> XboxTitles = new HashSet<string> { "Microsoft Store", "Xbox" };
 
         private readonly EventHub events;
 
@@ -146,7 +152,7 @@ namespace Playscreen.Bridge.Api
             {
                 return;
             }
-            var main = Find(names).FirstOrDefault(w => MainTitles.Contains(w.Title));
+            var main = Find(names).FirstOrDefault(w => MainTitles.Contains(w.Title) || XboxTitles.Contains(w.Title));
             if (main == null)
             {
                 return;
@@ -232,7 +238,11 @@ namespace Playscreen.Bridge.Api
                     {
                         var title = new StringBuilder(length + 1);
                         GetWindowText(hwnd, title, title.Capacity);
-                        result.Add(new Window { Handle = hwnd, Title = title.ToString() });
+                        var text = title.ToString();
+                        if (!processNames.Contains("ApplicationFrameHost") || XboxTitles.Contains(text))
+                        {
+                            result.Add(new Window { Handle = hwnd, Title = text });
+                        }
                     }
                 }
                 return true;

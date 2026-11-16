@@ -93,6 +93,23 @@ namespace Playscreen.Bridge.Api
                         // « Installer »). Playnite garde son suivi d'installation.
                         OpenEpicInstall(game);
                     }
+                    else if (storeId == "xbox")
+                    {
+                        // Microsoft Store démarré à froid : il ouvre son accueil et perd la page
+                        // du jeu (16/11/2026). On la redemande une fois le Store ouvert ; sans
+                        // effet s'il l'affiche déjà.
+                        var pfn = game.GameId;
+                        Task.Delay(6000).ContinueWith(_ =>
+                        {
+                            var current = api.Database.Games.Get(game.Id);
+                            if (current != null && !current.IsInstalled)
+                            {
+                                Process.Start($"ms-windows-store://pdp/?PFN={Uri.EscapeDataString(pfn)}");
+                                // Le Store affiche la page sans repasser devant Playscreen.
+                                Task.Delay(1500).ContinueWith(__ => launcherWindows.PromptMain("xbox", game.Id));
+                            }
+                        });
+                    }
                     progress.Track(game);
                     var gameId = game.Id;
                     LauncherWindows.GameStarting();
