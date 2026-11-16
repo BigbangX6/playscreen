@@ -29,6 +29,35 @@ namespace Playscreen.Bridge.Api
             api.MainView?.GetType().GetField("mainModel", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(api.MainView);
 
         /// <summary>
+        /// GamesEditor.CancelGameMonitoring(game) : ce que fait « Arrêter le suivi » dans
+        /// Playnite. Sert quand un lancement reste en suspens sans aucun processus (fenêtre du
+        /// launcher annulée, lancement raté) : sinon Playnite refuse de relancer le jeu
+        /// (« already running/launching ») jusqu'à son redémarrage (série du 16/11/2026).
+        /// </summary>
+        public bool CancelGameMonitoring(Game game)
+        {
+            try
+            {
+                var model = MainModel;
+                var editor = model?.GetType().GetProperty("GamesEditor")?.GetValue(model);
+                var method = editor?.GetType().GetMethod("CancelGameMonitoring", new[] { typeof(Game) });
+                if (method == null)
+                {
+                    logger.Warn("Playscreen: Playnite CancelGameMonitoring not found");
+                    return false;
+                }
+                api.MainView.UIDispatcher.Invoke(() => method.Invoke(editor, new object[] { game }));
+                logger.Info($"Playscreen: monitoring of {game.Name} cancelled (no process)");
+                return true;
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, "Playscreen: Playnite CancelGameMonitoring failed");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// MainViewModelBase.UpdateLibrary(plugin) : l'import de Playnite lui-même, qui
         /// télécharge ensuite les métadonnées (images, description) des nouveaux jeux.
         /// Bloque jusqu'à la fin ; à appeler hors du thread d'interface.

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Playnite.SDK;
 using Playnite.SDK.Events;
 using Playnite.SDK.Plugins;
@@ -17,6 +17,7 @@ namespace Playscreen.Bridge
         private readonly EventHub events = new EventHub();
         private readonly SessionState session = new SessionState();
         private readonly MemoryTrim memory = new MemoryTrim();
+        private LauncherWindows launcherWindows;
         private readonly LauncherMonitor launchers;
         private ApiServer server;
         /// <summary>
@@ -74,10 +75,18 @@ namespace Playscreen.Bridge
 
         public override void OnGameStarting(OnGameStartingEventArgs args)
         {
+            LauncherWindows.GameStarting();
             session.Starting(args.Game.Id);
             events.Publish("game.starting", new { gameId = args.Game.Id });
             // Le launcher peut démarrer ou se mettre à jour avant le jeu (F26).
             launchers.Watch(Stores.FromPluginId(args.Game.PluginId));
+            // Fenêtre du launcher qui demande un clic avant le jeu (Steam : « option de
+            // lancement »…) : signalée à l'interface, qui la met devant avec la souris manette.
+            // Jusqu'ici surveillé seulement pendant les installations (série du 16/11/2026).
+            var startingId = args.Game.Id;
+            launcherWindows = launcherWindows ?? new LauncherWindows(events);
+            launcherWindows.Watch(Stores.FromPluginId(args.Game.PluginId), startingId,
+                () => session.Current?.GameId != startingId || session.Current?.Phase == "running");
             // La mémoire pour le jeu : les autres launchers sont fermés.
             LauncherShutdown.CloseOthers(PlayniteApi, Stores.FromPluginId(args.Game.PluginId));
             if (Stores.FromPluginId(args.Game.PluginId) == "other")

@@ -95,6 +95,7 @@ namespace Playscreen.Bridge.Api
                     }
                     progress.Track(game);
                     var gameId = game.Id;
+                    LauncherWindows.GameStarting();
                     launcherWindows.Watch(storeId, gameId, () => progress.HasProgress(gameId),
                         () => progress.Cancel(gameId), windowsBefore, () => launchers.Current(storeId) == LauncherMonitor.Ready);
                     // Demande faite pendant que le launcher démarre ou se met à jour : il
@@ -116,6 +117,7 @@ namespace Playscreen.Bridge.Api
                         return new Reply(202);
                     }
                     var reply = RunOnUi(() => api.UninstallGame(game.Id));
+                    LauncherWindows.GameStarting();
                     launcherWindows.Watch(Stores.FromPluginId(game.PluginId), game.Id);
                     launchers.Watch(Stores.FromPluginId(game.PluginId));
                     return reply;
@@ -311,6 +313,19 @@ namespace Playscreen.Bridge.Api
                 count = 1;
             }
             logger.Info($"Playscreen: stop {game.Name} (force: {force}) -> {count} process(es)");
+            if (count == 0 && force && new PlayniteInternals(api).CancelGameMonitoring(game))
+            {
+                // Lancement resté en suspens sans aucun processus (fenêtre du launcher annulée,
+                // lancement raté) : Playnite ne suit plus le jeu, la partie est terminée.
+                // Playnite envoie en général lui-même la fin de partie (OnGameStopped) ; sinon,
+                // on la publie ici (une seule fois).
+                if (session.Current?.GameId == game.Id)
+                {
+                    session.Stopped(game.Id);
+                    events.Publish("game.stopped", new { gameId = game.Id, sessionSeconds = 0 });
+                }
+                return new Reply(202);
+            }
             return count > 0 ? new Reply(202) : Json(409, new { error = "no process found" });
         }
 

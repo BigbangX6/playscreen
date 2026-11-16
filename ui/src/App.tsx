@@ -23,7 +23,7 @@ import { QuickCenter, type Download } from "./screens/QuickCenter.tsx";
 import { Relay } from "./screens/Relay.tsx";
 import { Settings } from "./screens/Settings.tsx";
 import { getSite, relayInfo, type BrowserWindow, type RelayTarget, type Route, type SettingsSection, type SiteId, type SpaceId } from "./screens/spaces.ts";
-import { browserClose, endRelay, focusLauncherWindow, mouseWhileAway, openSteamOverlay, resumeGame, setMemoryLow, startRelay } from "./shell.ts";
+import { browserClose, endRelay, focusLauncherWindow, mouseWhileAway, openSteamOverlay, resumeGame, setMemoryLow, setMouseMode, startRelay } from "./shell.ts";
 import { connectSystem, system, type PowerAction } from "./system.ts";
 import "./components/components.css";
 import "./screens/screens.css";
@@ -362,6 +362,10 @@ export function App() {
         }
         break;
       case "game.started": {
+        if (launchMouse.current) {
+          launchMouse.current = false;
+          void setMouseMode(false);
+        }
         const started = { gameId: event.data.gameId, phase: "running" as const, since: sessionRef.current?.since ?? Date.now(), hidden: false };
         sessionRef.current = started;
         setSession(started);
@@ -378,6 +382,10 @@ export function App() {
         if (document.hasFocus()) void focusLauncherWindow(event.data.handle);
         break;
       case "game.stopped":
+        if (launchMouse.current) {
+          launchMouse.current = false;
+          void setMouseMode(false);
+        }
         delete appWindows.current[event.data.gameId];
         setSession(null);
         setSessions((all) => ({ ...all, [event.data.gameId]: event.data.sessionSeconds }));
@@ -405,6 +413,11 @@ export function App() {
         const { gameId } = event.data;
         if (gameId && gameId in installsRef.current && installsRef.current[gameId] === null) {
           setDialog({ kind: "install", gameId });
+        } else if (sessionRef.current?.phase === "starting") {
+          // Au lancement, une fenêtre du launcher demande un clic (Steam : « option de
+          // lancement », série du 16/11/2026) : souris manette jusqu'au démarrage du jeu.
+          launchMouse.current = true;
+          void setMouseMode(true);
         }
         break;
       }
@@ -451,6 +464,8 @@ export function App() {
 
   /** Suivi « souris quand le launcher passe devant » de chaque installation / désinstallation. */
   const awayWatchers = useRef<Record<string, () => void>>({});
+  /** Souris manette activée pour une fenêtre du launcher au lancement d'un jeu. */
+  const launchMouse = useRef(false);
   const stopAway = (gameId: string) => {
     awayWatchers.current[gameId]?.();
     delete awayWatchers.current[gameId];

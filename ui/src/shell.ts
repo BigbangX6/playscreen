@@ -146,6 +146,13 @@ export async function browserClose(window: string): Promise<void> {
   }
 }
 
+/** Souris manette oui / non (sentinelle). */
+export async function setMouseMode(on: boolean): Promise<void> {
+  if (!IN_TAURI) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("set_mouse_mode", { on });
+}
+
 /** Au-delà, on ne suit plus l'installation (le launcher n'a rien montré ou tout est fini). */
 const AWAY_WAIT_MS = 10 * 60_000;
 

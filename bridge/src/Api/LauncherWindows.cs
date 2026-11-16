@@ -69,13 +69,26 @@ namespace Playscreen.Bridge.Api
             {
                 logger.Info($"Playscreen: watching {storeId} windows ({before.Count} already open)");
                 var watchStart = DateTime.Now;
-                var seen = new HashSet<IntPtr>(before);
+                // Une fenêtre déjà ouverte mais réduite (« option de lancement » de Steam laissée
+                // d'un essai précédent, puis réduite après la partie) : Steam la réutilise sans
+                // la remontrer ; on la traite comme une nouvelle demande (16/11/2026).
+                // (Sauf la fenêtre principale du launcher, réduite elle aussi après chaque partie.)
+                var reduced = new HashSet<IntPtr>(Find(names)
+                    .Where(w => before.Contains(w.Handle) && IsIconic(w.Handle) && !MainTitles.Contains(w.Title))
+                    .Select(w => w.Handle));
+                var seen = new HashSet<IntPtr>(before.Where(h => !reduced.Contains(h)));
                 var prompts = new HashSet<IntPtr>();
                 DateTime? closedAt = null;
                 try
                 {
                     while (DateTime.Now - watchStart < WatchDuration)
                     {
+                        // Jeu démarré (ou téléchargement commencé) : plus rien à signaler, une
+                        // fenêtre du launcher ne doit pas passer devant le jeu.
+                        if (started != null && cancelled == null && started())
+                        {
+                            return;
+                        }
                         var current = Find(names);
                         if (cancelled != null && prompts.Count > 0)
                         {
@@ -122,18 +135,33 @@ namespace Playscreen.Bridge.Api
         /// Après une partie, le launcher revient souvent au premier plan (Battle.net, Steam…) :
         /// ses fenêtres sont réduites, pour que Playscreen reste devant. Rien n'est fermé.
         /// </summary>
+        /// <summary>Lancements commencés (un rangement en cours s'arrête au suivant).</summary>
+        private static int launches;
+
+        /// <summary>
+        /// Un jeu se lance, ou une installation / désinstallation commence : le rangement
+        /// « après la partie » en cours s'arrête, sinon il réduisait la nouvelle fenêtre du
+        /// launcher (Steam : « option de lancement », « Désinstaller », 16/11/2026).
+        /// </summary>
+        public static void GameStarting() => System.Threading.Interlocked.Increment(ref launches);
+
         public static void MinimizeAfterGame(string storeId)
         {
             if (!Processes.TryGetValue(storeId, out var names))
             {
                 return;
             }
+            var generation = launches;
             Task.Run(async () =>
             {
                 // Le launcher réapparaît une à quelques secondes après la fin du jeu.
                 for (var i = 0; i < 4; i++)
                 {
                     await Task.Delay(1500).ConfigureAwait(false);
+                    if (launches != generation)
+                    {
+                        return;
+                    }
                     foreach (var window in Find(names))
                     {
                         ShowWindow(window.Handle, SwMinimize);
@@ -147,6 +175,9 @@ namespace Playscreen.Bridge.Api
 
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int command);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr hWnd);
 
         private class Window
         {
