@@ -175,3 +175,97 @@ disputerait l'écran et le bouton Guide avec Playscreen, D4). Le réglage Steam
 Input en mode Bureau** » (Paramètres → En jeu), désactivé par défaut, donne en jeu la
 sur-impression Steam pensée pour la manette. L'installateur de Playscreen l'active
 (emplacement du réglage dans les fichiers de Steam : *à trouver*).
+
+---
+
+# Décisions de novembre 2026 (première version publiée, v0.1.0)
+
+Chaque décision dit **pourquoi**. Les détails techniques et l'historique des tests sont dans
+`docs/passation.md` (section « Reprise »).
+
+## D12 — Au démarrage de Windows : la sentinelle seule ; Select + Y ouvre Playscreen — *Acté (13/11)*
+
+La personne veut que le PC reste un PC de travail normal. Seule la sentinelle (quelques Mo)
+démarre avec Windows ; Playscreen et son moteur ne démarrent qu'avec **Select + Y**, qui
+remplace Select + Start de D10 (plus facile à faire d'une main, et Start sert dans beaucoup de
+jeux). « Quitter Playscreen » arrête l'interface et le moteur ; la sentinelle reste.
+La sentinelle doit coûter presque rien : elle ralentit sa lecture de la manette au repos
+(16 / 50 / 500 ms) et passe en mode efficacité de Windows.
+
+## D13 — Au lancement d'un jeu, les autres launchers sont fermés, sauf s'ils téléchargent — *Acté (13/11, complété le 16/11)*
+
+But : laisser la mémoire au jeu (PC Shadow). Le launcher du jeu reste ouvert (il en a
+besoin). Un launcher qui télécharge un jeu n'est jamais fermé : on fermait Epic en plein
+téléchargement de Rocket League (44 Go). Playnite oublie les installations en cours quand son
+moteur redémarre, donc Playscreen tient sa propre liste (`InstallProgress.BusyStores`) et
+reprend au démarrage le suivi des téléchargements déjà en cours (`ResumeAll`).
+
+## D14 — Fenêtres des launchers : mises devant, en mode souris manette — *Acté (16/11)*
+
+Les launchers demandent souvent un clic (option de lancement Steam, page du Store, fenêtre
+d'installation Battle.net, « Échec du lancement » d'Epic). On ne peut pas tout automatiser
+sans risque (contrats, choix de dossier) : Playscreen repère ces fenêtres
+(`LauncherWindows.cs`), les met devant et active la souris manette pour que la personne
+clique elle-même. Surveillance : 90 s pour une installation, **5 min pour un lancement**, car
+certains messages arrivent après une autorisation Windows restée sans réponse (~2 min).
+Pour mettre une fenêtre devant, Windows refuse souvent : on rattache un instant la saisie à
+la fenêtre de devant (`AttachThreadInput`), dans la sentinelle comme dans Playscreen.
+
+## D15 — Comptes : réutiliser les sessions existantes, ne jamais demander de mot de passe — *Acté (13/11)*
+
+Se reconnecter est pénible et la personne refuse Steam Guard mobile. Steam : Playscreen lit la
+session déjà enregistrée par le programme Steam (accord explicite de la personne du 13/11).
+Battle.net : sa session web expire après ~30 min sans visite, donc une visite toutes les 20 min.
+Ne jamais utiliser « Changer de compte » des extensions Playnite pour tester : ça efface les
+cookies et déconnecte la personne. Aucun identifiant, jeton ou cookie dans le dépôt ou les logs.
+
+## D16 — Particularités de chaque store — *Acté (16/11)*
+
+- **Epic** : son lien d'installation demande l'identifiant complet `espace:id:nom`, lu dans
+  son catalogue local (`EpicCatalog.cs`) ; avec le nom seul, Epic ouvrait juste sa
+  bibliothèque. Epic n'a pas de lien de désinstallation : l'interface montre un guide.
+- **Xbox / Microsoft Store** : installation par la page du Store (redemandée après 6 s, car
+  le Store démarré à froid ouvre son accueil). Les jeux du Store vivent dans une fenêtre
+  d'`ApplicationFrameHost` : pour les mettre devant ou les quitter, on cherche cette fenêtre
+  (quitter = message de fermeture, comme la croix, plutôt que tuer le processus).
+- **Battle.net** : déjà ouvert, il sélectionne le jeu sans venir devant, donc on le met devant.
+  **Limite connue, gardée telle quelle** : Battle.net lit lui-même la manette. En mode souris,
+  A clique sous le curseur et valide aussi l'élément entouré par Battle.net. Sa propre
+  navigation ne marche pas dans sa fenêtre d'installation, donc on garde la souris manette.
+  Aucun réglage pour couper sa lecture de la manette.
+
+## D17 — Ne jamais fermer ce qui n'est pas au jeu — *Acté (15/11)*
+
+« Quitter » ou « Forcer » un jeu ferme les processus de son dossier. Un jeu ajouté depuis un
+dossier partagé (System32, Program Files, Bureau…) a fait fermer tout System32 en test. Donc
+les dossiers partagés ne comptent pas comme dossier de jeu, et les programmes essentiels de
+Windows et de Playscreen ne sont jamais fermés (`GameProcesses.cs`).
+
+## D18 — Français et anglais par un dictionnaire appliqué à l'affichage — *Acté (16/11)*
+
+But : montrer Playscreen à d'autres. Plutôt que réécrire tous les écrans, l'interface reste
+écrite en français et un traducteur remplace les textes affichés (`ui/src/i18n/en.ts`) ; un
+texte oublié reste en français au lieu de casser l'écran. La langue est choisie à
+l'installation (langue du PC proposée) et stockée dans `%LOCALAPPDATA%\Playscreen\language`,
+lu aussi par la sentinelle. Réglable dans Paramètres › Playscreen › Langue.
+
+## D19 — Installateur : un seul .exe, sombre, 2 écrans — *Acté (15/11)*
+
+Inno Setup (`packaging/playscreen.iss`), une autorisation administrateur (D9) pour : droits sur
+le dossier Epic, règle de pare-feu, tâche « Installer un launcher ». Les launchers manquants
+s'installent depuis Playscreen avec leur installateur officiel téléchargé directement, winget
+en secours (winget absent ou cassé sur certains PC). Reconstruire :
+`packaging/build-installer.ps1 -SkipApps` après avoir compilé moteur, interface et sentinelle.
+
+## D20 — Pendant les tests : jamais toucher au son ni à l'alimentation — *Acté*
+
+Demande de la personne. Le fichier `%LOCALAPPDATA%\Playscreen\no-power` bloque veille et arrêt.
+Les scénarios du banc n'appuient plus à l'aveugle dans le menu rapide : un appui de trop a
+changé la sortie audio une fois.
+
+## D21 — Publication : `main` = dernière version publiée, dépôt public — *Acté (16/11)*
+
+Le développement se fait sur `claude/busy-carson-3amj4g` ; `main` est avancée jusqu'à elle à
+chaque version, car GitHub affiche le README (guide d'installation bilingue) depuis `main`. La
+version se publie avec `gh release create` (outil installé dans `C:\Program Files\GitHub CLI`,
+connecté au compte de la personne), installateur joint. v0.1.0 publiée le 16/11/2026.
