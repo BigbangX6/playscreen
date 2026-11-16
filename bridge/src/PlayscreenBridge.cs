@@ -48,6 +48,7 @@ namespace Playscreen.Bridge
                 logger.Info($"Playscreen API listening on port {server.Port}");
                 sync.RefreshConnections();
                 System.Threading.Tasks.Task.Run(() => Api.SteamSettings.EnableControllerOverlay());
+                server.ResumeInstalls();
                 keepAlive = new System.Threading.Timer(_ =>
                 {
                     if (session.Current == null)
@@ -88,7 +89,7 @@ namespace Playscreen.Bridge
             launcherWindows.Watch(Stores.FromPluginId(args.Game.PluginId), startingId,
                 () => session.Current?.GameId != startingId || session.Current?.Phase == "running");
             // La mémoire pour le jeu : les autres launchers sont fermés.
-            LauncherShutdown.CloseOthers(PlayniteApi, Stores.FromPluginId(args.Game.PluginId));
+            LauncherShutdown.CloseOthers(PlayniteApi, Stores.FromPluginId(args.Game.PluginId), server?.BusyStores());
             if (Stores.FromPluginId(args.Game.PluginId) == "other")
             {
                 // Application hors launcher : sa fenêtre s'ouvre derrière Playscreen.

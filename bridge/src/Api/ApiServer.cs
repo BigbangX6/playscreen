@@ -311,6 +311,12 @@ namespace Playscreen.Bridge.Api
             Ready = true,
         };
 
+        /// <summary>Stores qui installent un jeu (suivi de Playscreen) : à ne pas fermer.</summary>
+        public HashSet<string> BusyStores() => progress.BusyStores(api);
+
+        /// <summary>Installations déjà en cours au démarrage du moteur : leur suivi reprend.</summary>
+        public void ResumeInstalls() => Task.Run(() => progress.ResumeAll(api));
+
         /// <summary>
         /// Quitte le jeu en cours : fermeture demandée à ses fenêtres, ou de force. Playnite
         /// voit ses processus s'arrêter et envoie game.stopped.

@@ -29,6 +29,20 @@ namespace Playscreen.Bridge.Api
         private readonly IPlayniteAPI api;
         private readonly EventHub events;
         private readonly HashSet<Guid> tracked = new HashSet<Guid>();
+
+        /// <summary>Stores dont une installation est suivie en ce moment (à ne pas fermer).</summary>
+        public HashSet<string> BusyStores(IPlayniteAPI api)
+        {
+            List<Guid> ids;
+            lock (tracked)
+            {
+                ids = tracked.ToList();
+            }
+            return new HashSet<string>(ids
+                .Select(id => api.Database.Games.Get(id))
+                .Where(g => g != null && !g.IsInstalled)
+                .Select(g => Stores.FromPluginId(g.PluginId)));
+        }
         /// <summary>Jeux dont le téléchargement a commencé (au moins un install.progress).</summary>
         private readonly HashSet<Guid> progressed = new HashSet<Guid>();
 
@@ -78,6 +92,38 @@ namespace Playscreen.Bridge.Api
         }
 
         private static bool Running(DateTime started, Guid gameId) => DateTime.Now - started < MaxDuration;
+
+        /// <summary>
+        /// Au démarrage du moteur : reprend le suivi des installations déjà en cours (Epic :
+        /// fichier dans Manifests\Pending ; Steam : appmanifest d'un jeu pas encore installé).
+        /// Sinon, après « Quitter Playscreen » ou un redémarrage, un téléchargement en cours
+        /// n'était plus affiché (Rocket League, 16/11/2026).
+        /// </summary>
+        public void ResumeAll(IPlayniteAPI api)
+        {
+            try
+            {
+                var epicPending = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                    "Epic", "EpicGamesLauncher", "Data", "Manifests", "Pending");
+                foreach (var game in api.Database.Games.Where(g => !g.IsInstalled).ToList())
+                {
+                    var store = Stores.FromPluginId(game.PluginId);
+                    var downloading =
+                        (store == "epic" && Directory.Exists(epicPending) && FindEpicItem(epicPending, game.GameId) != null)
+                        || (store == "steam" && FindSteamManifest(game.GameId) != null);
+                    if (downloading)
+                    {
+                        logger.Info($"Playscreen: install of {game.Name} already in progress, tracking it");
+                        Track(game);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, "Playscreen: resuming install tracking failed");
+            }
+        }
 
         /// <summary>Suit l'installation en arrière-plan, si le store le permet.</summary>
         public void Track(Game game)

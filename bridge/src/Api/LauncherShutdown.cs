@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -19,10 +20,17 @@ namespace Playscreen.Bridge.Api
     {
         private static readonly ILogger logger = LogManager.GetLogger();
 
-        public static void CloseOthers(IPlayniteAPI api, string gameStore)
+        public static void CloseOthers(IPlayniteAPI api, string gameStore, ICollection<string> busy = null)
         {
             // Les jeux en cours d'installation, par store (lu tout de suite, sur le fil de Playnite).
+            // Plus les téléchargements suivis par Playscreen : l'indication de Playnite se perd
+            // quand le moteur redémarre, et Epic était fermé en plein téléchargement (Rocket
+            // League, au lancement d'un jeu Xbox, 16/11/2026).
             var installing = api.Database.Games.Where(g => g.IsInstalling).Select(g => Stores.FromPluginId(g.PluginId)).ToList();
+            if (busy != null)
+            {
+                installing.AddRange(busy);
+            }
             Task.Run(() =>
             {
                 foreach (var store in new[] { "steam", "epic", "battlenet", "xbox" })
