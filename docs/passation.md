@@ -10,7 +10,7 @@
 
 ---
 
-## Reprise (dernière mise à jour : nuit du 15 au 16 novembre 2026) — **commence ici**
+## Reprise (dernière mise à jour : 16 novembre 2026, fin d'après-midi) — **commence ici**
 
 Objectif en cours : **première version (v0.1.0) avec installateur**, que la personne testera
 sur son PC Shadow branché à la télé (voir aussi la mémoire « Objectifs release v1 »).
@@ -71,15 +71,43 @@ réussie, et Playnite s'arrête proprement (correction JITProfiles).
 - README bilingue (installation), guides docs/guide-installation.md et docs/install-guide.md ;
   l'ancien README technique est docs/developpement.md.
 
+**Série de tests du 16 novembre (journée, banc tools/banc + manette virtuelle)**
+- Enchaînements (scenario_complet.py) : jusqu'à 49/50. Échecs restants dus au scénario
+  (appuis à l'aveugle). Attention : un scénario aveugle a changé une fois la sortie audio ;
+  il n'ouvre plus que Spotify. Corrigé : appuis perdus (clavier tactile vérifié dans son
+  propre fil), « Quitter » d'un jeu qui demande confirmation, retour de Spotify, bouton
+  « Menu Steam » (Maj + Tab, overlay manette de Big Picture).
+- Par store, tout à la manette sauf mention :
+  - Steam (TrackMania) : installer, jouer, désinstaller ; boîtes « option de lancement » et
+    « Désinstaller » mises devant.
+  - Epic (Rocket League, 44 Go) : lien d'installation complet lu dans le catalogue local
+    (EpicCatalog.cs), téléchargement suivi, repris après redémarrage du moteur
+    (InstallProgress.ResumeAll), Epic plus fermé en plein téléchargement (BusyStores). Easy
+    Anti-Cheat demande une UAC au premier lancement : sans réponse, « Échec du lancement »
+    (LS-0019-IS-PQE1223) ; les fenêtres du launcher sont maintenant surveillées 5 min au
+    lancement. Pas de lien de désinstallation Epic : l'interface montre un guide.
+  - Battle.net (Warcraft Rumble) : désinstaller (confirmation à la manette ; une console
+    noire s'ouvre derrière, cmd lancé par l'extension Playnite), réinstaller (suivi
+    jusqu'au bout), jouer, Quitter. Battle.net déjà ouvert : mis devant. **Limite connue** :
+    Battle.net lit lui-même la manette (croix et A sur l'élément entouré) ; en mode souris,
+    A clique sous le curseur ET valide l'élément entouré (sélecteur de dossier ou page d'aide
+    ouverts par erreur). Dans sa fenêtre d'installation, sa propre navigation ne marche pas.
+    Aucun réglage trouvé. Piste : ne pas envoyer le clic quand Battle.net est devant et
+    laisser sa navigation, mais ses fenêtres d'installation ne s'y prêtent pas.
+  - Xbox (Solitaire) : installer (Store mis devant, page du jeu redemandée), jouer,
+    Reprendre, Quitter (WM_CLOSE à la fenêtre ApplicationFrameHost), désinstaller.
+
 **État du PC**
-- Nouvelle version installée dans Program Files le 16/11 vers 0 h 30 (français), installée par
-  la personne. Playscreen fermé ; seule la sentinelle tourne.
+- Version installée dans Program Files le 16/11 vers 13 h 48. La version de développement
+  (dist\Playscreen) est plus récente : refaire l'installateur avant de publier.
+- Sortie audio Windows sur « CABLE In 16ch (VB-Audio) », volume coupé : question posée à la
+  personne, ne pas y toucher sans son accord.
+- Unturned (Steam) : contrat de licence non accepté, question posée à la personne.
 - %LOCALAPPDATA%\Playscreen\no-power présent : le moteur refuse veille et arrêt (tests).
 
 **Reste à faire**
-1. Tests à la manette par la personne (prévus le 16/11) : bases, Select + X et bulle, installer et
-   désinstaller un jeu par store (Steam, Epic, Battle.net, Xbox), jouer et Select + Y, langue,
-   Quitter Playscreen.
+1. Refaire l'installateur (build-installer.ps1 -SkipApps), mise à jour par la personne (UAC),
+   puis ses tests à la manette réelle (Battle.net en mode souris en particulier).
 2. Battle.net : confirmer que le maintien toutes les 20 min tient plusieurs heures.
 3. Xbox depuis l'installateur : jamais testé (Store absent de la Sandbox).
 4. Shattered PD : échec isolé de « Quitter », non reproduit.
