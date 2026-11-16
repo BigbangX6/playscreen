@@ -110,6 +110,12 @@ namespace Playscreen.Bridge.Api
                             }
                         });
                     }
+                    else if (storeId == "battlenet" && wasReady)
+                    {
+                        // Battle.net déjà ouvert : il sélectionne le jeu mais reste derrière
+                        // Playscreen, rien ne semblait se passer (Warcraft Rumble, 16/11/2026).
+                        Task.Delay(3000).ContinueWith(_ => launcherWindows.PromptMain(storeId, game.Id));
+                    }
                     progress.Track(game);
                     var gameId = game.Id;
                     LauncherWindows.GameStarting();

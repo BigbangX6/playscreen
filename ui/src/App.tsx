@@ -193,8 +193,17 @@ export function App() {
   const loadGames = useCallback(async () => {
     if (!client) return;
     try {
-      setGames(await client.games());
+      const list = await client.games();
+      setGames(list);
       setGamesError(null);
+      // Jeu installé pendant que le moteur redémarrait : Playnite ne l'annonce pas
+      // (game.installed), la tuile « Téléchargement 100 % » restait (Rocket League, 16/11/2026).
+      const installed = new Set(list.filter((g) => g.installed).map((g) => g.id));
+      setInstalls((current) =>
+        Object.keys(current).some((id) => installed.has(id))
+          ? Object.fromEntries(Object.entries(current).filter(([id]) => !installed.has(id)))
+          : current,
+      );
     } catch (error) {
       setGamesError(describeError(error));
     }

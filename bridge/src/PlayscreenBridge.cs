@@ -87,7 +87,11 @@ namespace Playscreen.Bridge
             var startingId = args.Game.Id;
             launcherWindows = launcherWindows ?? new LauncherWindows(events);
             launcherWindows.Watch(Stores.FromPluginId(args.Game.PluginId), startingId,
-                () => session.Current?.GameId != startingId || session.Current?.Phase == "running");
+                () => session.Current?.GameId != startingId || session.Current?.Phase == "running",
+                // Tant que le jeu n'a pas démarré : Epic affiche « Échec du lancement » après
+                // l'attente d'une autorisation Windows (UAC), plus de 2 min (Rocket League,
+                // 16/11/2026) ; le message restait derrière Playscreen.
+                duration: TimeSpan.FromMinutes(5));
             // La mémoire pour le jeu : les autres launchers sont fermés.
             LauncherShutdown.CloseOthers(PlayniteApi, Stores.FromPluginId(args.Game.PluginId), server?.BusyStores());
             if (Stores.FromPluginId(args.Game.PluginId) == "other")

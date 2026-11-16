@@ -64,8 +64,9 @@ namespace Playscreen.Bridge.Api
                 ? new HashSet<IntPtr>(Find(names).Select(w => w.Handle))
                 : new HashSet<IntPtr>();
 
-        public void Watch(string storeId, Guid? gameId, Func<bool> started = null, Action cancelled = null, HashSet<IntPtr> before = null, Func<bool> launcherReady = null)
+        public void Watch(string storeId, Guid? gameId, Func<bool> started = null, Action cancelled = null, HashSet<IntPtr> before = null, Func<bool> launcherReady = null, TimeSpan? duration = null)
         {
+            var watchDuration = duration ?? WatchDuration;
             if (!Processes.TryGetValue(storeId, out var names))
             {
                 return;
@@ -87,7 +88,7 @@ namespace Playscreen.Bridge.Api
                 DateTime? closedAt = null;
                 try
                 {
-                    while (DateTime.Now - watchStart < WatchDuration)
+                    while (DateTime.Now - watchStart < watchDuration)
                     {
                         // Jeu démarré (ou téléchargement commencé) : plus rien à signaler, une
                         // fenêtre du launcher ne doit pas passer devant le jeu.
