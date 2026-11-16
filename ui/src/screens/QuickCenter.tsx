@@ -200,7 +200,7 @@ export function QuickCenter(props: Props) {
                 <div className="qc-session">Session : {sessionLabel(elapsed)}</div>
               </div>
             </div>
-            <div className={`pills ${dim}`}>
+            <div className={`pills ${game.store === "steam" && props.onSteamMenu ? "pills-compact" : ""} ${dim}`}>
               <button className="pill2 qc-resume" data-focusable onClick={props.onResume}>
                 ▶ Reprendre
               </button>
