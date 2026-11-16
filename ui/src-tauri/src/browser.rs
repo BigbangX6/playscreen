@@ -3,16 +3,14 @@
 //! barre des tâches). Une fenêtre par fenêtre du navigateur, gardée ouverte et cachée quand on
 //! revient à Playscreen : la musique et l'appel Discord continuent.
 //! Le site n'est pas modifié : la manette pilote la vraie souris (mode souris de la sentinelle :
-//! A clic, B Échap, stick droit molette…) et le méta-raccourci ramène Playscreen. Le script
-//! injecté (browser-pad.js) affiche seulement un gros curseur.
+//! A clic, B Échap, stick droit molette…) et le méta-raccourci ramène Playscreen. Aucun
+//! script n'est ajouté aux pages (le gros curseur coloré a été retiré le 16 novembre 2026).
 //! (Une vue ajoutée dans la fenêtre Playscreen, `add_child`, restait vide le 6 octobre 2026.)
 
 use std::collections::HashMap;
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindowBuilder};
-
-const CURSOR_SCRIPT: &str = include_str!("browser-pad.js");
 
 /// Par fenêtre : dernière adresse demandée par l'interface.
 #[derive(Default)]
@@ -80,7 +78,6 @@ fn open(app: &AppHandle, window: &str, url: &str, user_agent: Option<String>) ->
         .resizable(false)
         .parent(&main)
         .map_err(|e| e.to_string())?
-        .initialization_script(CURSOR_SCRIPT)
         // Fenêtre surgissante (connexion Google / Discord, window.open, lien « _blank ») :
         // vraie fenêtre, au-dessus du site, qui garde le lien avec la page (window.opener).
         .on_new_window({
@@ -111,7 +108,6 @@ fn popup(app: &AppHandle, target: Url, features: tauri::webview::NewWindowFeatur
         .title("Playscreen – fenêtre du site")
         .skip_taskbar(true)
         .always_on_top(true)
-        .initialization_script(CURSOR_SCRIPT)
         .window_features(features);
     if !sized {
         builder = builder.inner_size(1000.0, 750.0);

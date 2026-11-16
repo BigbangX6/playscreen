@@ -62,6 +62,12 @@ export function Browser({ site, tabs, covered = false, onSite, onBack }: Props) 
       return;
     }
     void browserOpen(info.userAgent ? site : info.window, info.url, info.userAgent);
+  }, [real, site, covered]);
+  // Retour sur Playscreen (Select + Y) : on quitte l'écran du navigateur, même si le centre
+  // rapide s'ouvre en même temps (partie en cours). Sinon la page revenait devant à la
+  // fermeture du centre rapide, au lieu de reprendre le jeu (vu le 16 novembre 2026).
+  useEffect(() => {
+    if (!real) return;
     let away = false;
     const onBlur = () => (away = true);
     const onFocus = () => {
@@ -76,10 +82,12 @@ export function Browser({ site, tabs, covered = false, onSite, onBack }: Props) 
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("focus", onFocus);
     };
-  }, [real, site, covered]);
+  }, [real]);
   useEffect(() => (real ? () => void browserHide() : undefined), [real]);
 
   useNavAction((action) => {
+    // Recouvert (centre rapide, fenêtre) : les touches sont pour ce qui est devant.
+    if (covered) return false;
     switch (action) {
       case "menu":
         return false;
