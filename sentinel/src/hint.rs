@@ -22,7 +22,7 @@ mod imp {
     use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         CreateWindowExW, DefWindowProcW, KillTimer, RegisterClassW, SetLayeredWindowAttributes, SetTimer, SetWindowPos,
-        ShowWindow, SystemParametersInfoW, HWND_TOPMOST, LWA_ALPHA, SPI_GETWORKAREA, SWP_NOACTIVATE, SWP_SHOWWINDOW,
+        ShowWindow, SystemParametersInfoW, HWND_TOPMOST, LWA_ALPHA, SPI_GETWORKAREA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
         SW_HIDE, WM_PAINT, WM_TIMER, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
         WS_EX_TRANSPARENT, WS_POPUP,
     };
@@ -30,6 +30,10 @@ mod imp {
     const CLASS: &str = "PlayscreenMouseHint";
     const TIMER_HOLD: usize = 1;
     const TIMER_FADE: usize = 2;
+/// Tant qu'elle est affichée, la bulle repasse devant : les pages du navigateur de Playscreen
+/// (plein écran, toujours devant) la recouvraient juste après son apparition (16/11/2026).
+const TIMER_RAISE: usize = 3;
+const RAISE_MS: u32 = 250;
     /// Affichée en entier pendant 5 s, puis fondu d'environ une demi-seconde.
     const HOLD_MS: u32 = 5000;
     const FADE_STEP_MS: u32 = 30;
@@ -124,6 +128,7 @@ mod imp {
             );
             KillTimer(hwnd, TIMER_FADE);
             SetTimer(hwnd, TIMER_HOLD, HOLD_MS, None);
+            SetTimer(hwnd, TIMER_RAISE, RAISE_MS, None);
         }
     }
 
@@ -138,11 +143,16 @@ mod imp {
                 SetTimer(hwnd, TIMER_FADE, FADE_STEP_MS, None);
                 0
             }
+            WM_TIMER if wparam == TIMER_RAISE => {
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                0
+            }
             WM_TIMER if wparam == TIMER_FADE => {
                 let alpha = ALPHA.with(|a| a.get()).saturating_sub(16);
                 ALPHA.with(|a| a.set(alpha));
                 if alpha == 0 {
                     KillTimer(hwnd, TIMER_FADE);
+                    KillTimer(hwnd, TIMER_RAISE);
                     ShowWindow(hwnd, SW_HIDE);
                 } else {
                     SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
