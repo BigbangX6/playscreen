@@ -135,6 +135,26 @@ namespace Playscreen.Bridge.Api
         /// Après une partie, le launcher revient souvent au premier plan (Battle.net, Steam…) :
         /// ses fenêtres sont réduites, pour que Playscreen reste devant. Rien n'est fermé.
         /// </summary>
+        /// <summary>
+        /// Remet devant la fenêtre principale du launcher (demande d'installation renvoyée une
+        /// fois le launcher prêt : Epic l'affiche dans sa fenêtre, restée derrière Playscreen
+        /// après sa mise à jour, 16/11/2026). L'interface la met devant (launcher.prompt).
+        /// </summary>
+        public void PromptMain(string storeId, Guid gameId)
+        {
+            if (!Processes.TryGetValue(storeId, out var names))
+            {
+                return;
+            }
+            var main = Find(names).FirstOrDefault(w => MainTitles.Contains(w.Title));
+            if (main == null)
+            {
+                return;
+            }
+            logger.Info($"Playscreen: {storeId} main window brought forward for the install");
+            events.Publish("launcher.prompt", new { gameId, storeId, title = main.Title, handle = main.Handle.ToInt64() });
+        }
+
         /// <summary>Lancements commencés (un rangement en cours s'arrête au suivant).</summary>
         private static int launches;
 

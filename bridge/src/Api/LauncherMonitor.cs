@@ -106,9 +106,13 @@ namespace Playscreen.Bridge.Api
                             readyCallbacks.Remove(storeId);
                             return;
                         }
-                        if (state == Ready && readyCallbacks.TryGetValue(storeId, out callbacks))
+                        // À chaque passage à « prêt » (pas seulement le premier) : le journal lu au
+                        // démarrage peut dire « prêt » à tort (session précédente), puis le
+                        // launcher se met à jour et redémarre (Epic, 16/11/2026). Les rappels
+                        // restent valables jusqu'à la fin de la surveillance.
+                        if (state == Ready && last != Ready && readyCallbacks.TryGetValue(storeId, out var armed))
                         {
-                            readyCallbacks.Remove(storeId);
+                            callbacks = new List<Action>(armed);
                         }
                     }
                     if (state != last)

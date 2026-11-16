@@ -442,8 +442,17 @@ namespace Playscreen.Bridge.Api
             }
         }
 
-        private static void OpenEpicInstall(Playnite.SDK.Models.Game game) =>
-            Process.Start($"com.epicgames.launcher://apps/{Uri.EscapeDataString(game.GameId)}?action=install");
+        /// <summary>
+        /// Fenêtre « Choisir l'emplacement de l'installation » d'Epic. Les versions récentes
+        /// d'Epic ignorent le lien avec le seul nom du jeu (« apps/Sugar ») et ouvrent la
+        /// boutique : il faut « espace:identifiant:nom », lus dans le catalogue local d'Epic
+        /// (vérifié avec Rocket League le 16/11/2026). Sans catalogue : l'ancien lien.
+        /// </summary>
+        private static void OpenEpicInstall(Playnite.SDK.Models.Game game)
+        {
+            var id = EpicCatalog.FullId(game.GameId) ?? game.GameId;
+            Process.Start($"com.epicgames.launcher://apps/{Uri.EscapeDataString(id)}?action=install");
+        }
 
         /// <summary>
         /// Renvoie au launcher, devenu prêt, une demande d'installation qu'il a pu ignorer
@@ -454,7 +463,8 @@ namespace Playscreen.Bridge.Api
         private void ResendInstall(Guid gameId)
         {
             var game = api.Database.Games.Get(gameId);
-            if (game == null || game.IsInstalled)
+            // Déjà installé, ou téléchargement commencé : plus rien à renvoyer.
+            if (game == null || game.IsInstalled || progress.HasProgress(gameId))
             {
                 return;
             }
@@ -463,6 +473,8 @@ namespace Playscreen.Bridge.Api
             if (storeId == "epic")
             {
                 OpenEpicInstall(game);
+                // La demande s'affiche dans la fenêtre d'Epic : qu'elle passe devant.
+                Task.Delay(1500).ContinueWith(_ => launcherWindows.PromptMain(storeId, gameId));
             }
             else if (storeId == "battlenet")
             {
